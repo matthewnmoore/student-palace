@@ -1,108 +1,65 @@
 {% extends "base.html" %}
-{% block title %}Admin · Cities – Student Palace{% endblock %}
+{% block title %}Manage cities – Student Palace{% endblock %}
 {% block content %}
 <section class="wrap">
+  <h1>Manage cities</h1>
 
-  <div class="flex-between" style="margin-bottom:14px">
-    <h1 class="mt-0">Admin · Cities</h1>
-    <div class="inline-actions">
-      <a class="btn btn-outline" href="{{ url_for('admin_landlords') if 'admin_landlords' in current_app.view_functions else url_for('admin_cities') }}">👤 Landlord management</a>
-      <a class="btn btn-outline" href="{{ url_for('admin_logout') }}">Admin logout</a>
-    </div>
-  </div>
-
-  <div class="card" style="margin-bottom:14px">
-    <h2 class="mt-0">Backups</h2>
-    <div class="inline-actions" style="margin-top:8px; flex-wrap:wrap">
-      <a class="btn" href="{{ url_for('admin_backup_all_zip') if 'admin_backup_all_zip' in current_app.view_functions else '#' }}" {% if 'admin_backup_all_zip' not in current_app.view_functions %}onclick="alert('Backup endpoint not present in this build.'); return false;"{% endif %}>⬇️ Download EVERYTHING (ZIP)</a>
-      <a class="btn btn-outline" href="{{ url_for('admin_backup_db') if 'admin_backup_db' in current_app.view_functions else '#' }}" {% if 'admin_backup_db' not in current_app.view_functions %}onclick="alert('DB backup endpoint not present in this build.'); return false;"{% endif %}>⬇️ Database only</a>
-      <a class="btn btn-outline" href="{{ url_for('admin_backup_info') if 'admin_backup_info' in current_app.view_functions else '#' }}" {% if 'admin_backup_info' not in current_app.view_functions %}onclick="alert('Backup info endpoint not present.'); return false;"{% endif %}>ℹ️ Info (JSON)</a>
-    </div>
-  </div>
-
-  <div class="card" style="margin-bottom:14px">
-    <h2 class="mt-0">Add a city</h2>
-    <form method="post" class="grid grid-2" action="{{ url_for('admin_cities') }}">
+  <div class="card" style="max-width:520px;margin-bottom:16px">
+    <form method="post" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
       <input type="hidden" name="action" value="add">
-      <label class="field" style="grid-column:1 / -1; max-width:520px">
+      <label class="field" style="flex:1 1 260px">
         <span class="label">City name</span>
-        <input type="text" name="name" required placeholder="e.g., Cardiff">
+        <input type="text" name="name" placeholder="e.g., Leeds" required
+               style="background:#0f0f19;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:10px;width:100%">
       </label>
-      <div style="grid-column:1 / -1">
-        <button class="btn" type="submit">Add city</button>
-      </div>
+      <button class="btn primary" type="submit">Add city</button>
     </form>
+    <p class="help" style="margin:8px 0 0">Active cities appear in the homepage dropdown.</p>
   </div>
 
   <div class="card">
-    <h2 class="mt-0">Cities (Up/Down to reorder)</h2>
-    {% if cities and cities|length %}
-      <table class="table" style="margin-top:10px">
+    {% if cities %}
+      <table style="width:100%;border-collapse:collapse">
         <thead>
-          <tr>
-            <th style="width:60px">ID</th>
-            <th>Name</th>
-            <th style="width:120px">Active</th>
-            <th style="width:220px">Order</th>
-            <th style="width:320px">Actions</th>
+          <tr style="text-align:left;border-bottom:1px solid var(--line)">
+            <th style="padding:8px">City</th>
+            <th style="padding:8px">Status</th>
+            <th style="padding:8px">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {% for c in cities %}
-            <tr>
-              <td>{{ c.id }}</td>
-              <td><strong>{{ c.name }}</strong></td>
-              <td>
-                {% if c.is_active %}
-                  <span class="badge">Active</span>
+        {% for c in cities %}
+          <tr style="border-top:1px solid var(--line)">
+            <td style="padding:8px">{{ c['name'] }}</td>
+            <td style="padding:8px">
+              {% if c['is_active'] %}<span class="chip">Active</span>{% else %}<span class="chip">Inactive</span>{% endif %}
+            </td>
+            <td style="padding:8px">
+              <form method="post" style="display:inline">
+                <input type="hidden" name="city_id" value="{{ c['id'] }}">
+                {% if c['is_active'] %}
+                  <button class="btn" name="action" value="deactivate" type="submit">Deactivate</button>
                 {% else %}
-                  <span class="badge" style="background:#fff6f6; color:#7f1d1d; border:1px solid #f7caca;">Disabled</span>
+                  <button class="btn" name="action" value="activate" type="submit">Activate</button>
                 {% endif %}
-              </td>
-              <td>
-                <div class="inline-actions">
-                  <form method="post" action="{{ url_for('admin_cities') }}">
-                    <input type="hidden" name="action" value="move_up">
-                    <input type="hidden" name="city_id" value="{{ c.id }}">
-                    <button class="btn btn-outline" type="submit">↑ Up</button>
-                  </form>
-                  <form method="post" action="{{ url_for('admin_cities') }}">
-                    <input type="hidden" name="action" value="move_down">
-                    <input type="hidden" name="city_id" value="{{ c.id }}">
-                    <button class="btn btn-outline" type="submit">↓ Down</button>
-                  </form>
-                </div>
-              </td>
-              <td>
-                <div class="inline-actions">
-                  {% if not c.is_active %}
-                    <form method="post" action="{{ url_for('admin_cities') }}">
-                      <input type="hidden" name="action" value="activate">
-                      <input type="hidden" name="city_id" value="{{ c.id }}">
-                      <button class="btn" type="submit">Activate</button>
-                    </form>
-                  {% else %}
-                    <form method="post" action="{{ url_for('admin_cities') }}">
-                      <input type="hidden" name="action" value="deactivate">
-                      <input type="hidden" name="city_id" value="{{ c.id }}">
-                      <button class="btn btn-outline" type="submit">Disable</button>
-                    </form>
-                  {% endif %}
-                  <form method="post" action="{{ url_for('admin_cities') }}" onsubmit="return confirm('Delete {{ c.name }}?')">
-                    <input type="hidden" name="action" value="delete">
-                    <input type="hidden" name="city_id" value="{{ c.id }}">
-                    <button class="btn btn-admin" type="submit">Delete</button>
-                  </form>
-                </div>
-              </td>
-            </tr>
-          {% endfor %}
+              </form>
+              <form method="post" style="display:inline" onsubmit="return confirm('Delete city {{ c['name'] }}?');">
+                <input type="hidden" name="city_id" value="{{ c['id'] }}">
+                <button class="btn" name="action" value="delete" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
         </tbody>
       </table>
     {% else %}
-      <p class="muted">No cities yet.</p>
+      <p class="help">No cities yet. Add your first city above.</p>
     {% endif %}
   </div>
 
+  <p style="margin-top:12px">
+    <a class="btn" href="{{ url_for('index') }}">Back to homepage</a>
+    <a class="btn" href="{{ url_for('admin_logout') }}">Log out</a>
+  </p>
 </section>
 {% endblock %}

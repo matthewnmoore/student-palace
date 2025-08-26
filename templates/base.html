@@ -1,49 +1,55 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>{% block title %}Student Palace{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2025-08-26-0900">
+
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ BUILD_VERSION }}">
 </head>
 <body>
+  <header class="site-header">
+    <div class="wrap flex-between">
+      <a href="{{ url_for('index') }}" class="logo-link">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Student Palace" class="logo-img">
+      </a>
+      <nav class="nav">
+        <ul class="nav-buttons">
+          <li><a class="btn" href="{{ url_for('index') }}">Tenants</a></li>
+          {% if session.get('landlord_id') %}
+            <li><a class="btn" href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li><a class="btn" href="{{ url_for('logout') }}">Logout</a></li>
+          {% else %}
+            <li><a class="btn" href="{{ url_for('landlords_entry') }}">Landlords</a></li>
+          {% endif %}
+          {% if session.get('is_admin') %}
+            <li><a class="btn btn-admin" href="{{ url_for('admin_cities') }}">Admin</a></li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+  </header>
 
-<header class="navbar">
-  <div class="wrap flex-between">
-    <a class="logo" href="{{ url_for('index') }}">
-      <img class="logo-img" src="{{ url_for('static', filename='img/logo.svg') }}" alt="Student Palace">
-    </a>
-    <nav class="nav-links">
-      <a class="btn btn-accent" href="{{ url_for('index') }}">Tenants</a>
-      <a class="btn" href="{{ url_for('landlords_entry') if 'landlords_entry' in app.jinja_env.globals.get('url_for').__self__.view_functions else url_for('login') }}">Landlords</a>
-      {% if session.get('is_admin') %}
-        <a class="btn btn-outline" href="{{ url_for('admin_cities') }}">Admin</a>
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-wrap wrap">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
       {% endif %}
-    </nav>
-  </div>
-</header>
+    {% endwith %}
 
-<main>
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <section class="wrap">
-        {% for category, message in messages %}
-          <div class="flash {{ category }}">{{ message }}</div>
-        {% endfor %}
-      </section>
-    {% endif %}
-  {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
 
-  {% block content %}{% endblock %}
-</main>
-
-<footer class="footer">
-  <div class="wrap flex-between">
-    <div>© 2025 Student Palace</div>
-    <div class="small">Build: {{ BUILD_VERSION|default('', true) }}</div>
-  </div>
-</footer>
-
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>&copy; {{ now().year }} Student Palace</p>
+      <p class="muted">Build {{ BUILD_VERSION }}</p>
+    </div>
+  </footer>
 </body>
 </html>

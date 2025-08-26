@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Admin: Landlord {{ landlord.id if landlord else '' }} – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1>Landlord detail</h1>
+
+  {% if not landlord %}
+    <div class="card"><p>Landlord not found.</p></div>
+    <p><a class="btn" href="{{ url_for('admin_landlords') }}">Back</a></p>
+  {% else %}
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h3 class="mt-0">Account</h3>
+      <form method="post">
+        <input type="hidden" name="action" value="update_email">
+        <label class="field">
+          <span class="label">Email</span>
+          <input type="email" name="email" value="{{ landlord.email }}"
+                 style="background:#fff;border:1px solid var(--line);color:var(--text);
+                        border-radius:10px;padding:10px 12px">
+        </label>
+        <p class="help">Created: {{ landlord.created_at }}</p>
+        <button class="btn" type="submit">Update email</button>
+      </form>
+
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+
+      <form method="post">
+        <input type="hidden" name="action" value="reset_password">
+        <label class="field">
+          <span class="label">New password (leave blank to auto-generate)</span>
+          <input type="text" name="new_password"
+                 style="background:#fff;border:1px solid var(--line);color:var(--text);
+                        border-radius:10px;padding:10px 12px">
+        </label>
+        <button class="btn" type="submit">Reset password</button>
+      </form>
+
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+
+      <form method="post" onsubmit="return confirm('Delete this landlord and their profile? This cannot be undone.');">
+        <input type="hidden" name="action" value="delete_landlord">
+        <button class="btn" style="border-color:#dc2626;color:#dc2626" type="submit">Delete landlord</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3 class="mt-0">Profile</h3>
+      <form method="post">
+        <input type="hidden" name="action" value="update_profile">
+        <label class="field">
+          <span class="label">Display name</span>
+          <input type="text" name="display_name" value="{{ profile.display_name if profile else '' }}"
+                 style="background:#fff;border:1px solid var(--line);color:var(--text);
+                        border-radius:10px;padding:10px 12px">
+        </label>
+        <label class="field">
+          <span class="label">Phone</span>
+          <input type="text" name="phone" value="{{ profile.phone if profile else '' }}"
+                 style="background:#fff;border:1px solid var(--line);color:var(--text);
+                        border-radius:10px;padding:10px 12px">
+        </label>
+        <label class="field">
+          <span class="label">Website</span>
+          <input type="url" name="website" value="{{ profile.website if profile else '' }}"
+                 style="background:#fff;border:1px solid var(--line);color:var(--text);
+                        border-radius:10px;padding:10px 12px">
+        </label>
+        <label class="field">
+          <span class="label">Bio</span>
+          <textarea name="bio" rows="5" style="background:#fff;border:1px solid var(--line);color:var(--text);
+                        border-radius:10px;padding:10px 12px">{{ profile.bio if profile else '' }}</textarea>
+        </label>
+
+        <p>
+          <button class="btn" type="submit">Save profile</button>
+          {% if profile and profile.public_slug %}
+            <a class="btn" href="/l/{{ profile.public_slug }}" target="_blank">View public page</a>
+          {% endif %}
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3 class="mt-0">Properties</h3>
+    <p class="help">This will populate in Step 4 (Houses CRUD).</p>
+    {% if houses and houses|length %}
+      <ul>
+        {% for h in houses %}
+          <li>{{ h.title }} – {{ h.city }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No properties yet.</p>
+    {% endif %}
+  </div>
+
+  <p style="margin-top:12px">
+    <a class="btn" href="{{ url_for('admin_landlords') }}">Back to list</a>
+    <a class="btn" href="{{ url_for('admin_logout') }}">Admin log out</a>
+  </p>
+
+  {% endif %}
+</section>
+{% endblock %}
