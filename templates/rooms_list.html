@@ -2,13 +2,13 @@
 {% block title %}Rooms – {{ house.title }} · Student Palace{% endblock %}
 {% block content %}
 <section class="wrap">
-  <h1>Rooms for “{{ house.title }}”</h1>
-  <p class="muted">{{ house.address }}, {{ house.city }}</p>
-
-  <div class="card" style="margin-top:12px">
-    <a class="btn" href="{{ url_for('room_new', hid=house.id) }}">Add a room</a>
-    <a class="btn btn-outline" href="{{ url_for('house_edit', hid=house.id) }}">Back to house</a>
-    <a class="btn btn-outline" href="{{ url_for('landlord_houses') }}" style="margin-left:6px">All houses</a>
+  <div class="flex-between" style="margin-bottom:10px">
+    <h1 class="mt-0">Rooms for <span style="color:var(--brand)">{{ house.title }}</span></h1>
+    <div class="inline-actions">
+      <a class="btn" href="{{ url_for('room_new', hid=house.id) }}">+ Add room</a>
+      <a class="btn btn-outline" href="{{ url_for('house_edit', hid=house.id) }}">Back to house</a>
+      <a class="btn btn-outline" href="{{ url_for('landlord_houses') }}">All my houses</a>
+    </div>
   </div>
 
   <div class="card">
@@ -16,45 +16,41 @@
       <table class="table">
         <thead>
           <tr>
-            <th>Room</th>
-            <th>Bed</th>
-            <th>Ensuite</th>
-            <th>Features</th>
-            <th>Size</th>
+            <th style="width:60px">ID</th>
+            <th>Name</th>
+            <th style="width:100px">Ensuite</th>
+            <th style="width:130px">Bed size</th>
+            <th>Key features</th>
             <th style="width:220px">Actions</th>
           </tr>
         </thead>
         <tbody>
-        {% for r in rooms %}
-          <tr>
-            <td><strong>{{ r.name }}</strong></td>
-            <td>{{ r.bed_size }}</td>
-            <td>{{ 'Yes' if r.ensuite else 'No' }}</td>
-            <td>
-              {% set feats = [] %}
-              {% if r.tv %}{% set _ = feats.append('TV') %}{% endif %}
-              {% if r.desk_chair %}{% set _ = feats.append('Desk & chair') %}{% endif %}
-              {% if r.wardrobe %}{% set _ = feats.append('Wardrobe') %}{% endif %}
-              {% if r.chest_drawers %}{% set _ = feats.append('Chest of drawers') %}{% endif %}
-              {% if r.lockable_door %}{% set _ = feats.append('Lockable bedroom') %}{% endif %}
-              {% if r.wired_internet %}{% set _ = feats.append('Wired internet') %}{% endif %}
-              {{ feats|join(', ') if feats else '—' }}
-            </td>
-            <td>{{ r.room_size or '—' }}</td>
-            <td>
-              <div class="inline-actions">
+          {% for r in rooms %}
+            <tr>
+              <td>{{ r.id }}</td>
+              <td><strong>{{ r.name }}</strong>{% if r.room_size %} <span class="muted">({{ r.room_size }})</span>{% endif %}</td>
+              <td>{{ 'Yes' if r.ensuite else 'No' }}</td>
+              <td>{{ r.bed_size }}</td>
+              <td>
+                <span class="badge" {% if not r.tv %}style="opacity:.35"{% endif %}>TV</span>
+                <span class="badge" {% if not r.desk_chair %}style="opacity:.35"{% endif %}>Desk &amp; chair</span>
+                <span class="badge" {% if not r.wardrobe %}style="opacity:.35"{% endif %}>Wardrobe</span>
+                <span class="badge" {% if not r.chest_drawers %}style="opacity:.35"{% endif %}>Chest of drawers</span>
+                <span class="badge" {% if not r.lockable_door %}style="opacity:.35"{% endif %}>Lockable door</span>
+                <span class="badge" {% if not r.wired_internet %}style="opacity:.35"{% endif %}>Wired internet</span>
+              </td>
+              <td class="inline-actions">
                 <a class="btn" href="{{ url_for('room_edit', hid=house.id, rid=r.id) }}">Edit</a>
-                <form method="post" action="{{ url_for('room_delete', hid=house.id, rid=r.id) }}" onsubmit="return confirm('Delete {{ r.name }}?')">
+                <form method="post" action="{{ url_for('room_delete', hid=house.id, rid=r.id) }}" onsubmit="return confirm('Delete room {{ r.name }}?')">
                   <button class="btn btn-admin" type="submit">Delete</button>
                 </form>
-              </div>
-            </td>
-          </tr>
-        {% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
         </tbody>
       </table>
     {% else %}
-      <p>No rooms yet.</p>
+      <p class="help">No rooms yet.</p>
     {% endif %}
   </div>
 </section>
