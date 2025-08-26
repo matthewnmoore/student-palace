@@ -1,50 +1,74 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Add room' if mode=='new' else 'Edit room' }} – {{ house.title }} · Student Palace{% endblock %}
+{% block title %}{{ 'Add room' if mode=='new' else 'Edit room' }} – Student Palace{% endblock %}
 {% block content %}
 <section class="wrap">
-  <h1>{{ 'Add a room' if mode=='new' else 'Edit room' }}</h1>
-  <p class="muted">For “{{ house.title }}”, {{ house.address }}, {{ house.city }}</p>
+  <div class="flex-between" style="margin-bottom:10px">
+    <h1 class="mt-0">{{ 'Add a room' if mode=='new' else 'Edit room' }}</h1>
+    <div class="inline-actions">
+      <a class="btn btn-outline" href="{{ url_for('rooms_list', hid=house.id) }}">Back to rooms</a>
+      <a class="btn btn-outline" href="{{ url_for('house_edit', hid=house.id) }}">Back to house</a>
+    </div>
+  </div>
 
   <form method="post" class="card">
     <div class="grid grid-2">
       <label class="field">
         <span class="label">Room name</span>
-        <input type="text" name="name" value="{{ form.name or '' }}" required placeholder="e.g., Room 1">
-      </label>
-
-      <label class="field" style="align-self:end">
-        <input type="checkbox" name="ensuite" {% if form.ensuite in ['1',1,'on',True] %}checked{% endif %}>
-        <span class="label-inline">Ensuite (private bathroom)</span>
+        <input type="text" name="name" value="{{ (form.name or '') if form else '' }}" required placeholder="e.g., Room 3 (Attic)">
       </label>
 
       <label class="field">
         <span class="label">Bed size</span>
         <select name="bed_size" required>
+          {% set bed = (form.bed_size or '') if form else '' %}
           {% for b in ['Single','Small double','Double','King'] %}
-            <option value="{{ b }}" {% if form and form.bed_size==b %}selected{% endif %}>{{ b }}</option>
+            <option value="{{ b }}" {% if bed==b %}selected{% endif %}>{{ b }}</option>
           {% endfor %}
         </select>
       </label>
 
       <label class="field">
-        <span class="label">Room size <small class="muted">(optional)</small></span>
-        <input type="text" name="room_size" value="{{ form.room_size or '' }}" placeholder="e.g., 12.5 m²">
+        <span class="label">Room size (optional)</span>
+        <input type="text" name="room_size" value="{{ (form.room_size or '') if form else '' }}" placeholder="e.g., 12.5 m²">
+      </label>
+
+      <label class="field" style="align-self:end">
+        <input type="checkbox" name="ensuite" {% if form and form.ensuite in ['1',1,'on',True] %}checked{% endif %}>
+        <span class="label-inline">Ensuite / own bathroom</span>
       </label>
     </div>
 
-    <h3 style="margin-top:14px">Room features (not searchable)</h3>
+    <h3 style="margin-top:14px">Features (not searchable)</h3>
     <div class="grid grid-2">
-      <label class="field checkbox"><input type="checkbox" name="tv" {% if form.tv in ['1',1,'on',True] %}checked{% endif %}> <span>TV</span></label>
-      <label class="field checkbox"><input type="checkbox" name="desk_chair" {% if form.desk_chair in ['1',1,'on',True] %}checked{% endif %}> <span>Desk & chair</span></label>
-      <label class="field checkbox"><input type="checkbox" name="wardrobe" {% if form.wardrobe in ['1',1,'on',True] %}checked{% endif %}> <span>Wardrobe</span></label>
-      <label class="field checkbox"><input type="checkbox" name="chest_drawers" {% if form.chest_drawers in ['1',1,'on',True] %}checked{% endif %}> <span>Chest of drawers</span></label>
-      <label class="field checkbox"><input type="checkbox" name="lockable_door" {% if form.lockable_door in ['1',1,'on',True] %}checked{% endif %}> <span>Lockable bedroom</span></label>
-      <label class="field checkbox"><input type="checkbox" name="wired_internet" {% if form.wired_internet in ['1',1,'on',True] %}checked{% endif %}> <span>Wired internet</span></label>
+      <label class="field checkbox">
+        <input type="checkbox" name="tv" {% if form and form.tv in ['1',1,'on',True] %}checked{% endif %}>
+        <span>TV</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="desk_chair" {% if form and form.desk_chair in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Desk &amp; chair</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="wardrobe" {% if form and form.wardrobe in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Wardrobe</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="chest_drawers" {% if form and form.chest_drawers in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Chest of drawers</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="lockable_door" {% if form and form.lockable_door in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Lockable bedroom door</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="wired_internet" {% if form and form.wired_internet in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Wired internet</span>
+      </label>
     </div>
 
     <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" type="submit">{{ 'Create room' if mode=='new' else 'Save changes' }}</button>
-      <a class="btn btn-outline" href="{{ url_for('rooms_list', hid=house.id) }}">Cancel</a>
+      <a class="btn" href="{{ url_for('rooms_list', hid=house.id) }}">Cancel</a>
     </div>
   </form>
 </section>
