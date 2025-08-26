@@ -2,8 +2,19 @@
 {% block title %}Student Palace – Find rooms{% endblock %}
 {% block content %}
 <section class="wrap">
-  <div class="card">
-    <h1 class="mt-0">Find rooms</h1>
+
+  <!-- Hero section -->
+  <div class="card" style="text-align:center; padding:40px; margin-bottom:20px">
+    <h1 class="mt-0">Your next student home without the faff</h1>
+    <p class="muted">Search verified properties from trusted landlords.</p>
+    <div style="margin-top:16px">
+      <a class="btn btn-accent" href="#search-box">Find rooms</a>
+    </div>
+  </div>
+
+  <!-- Search box -->
+  <div class="card" id="search-box">
+    <h2 class="mt-0">Find rooms</h2>
     <form action="{{ url_for('search') }}" method="get" class="grid grid-2">
       <label class="field">
         <span class="label">City</span>
@@ -50,6 +61,7 @@
     </form>
   </div>
 
+  <!-- Featured property -->
   <div class="card">
     <h2 class="mt-0">Featured this week</h2>
     <p class="muted">A popular pick in {{ cities[0] if cities else 'Cardiff' }}.</p>
@@ -58,5 +70,6 @@
       <a class="btn btn-outline" href="{{ url_for('index') }}">Back to home</a>
     </div>
   </div>
+
 </section>
 {% endblock %}
