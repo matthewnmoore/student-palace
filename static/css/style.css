@@ -1,0 +1,243 @@
+/* =========================================================
+   Student Palace — Global Styles (bright, modern)
+   Paste this entire file as static/css/style.css
+   ========================================================= */
+
+/* ---------- CSS Variables (Theme) ---------- */
+:root{
+  --bg: #fafbff;
+  --text: #17223b;
+  --muted: #5b6070;
+  --brand: #5E2B97;        /* royal purple */
+  --brand-2: #7D4CC2;      /* lighter purple */
+  --accent: #2AA66A;       /* green accent */
+  --warn: #dc2626;         /* red */
+  --line: #e8e8ee;
+  --card: #ffffff;
+  --btn-text: #ffffff;
+  --shadow: 0 8px 24px rgba(23,34,59,0.08);
+}
+
+/* ---------- Base ---------- */
+*{box-sizing:border-box}
+html,body{height:100%}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  color:var(--text);
+  background:linear-gradient(180deg, #fff, var(--bg) 60%);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+img{max-width:100%; height:auto; display:block}
+a{color:var(--brand); text-decoration:none}
+a:hover{color:var(--brand-2)}
+p{line-height:1.6; margin:0 0 12px}
+h1,h2,h3,h4{margin:0 0 10px}
+h1{font-size:28px}
+h2{font-size:22px}
+h3{font-size:18px}
+
+.wrap{
+  width:min(1120px, 92vw);
+  margin:0 auto;
+}
+
+.flex-between{
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+}
+
+/* ---------- Header / Navbar ---------- */
+.site-header{
+  position:sticky; top:0; z-index:50;
+  background:#fff;
+  box-shadow: var(--shadow);
+}
+
+.logo-link{display:flex; align-items:center; gap:10px; padding:10px 0}
+.logo-img{
+  height:64px; width:auto; display:block;
+}
+
+.nav{display:flex; align-items:center}
+.nav-buttons{
+  list-style:none; display:flex; gap:10px; margin:0; padding:0;
+}
+.nav-buttons li{display:inline}
+
+/* Buttons for navbar + general use */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:10px 16px; border:2px solid var(--brand);
+  background:var(--brand); color:var(--btn-text);
+  font-weight:700; border-radius:10px;
+  transition: all .2s ease; cursor:pointer; line-height:1;
+}
+.btn:hover{background:#fff; color:var(--brand)}
+.btn:disabled{opacity:.6; cursor:not-allowed}
+
+.btn-outline{
+  background:#fff; color:var(--brand); border-color:var(--brand);
+}
+.btn-outline:hover{background:var(--brand); color:#fff}
+
+.btn-admin{
+  border-color:var(--warn); background:var(--warn);
+}
+.btn-admin:hover{background:#fff; color:var(--warn)}
+
+/* ---------- Main Layout ---------- */
+main{padding:18px 0 40px}
+
+/* ---------- Cards ---------- */
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:18px;
+  box-shadow: var(--shadow);
+}
+.card + .card{margin-top:14px}
+
+.badges{display:flex; flex-wrap:wrap; gap:8px}
+.badge{
+  display:inline-block; padding:6px 10px; border-radius:999px;
+  background:#f1ecff; color:var(--brand); font-weight:700; font-size:12px;
+  border:1px solid #e6ddff;
+}
+
+/* ---------- Grid Helpers ---------- */
+.grid{display:grid; gap:14px}
+.grid-2{grid-template-columns:1fr 1fr}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+
+@media (max-width: 900px){
+  .grid-4{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width: 720px){
+  .grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
+}
+
+/* ---------- Forms ---------- */
+.field{display:flex; flex-direction:column; gap:6px}
+.label{font-weight:700}
+.label-inline{font-weight:700; margin-left:6px}
+.help{font-size:12px; color:var(--muted); margin-top:4px}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+select, textarea{
+  width:100%;
+  border:2px solid var(--line);
+  border-radius:10px;
+  padding:12px 12px;
+  background:#fff; color:var(--text);
+  outline:none; transition:border .15s ease, box-shadow .15s ease;
+}
+textarea{min-height:120px; resize:vertical}
+
+input:focus, select:focus, textarea:focus{
+  border-color:#d7c6ff;
+  box-shadow:0 0 0 6px rgba(94,43,151,0.10);
+}
+
+.field.checkbox{flex-direction:row; align-items:center; gap:10px}
+
+/* Inline form layout (filters) */
+.filter-bar{
+  display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;
+  background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px;
+  box-shadow: var(--shadow);
+}
+.filter-bar .field{min-width: 180px}
+
+/* ---------- Hero / Home ---------- */
+.hero{
+  background:linear-gradient(135deg, #f6f2ff, #eef9ff);
+  border:1px solid var(--line);
+  border-radius:18px; padding:22px; box-shadow: var(--shadow);
+}
+.hero h1{font-size:32px}
+.hero p{color:var(--muted)}
+
+/* Featured panel */
+.featured{
+  display:grid; grid-template-columns: 180px 1fr; gap:16px; align-items:center;
+  background:#fff; border:1px solid var(--line);
+  border-radius:14px; padding:14px; box-shadow: var(--shadow);
+}
+.featured-img{
+  width:100%; aspect-ratio: 4/3; background:#f1ecff; border-radius:10px; border:1px solid #e6ddff;
+}
+
+/* ---------- Flash messages ---------- */
+.flash-wrap{margin:12px auto 0}
+.flash{
+  border-radius:12px; padding:12px 14px; margin:8px 0;
+  border:1px solid var(--line); background:#fff; box-shadow: var(--shadow);
+}
+.flash.ok{border-color:#bde7d0; background:#ecfff5; color:#0f5132}
+.flash.error{border-color:#f9c4c4; background:#fff1f1; color:#7f1d1d}
+.flash.info{border-color:#cde1ff; background:#f1f7ff; color:#0b3c74}
+
+/* ---------- Footer ---------- */
+.site-footer{
+  padding:24px 0; border-top:1px solid var(--line); background:#fff; margin-top:24px;
+}
+.site-footer .muted{color:var(--muted); font-size:12px}
+
+/* ---------- Utility ---------- */
+.muted{color:var(--muted)}
+.mt-0{margin-top:0}
+.mt-8{margin-top:8px}
+.mt-14{margin-top:14px}
+.center{text-align:center}
+
+/* ---------- Search results cards ---------- */
+.result-card{
+  display:grid; grid-template-columns: 240px 1fr; gap:16px;
+  background:#fff; border:1px solid var(--line);
+  border-radius:14px; padding:14px; box-shadow: var(--shadow);
+}
+.result-thumb{
+  width:100%; aspect-ratio: 4/3; background:#f6f2ff; border:1px solid #e6ddff; border-radius:10px;
+}
+
+/* ---------- Responsive Header tweaks ---------- */
+@media (max-width: 720px){
+  .logo-img{height:54px}
+  .nav-buttons{gap:8px}
+  .btn{padding:9px 14px; border-radius:10px}
+}
+
+/* ---------- Table (admin landlords list) ---------- */
+.table{
+  width:100%; border-collapse:collapse; background:#fff; border-radius:12px; overflow:hidden;
+  border:1px solid var(--line); box-shadow: var(--shadow);
+}
+.table th, .table td{
+  text-align:left; padding:10px 12px; border-bottom:1px solid var(--line);
+  font-size:14px;
+}
+.table th{background:#f6f2ff; font-weight:800; color:#341e56}
+.table tr:last-child td{border-bottom:none}
+
+/* ---------- Version Badge (optional small badge somewhere) ---------- */
+.version-badge{
+  display:inline-block; padding:4px 8px; font-size:12px; color:#555;
+  background:#f5f7ff; border:1px solid var(--line); border-radius:999px;
+}
+
+/* ---------- Forms: compact inline (used in admin) ---------- */
+.inline-actions{display:flex; gap:8px; flex-wrap:wrap}
+
+/* ---------- Links that look like buttons (used in tables) ---------- */
+a.btn-link{
+  font-weight:700; color:var(--brand); border-bottom:2px solid transparent;
+}
+a.btn-link:hover{border-color:var(--brand)}

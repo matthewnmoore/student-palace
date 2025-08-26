@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Landlord Login – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="card">
+    <h1 class="mt-0">Landlord login</h1>
+    <form method="post" class="grid grid-2" style="max-width:520px">
+      <label class="field" style="grid-column:1/-1">
+        <span class="label">Email</span>
+        <input type="email" name="email" required autocomplete="username">
+      </label>
+      <label class="field" style="grid-column:1/-1">
+        <span class="label">Password</span>
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      <div style="grid-column:1/-1; display:flex; gap:10px; align-items:center">
+        <button class="btn" type="submit">Log in</button>
+        <a class="btn btn-outline" href="{{ url_for('signup') }}">Create an account</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

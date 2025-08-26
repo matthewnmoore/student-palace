@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ house.title if house else 'Property not found' }} – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  {% if not house %}
+    <div class="card"><p>Sorry, this property does not exist.</p></div>
+    <p><a class="btn" href="{{ url_for('index') }}">Back to home</a></p>
+  {% else %}
+    <div class="grid grid-2">
+      <div class="card">
+        <h1 class="mt-0">{{ house.title }}</h1>
+        <p class="muted">{{ house.address }}, {{ house.city }}</p>
+        <p class="badges" style="margin-top:8px">
+          <span class="badge">{{ 'Whole property' if house.letting_type=='whole' else 'House share' }}</span>
+          <span class="badge">{{ house.bedrooms_total }} bedrooms</span>
+          <span class="badge">{{ house.gender_preference }}</span>
+          {% if house.bills_included %}<span class="badge">Bills included</span>{% endif %}
+        </p>
+        <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+        <h3 class="mt-0">At a glance</h3>
+        <ul class="feature-list">
+          <li>{{ house.shared_bathrooms }} shared bathroom{{ '' if house.shared_bathrooms==1 else 's' }}</li>
+          {% if house.off_street_parking %}<li>Off-street parking available</li>{% endif %}
+          {% if house.local_parking %}<li>Local parking available</li>{% endif %}
+          {% if house.cctv %}<li>CCTV</li>{% endif %}
+          {% if house.video_door_entry %}<li>Video door entry</li>{% endif %}
+          {% if house.bike_storage %}<li>Bike storage</li>{% endif %}
+          {% if house.cleaning_service and house.cleaning_service!='none' %}
+            <li>Cleaning service: {{ house.cleaning_service|capitalize }}</li>
+          {% endif %}
+          {% if house.wifi %}<li>Wi-Fi</li>{% endif %}
+          {% if house.wired_internet %}<li>Wired internet</li>{% endif %}
+          {% if house.common_area_tv %}<li>Common area TV</li>{% endif %}
+        </ul>
+
+        <p class="help">Photos and room availability will appear here in later steps.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="mt-0">Enquire / Book a viewing</h3>
+        <p class="help">Viewing request form coming in Step 7.</p>
+        <a class="btn" href="{{ url_for('index') }}">Back to search</a>
+      </div>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

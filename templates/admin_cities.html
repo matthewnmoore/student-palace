@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Manage cities – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1>Manage cities</h1>
+
+  <div class="card" style="max-width:520px;margin-bottom:16px">
+    <form method="post" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+      <input type="hidden" name="action" value="add">
+      <label class="field" style="flex:1 1 260px">
+        <span class="label">City name</span>
+        <input type="text" name="name" placeholder="e.g., Leeds" required
+               style="background:#0f0f19;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:10px;width:100%">
+      </label>
+      <button class="btn primary" type="submit">Add city</button>
+    </form>
+    <p class="help" style="margin:8px 0 0">Active cities appear in the homepage dropdown.</p>
+  </div>
+
+  <div class="card">
+    {% if cities %}
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="text-align:left;border-bottom:1px solid var(--line)">
+            <th style="padding:8px">City</th>
+            <th style="padding:8px">Status</th>
+            <th style="padding:8px">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for c in cities %}
+          <tr style="border-top:1px solid var(--line)">
+            <td style="padding:8px">{{ c['name'] }}</td>
+            <td style="padding:8px">
+              {% if c['is_active'] %}<span class="chip">Active</span>{% else %}<span class="chip">Inactive</span>{% endif %}
+            </td>
+            <td style="padding:8px">
+              <form method="post" style="display:inline">
+                <input type="hidden" name="city_id" value="{{ c['id'] }}">
+                {% if c['is_active'] %}
+                  <button class="btn" name="action" value="deactivate" type="submit">Deactivate</button>
+                {% else %}
+                  <button class="btn" name="action" value="activate" type="submit">Activate</button>
+                {% endif %}
+              </form>
+              <form method="post" style="display:inline" onsubmit="return confirm('Delete city {{ c['name'] }}?');">
+                <input type="hidden" name="city_id" value="{{ c['id'] }}">
+                <button class="btn" name="action" value="delete" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="help">No cities yet. Add your first city above.</p>
+    {% endif %}
+  </div>
+
+  <p style="margin-top:12px">
+    <a class="btn" href="{{ url_for('index') }}">Back to homepage</a>
+    <a class="btn" href="{{ url_for('admin_logout') }}">Log out</a>
+  </p>
+</section>
+{% endblock %}

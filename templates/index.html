@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Student Palace – Find student rooms{% endblock %}
+{% block content %}
+
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-copy">
+      <h1>Your next student home, without the faff</h1>
+      <p>Browse quality, student-ready homes across UK cities. Transparent details. Simple search.</p>
+    </div>
+
+    <form class="search-card" id="search" action="/search" method="get">
+      <div class="grid grid-4">
+        <label class="field">
+          <span class="label">City</span>
+          <select name="city" required>
+            <option value="">Select city</option>
+            {% for c in cities %}
+              <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label">Group size</span>
+          <select name="group_size" required>
+            {% for n in range(1,10) %}
+            <option value="{{ n }}">{{ n }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label">House identifies as</span>
+          <select name="gender">
+            <option value="">Either</option>
+            <option>Male</option>
+            <option>Female</option>
+            <option>Mixed</option>
+          </select>
+        </label>
+
+        <label class="field checkbox-field">
+          <input type="checkbox" name="ensuite">
+          <span>Ensuite / own bathroom</span>
+        </label>
+      </div>
+
+      <div class="grid grid-3">
+        <label class="field checkbox-field">
+          <input type="checkbox" name="bills_included">
+          <span>All bills included</span>
+        </label>
+        <div class="spacer"></div>
+        <button class="btn primary" type="submit">Find rooms</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="wrap featured">
+  <h2>Featured this week</h2>
+
+  <a class="card feature-card" href="{{ featured.link }}">
+    <div class="feature-media">
+      {% if featured.image %}
+        <img src="{{ featured.image }}" alt="" loading="lazy"
+             onerror="this.style.display='none'; this.closest('.feature-media').classList.add('placeholder');">
+      {% endif %}
+      <div class="feature-placeholder">
+        <div class="house-icon" aria-hidden="true"></div>
+        <div class="placeholder-text">Photo coming soon</div>
+      </div>
+    </div>
+
+    <div class="feature-body">
+      <div class="feature-top">
+        <h3 class="mt-0">{{ featured.title }}</h3>
+        <span class="badge">{{ featured.city }}</span>
+      </div>
+      <p class="price">£{{ featured.price_pppw }} <span>pppw</span></p>
+      <p class="badges">
+        {% for b in featured.badges %}
+          <span class="chip">{{ b }}</span>
+        {% endfor %}
+      </p>
+    </div>
+  </a>
+</section>
+
+<section class="wrap cities" id="cities">
+  <h2>Cities on Student Palace</h2>
+  <div class="grid grid-3">
+    {% for c in cities %}
+      <a class="card city-card" href="/search?city={{ c|urlencode }}">
+        <div class="city-thumb" aria-hidden="true"></div>
+        <div class="city-name">{{ c }}</div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+
+{% endblock %}

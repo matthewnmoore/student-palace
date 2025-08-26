@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1>Landlord dashboard</h1>
+
+  {% if not landlord %}
+    <div class="card">
+      <p>You’re not logged in.</p>
+      <p><a class="btn" href="{{ url_for('login') }}">Log in</a> or <a class="btn" href="{{ url_for('signup') }}">Create an account</a></p>
+    </div>
+  {% else %}
+    <div class="grid grid-2">
+      <div class="card">
+        <h3 class="mt-0">Account</h3>
+        <p><strong>{{ landlord.email }}</strong></p>
+        <p class="help">Member since {{ landlord.created_at }}</p>
+        <p><a class="btn" href="{{ url_for('landlord_profile') }}">Edit profile</a></p>
+      </div>
+      <div class="card">
+        <h3 class="mt-0">Quick actions</h3>
+        <p>
+          <a class="btn" href="{{ url_for('landlord_houses') }}">My houses</a>
+          <a class="btn" href="{{ url_for('house_new') }}">Add a house</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h3 class="mt-0">Recent houses</h3>
+      {% if houses and houses|length %}
+        <ul>
+          {% for h in houses[:5] %}
+            <li><a href="{{ url_for('house_edit', hid=h.id) }}">{{ h.title }}</a> – {{ h.city }}</li>
+          {% endfor %}
+        </ul>
+        <p><a class="btn" href="{{ url_for('landlord_houses') }}">View all</a></p>
+      {% else %}
+        <p>No houses yet. <a href="{{ url_for('house_new') }}">Add your first house</a>.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

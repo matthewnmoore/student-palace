@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Edit profile – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1>Edit your profile</h1>
+  <div class="card" style="max-width:720px">
+    <form method="post">
+      <div class="grid grid-2">
+        <label class="field">
+          <span class="label">Display name (shown publicly)</span>
+          <input type="text" name="display_name" value="{{ profile.display_name or '' }}" placeholder="e.g., Oak Properties"
+                 style="background:#0f0f19;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:10px">
+        </label>
+
+        <label class="field">
+          <span class="label">Phone</span>
+          <input type="text" name="phone" value="{{ profile.phone or '' }}" placeholder="+44..."
+                 style="background:#0f0f19;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:10px">
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="label">Website</span>
+        <input type="url" name="website" value="{{ profile.website or '' }}" placeholder="https://example.com"
+               style="background:#0f0f19;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:10px">
+      </label>
+
+      <label class="field">
+        <span class="label">Bio</span>
+        <textarea name="bio" rows="6" placeholder="Tell students about you and your properties"
+                  style="background:#0f0f19;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:10px">{{ profile.bio or '' }}</textarea>
+      </label>
+
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <button class="btn primary" type="submit">Save profile</button>
+        <a class="btn" href="/dashboard">Back to dashboard</a>
+        {% if profile.public_slug %}
+          <a class="btn" href="/l/{{ profile.public_slug }}" target="_blank" rel="noopener">View public page</a>
+        {% endif %}
+      </div>
+    </form>
+    <p class="help" style="margin-top:10px">
+      A public link (e.g. <code>/l/your-name</code>) is generated automatically the first time you save a Display name.
+    </p>
+  </div>
+</section>
+{% endblock %}

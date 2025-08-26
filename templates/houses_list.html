@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}My Houses – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1>My Houses</h1>
+
+  <p><a class="btn" href="{{ url_for('house_new') }}">Add a house</a></p>
+
+  {% if houses and houses|length %}
+    <div class="grid grid-2">
+      {% for h in houses %}
+      <div class="card">
+        <h3 class="mt-0">{{ h.title }}</h3>
+        <p class="muted">{{ h.address }}, {{ h.city }}</p>
+        <p class="badges">
+          <span class="badge">{{ 'Whole property' if h.letting_type=='whole' else 'House share' }}</span>
+          <span class="badge">{{ h.bedrooms_total }} bedrooms</span>
+          <span class="badge">{{ h.gender_preference }}</span>
+          {% if h.bills_included %}<span class="badge">Bills included</span>{% endif %}
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <a class="btn" href="{{ url_for('house_edit', hid=h.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('house_delete', hid=h.id) }}" onsubmit="return confirm('Delete this house?');">
+            <button class="btn" style="border-color:#dc2626;color:#dc2626" type="submit">Delete</button>
+          </form>
+          <a class="btn" href="{{ url_for('property_public', hid=h.id) }}" target="_blank">View public page</a>
+          <a class="btn" href="#" aria-disabled="true">Manage photos (coming soon)</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card"><p>No houses yet. Click “Add a house” to create your first property.</p></div>
+  {% endif %}
+</section>
+{% endblock %}
