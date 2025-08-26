@@ -1,36 +1,49 @@
 {% extends "base.html" %}
-{% block title %}My Houses – Student Palace{% endblock %}
+{% block title %}My houses – Student Palace{% endblock %}
 {% block content %}
 <section class="wrap">
-  <h1>My Houses</h1>
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">My houses</h1>
+    <a class="btn" href="{{ url_for('house_new') }}">+ Add a house</a>
+  </div>
 
-  <p><a class="btn" href="{{ url_for('house_new') }}">Add a house</a></p>
-
-  {% if houses and houses|length %}
-    <div class="grid grid-2">
-      {% for h in houses %}
-      <div class="card">
-        <h3 class="mt-0">{{ h.title }}</h3>
-        <p class="muted">{{ h.address }}, {{ h.city }}</p>
-        <p class="badges">
-          <span class="badge">{{ 'Whole property' if h.letting_type=='whole' else 'House share' }}</span>
-          <span class="badge">{{ h.bedrooms_total }} bedrooms</span>
-          <span class="badge">{{ h.gender_preference }}</span>
-          {% if h.bills_included %}<span class="badge">Bills included</span>{% endif %}
-        </p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-          <a class="btn" href="{{ url_for('house_edit', hid=h.id) }}">Edit</a>
-          <form method="post" action="{{ url_for('house_delete', hid=h.id) }}" onsubmit="return confirm('Delete this house?');">
-            <button class="btn" style="border-color:#dc2626;color:#dc2626" type="submit">Delete</button>
-          </form>
-          <a class="btn" href="{{ url_for('property_public', hid=h.id) }}" target="_blank">View public page</a>
-          <a class="btn" href="#" aria-disabled="true">Manage photos (coming soon)</a>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <div class="card"><p>No houses yet. Click “Add a house” to create your first property.</p></div>
-  {% endif %}
+  <div class="card">
+    {% if houses and houses|length %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>City</th>
+            <th>Type</th>
+            <th>Beds</th>
+            <th style="width:380px">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in houses %}
+            <tr>
+              <td><strong>{{ h.title }}</strong></td>
+              <td>{{ h.city }}</td>
+              <td>{{ 'Whole property' if h.letting_type=='whole' else 'House share' }}</td>
+              <td>{{ h.bedrooms_total }}</td>
+              <td>
+                <div class="inline-actions">
+                  <a class="btn" href="{{ url_for('house_edit', hid=h.id) }}">Edit</a>
+                  <a class="btn btn-outline" href="{{ url_for('rooms_list', hid=h.id) }}">Manage rooms</a>
+                  <a class="btn btn-outline" href="{{ url_for('property_public', hid=h.id) }}" target="_blank">View public</a>
+                  <form method="post" action="{{ url_for('house_delete', hid=h.id) }}" onsubmit="return confirm('Delete this house and its rooms?');" style="display:inline">
+                    <button class="btn btn-admin" type="submit">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No houses yet.</p>
+      <p style="margin-top:10px"><a class="btn" href="{{ url_for('house_new') }}">Add your first house</a></p>
+    {% endif %}
+  </div>
 </section>
 {% endblock %}
