@@ -15,8 +15,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 DB_PATH = os.environ.get("DB_PATH", "/opt/uploads/student_palace.db")
 UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "/opt/uploads")
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-change-me")
-ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")  # set in Render → Environment
-ADMIN_DEBUG = os.environ.get("ADMIN_DEBUG", "0") == "1"  # set to 1 to show verbose errors
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+ADMIN_DEBUG = os.environ.get("ADMIN_DEBUG", "0") == "1"
 
 # Ensure dirs exist even if a persistent disk is mounted
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -36,7 +36,7 @@ def inject_globals():
     import datetime as _dt
     return {
         "BUILD_VERSION": BUILD_VERSION,
-        "now": _dt.datetime.utcnow,   # usage: {{ now().year }}
+        "now": _dt.datetime.utcnow,
     }
 
 # =========================
@@ -60,12 +60,13 @@ def ensure_db():
     conn = get_db()
     c = conn.cursor()
 
-    # Admin-managed cities
+    # Admin-managed cities (with ordering)
     c.execute("""
     CREATE TABLE IF NOT EXISTS cities(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
-      is_active INTEGER NOT NULL DEFAULT 1
+      is_active INTEGER NOT NULL DEFAULT 1,
+      position INTEGER NOT NULL DEFAULT 0
     );
     """)
 
@@ -88,13 +89,12 @@ def ensure_db():
       website TEXT,
       bio TEXT,
       public_slug TEXT UNIQUE,
-      profile_views INTEGER NOT NULL DEFAULT 0,
-      is_verified INTEGER NOT NULL DEFAULT 0,
-      FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE
+      profile_views INTEGER NOT NULL DEFAULT 0
+      -- is_verified added via migration below
     );
     """)
 
-    # Houses (Phase 4 foundation)
+    # Houses
     c.execute("""
     CREATE TABLE IF NOT EXISTS houses(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,8 +127,9 @@ def ensure_db():
 
     conn.commit()
 
-    # --- Migrations for older DBs (safe, non-destructive) ---
-    # landlords.created_at
+    # --- Migrations (safe, non-destructive) ---
+
+    # landlords.created_at backfill if older DBs
     if not table_has_column(conn, "landlords", "created_at"):
         print("[MIGRATE] Adding landlords.created_at")
         conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
@@ -139,21 +140,33 @@ def ensure_db():
 
     # landlord_profiles.is_verified
     if not table_has_column(conn, "landlord_profiles", "is_verified"):
-        try:
-            print("[MIGRATE] Adding landlord_profiles.is_verified")
-            conn.execute("ALTER TABLE landlord_profiles ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0")
-            conn.commit()
-        except Exception as e:
-            print("[WARN] MIGRATE is_verified:", e)
+        print("[MIGRATE] Adding landlord_profiles.is_verified")
+        conn.execute("ALTER TABLE landlord_profiles ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
 
-    # houses.cleaning_service (defensive)
-    if table_has_column(conn, "houses", "cleaning_service") is False:
-        try:
-            print("[MIGRATE] Adding houses.cleaning_service")
-            conn.execute("ALTER TABLE houses ADD COLUMN cleaning_service TEXT NOT NULL DEFAULT 'none'")
-            conn.commit()
-        except Exception as e:
-            print("[WARN] MIGRATE cleaning_service:", e)
+    # cities.position
+    if not table_has_column(conn, "cities", "position"):
+        print("[MIGRATE] Adding cities.position")
+        conn.execute("ALTER TABLE cities ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
+        # Initialize position with alphabetical order
+        rows = conn.execute("SELECT id FROM cities ORDER BY name ASC").fetchall()
+        pos = 1
+        for r in rows:
+            conn.execute("UPDATE cities SET position=? WHERE id=?", (pos, r["id"]))
+            pos += 1
+        conn.commit()
+
+    # Backfill positions if any are zero
+    rows_zero = conn.execute("SELECT id FROM cities WHERE position=0").fetchall()
+    if rows_zero:
+        print("[MIGRATE] Backfilling zero positions in cities")
+        # set positions to the end
+        maxpos = conn.execute("SELECT COALESCE(MAX(position),0) AS m FROM cities").fetchone()["m"]
+        for r in rows_zero:
+            maxpos += 1
+            conn.execute("UPDATE cities SET position=? WHERE id=?", (maxpos, r["id"]))
+        conn.commit()
 
     conn.close()
 
@@ -188,7 +201,7 @@ def slugify(name: str) -> str:
 def get_active_cities_safe():
     try:
         conn = get_db()
-        rows = conn.execute("SELECT name FROM cities WHERE is_active=1 ORDER BY name ASC").fetchall()
+        rows = conn.execute("SELECT name FROM cities WHERE is_active=1 ORDER BY position ASC, name ASC").fetchall()
         conn.close()
         return [r["name"] for r in rows]
     except Exception as e:
@@ -273,7 +286,7 @@ def admin_logout():
     return redirect(url_for("index"))
 
 # =========================
-# Admin: Cities (basic; reorder later if needed)
+# Admin: Cities (with ordering)
 # =========================
 @app.route("/admin/cities", methods=["GET","POST"])
 def admin_cities():
@@ -287,12 +300,16 @@ def admin_cities():
                 name = (request.form.get("name") or "").strip()
                 if name:
                     try:
-                        conn.execute("INSERT INTO cities(name,is_active) VALUES(?,1)", (name,))
+                        # Next position = max + 1
+                        row = conn.execute("SELECT COALESCE(MAX(position),0) AS m FROM cities").fetchone()
+                        next_pos = (row["m"] or 0) + 1
+                        conn.execute("INSERT INTO cities(name,is_active,position) VALUES(?,1,?)", (name, next_pos))
                         conn.commit()
                         flash(f"Added city: {name}", "ok")
                     except sqlite3.IntegrityError:
                         flash("That city already exists.", "error")
-            elif action in ("activate","deactivate","delete"):
+
+            elif action in ("activate","deactivate","delete","move_up","move_down"):
                 try:
                     cid = int(request.form.get("city_id"))
                 except Exception:
@@ -302,19 +319,41 @@ def admin_cities():
                         conn.execute("DELETE FROM cities WHERE id=?", (cid,))
                         conn.commit()
                         flash("City deleted.", "ok")
-                    else:
+                    elif action in ("activate","deactivate"):
                         new_val = 1 if action == "activate" else 0
                         conn.execute("UPDATE cities SET is_active=? WHERE id=?", (new_val, cid))
                         conn.commit()
                         flash("City updated.", "ok")
+                    elif action in ("move_up","move_down"):
+                        cur = conn.execute("SELECT id, position FROM cities WHERE id=?", (cid,)).fetchone()
+                        if cur:
+                            if action == "move_up":
+                                # find city with just smaller position
+                                swap = conn.execute("""
+                                  SELECT id, position FROM cities
+                                  WHERE position < ?
+                                  ORDER BY position DESC LIMIT 1
+                                """, (cur["position"],)).fetchone()
+                            else:
+                                # move_down → next larger
+                                swap = conn.execute("""
+                                  SELECT id, position FROM cities
+                                  WHERE position > ?
+                                  ORDER BY position ASC LIMIT 1
+                                """, (cur["position"],)).fetchone()
+                            if swap:
+                                conn.execute("UPDATE cities SET position=? WHERE id=?", (swap["position"], cur["id"]))
+                                conn.execute("UPDATE cities SET position=? WHERE id=?", (cur["position"], swap["id"]))
+                                conn.commit()
+                                flash("City order updated.", "ok")
 
-        rows = conn.execute("SELECT * FROM cities ORDER BY name ASC").fetchall()
+        rows = conn.execute("SELECT * FROM cities ORDER BY position ASC, name ASC").fetchall()
         return render_template("admin_cities.html", cities=rows)
     finally:
         conn.close()
 
 # =========================
-# Admin: Landlords (view/edit/delete all + VERIFY)
+# Admin: Landlords (view/edit/delete all)
 # =========================
 @app.route("/admin/landlords", methods=["GET"])
 def admin_landlords():
@@ -383,6 +422,13 @@ def admin_landlord_detail(lid):
                 conn.commit()
                 flash("Password reset.", "ok")
 
+            elif action == "set_verified":
+                checked = 1 if request.form.get("is_verified") == "on" else 0
+                conn.execute("INSERT OR IGNORE INTO landlord_profiles(landlord_id) VALUES(?)", (lid,))
+                conn.execute("UPDATE landlord_profiles SET is_verified=? WHERE landlord_id=?", (checked, lid))
+                conn.commit()
+                flash("Verification status saved.", "ok")
+
             elif action == "update_profile":
                 display_name = (request.form.get("display_name") or "").strip()
                 phone = (request.form.get("phone") or "").strip()
@@ -406,13 +452,6 @@ def admin_landlord_detail(lid):
                 """, (display_name, phone, website, bio, slug, lid))
                 conn.commit()
                 flash("Profile updated.", "ok")
-
-            elif action == "set_verified":
-                val = 1 if request.form.get("is_verified") == "on" else 0
-                conn.execute("INSERT OR IGNORE INTO landlord_profiles(landlord_id) VALUES(?)", (lid,))
-                conn.execute("UPDATE landlord_profiles SET is_verified=? WHERE landlord_id=?", (val, lid))
-                conn.commit()
-                flash("Verification status updated.", "ok")
 
             elif action == "delete_landlord":
                 conn.execute("DELETE FROM landlord_profiles WHERE landlord_id=?", (lid,))
@@ -460,7 +499,6 @@ def search():
         "ensuite": "on" if request.args.get("ensuite") else "",
         "bills_included": "on" if request.args.get("bills_included") else "",
     }
-    # (Results will be wired in Step 5; badge logic will apply there.)
     return render_template("search.html", query=q, cities=cities)
 
 # =========================
@@ -505,7 +543,7 @@ def signup():
             row = conn.execute("SELECT id FROM landlords WHERE email=?", (email,)).fetchone()
             lid = row["id"]
             conn.execute(
-                "INSERT OR IGNORE INTO landlord_profiles(landlord_id, display_name, public_slug, is_verified) VALUES (?,?,?,0)",
+                "INSERT OR IGNORE INTO landlord_profiles(landlord_id, display_name, public_slug) VALUES (?,?,?)",
                 (lid, email.split("@")[0], None)
             )
             conn.commit()
@@ -620,7 +658,7 @@ def landlord_profile():
     conn.close()
     return render_template("landlord_profile_edit.html", profile=prof)
 
-# Public profile (unchanged)
+# Public profile
 @app.route("/l/<slug>")
 def landlord_public_by_slug(slug):
     conn = get_db()
@@ -648,7 +686,7 @@ def landlord_public_by_id(lid):
     return render_template("landlord_profile_public.html", profile=prof, contact_email=ll["email"] if ll else "")
 
 # =========================
-# Phase 4: Houses (scaffolded)
+# Phase 4: Houses CRUD (landlord)
 # =========================
 @app.route("/landlord/houses")
 def landlord_houses():
@@ -683,7 +721,7 @@ def house_new():
         video_door_entry = clean_bool("video_door_entry")
         bike_storage = clean_bool("bike_storage")
         cleaning_service = (request.form.get("cleaning_service") or "none").strip()
-        wifi = 1 if request.form.get("wifi") is None else clean_bool("wifi")  # default on
+        wifi = 1 if request.form.get("wifi") is None else clean_bool("wifi")
         wired_internet = clean_bool("wired_internet")
         common_area_tv = clean_bool("common_area_tv")
 
@@ -798,23 +836,15 @@ def house_delete(hid):
     flash("House deleted.", "ok")
     return redirect(url_for("landlord_houses"))
 
-# Public property page (now with Verified badge)
+# Public property page (minimal placeholder)
 @app.route("/p/<int:hid>")
 def property_public(hid):
     conn = get_db()
     h = conn.execute("SELECT * FROM houses WHERE id=?", (hid,)).fetchone()
-    if not h:
-        conn.close()
-        return render_template("property.html", house=None), 404
-    prof = conn.execute("""
-        SELECT COALESCE(is_verified,0) AS is_verified, display_name
-        FROM landlord_profiles
-        WHERE landlord_id=?
-    """, (h["landlord_id"],)).fetchone()
     conn.close()
-    is_verified = prof["is_verified"] if prof else 0
-    display_name = prof["display_name"] if prof else ""
-    return render_template("property.html", house=h, is_verified=is_verified, landlord_display_name=display_name)
+    if not h:
+        return render_template("property.html", house=None), 404
+    return render_template("property.html", house=h)
 
 # =========================
 # Errors (JSON for .json endpoints)
@@ -839,7 +869,7 @@ def server_error(e):
     return render_template("search.html", query={"error": "Something went wrong"}, cities=cities), 500
 
 # =========================
-# Main
+# Main (Render will use gunicorn app:app)
 # =========================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
