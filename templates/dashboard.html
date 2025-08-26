@@ -3,31 +3,61 @@
 {% block content %}
 <section class="wrap">
   <h1>Landlord dashboard</h1>
+
   {% if not landlord %}
     <div class="card">
       <p>You’re not logged in.</p>
-      <p><a class="btn" href="{{ url_for('login') }}">Log in</a> or <a class="btn" href="{{ url_for('signup') }}">Create an account</a></p>
+      <p>
+        <a class="btn" href="{{ url_for('login') }}">Log in</a>
+        <a class="btn btn-outline" href="{{ url_for('signup') }}">Create an account</a>
+      </p>
     </div>
   {% else %}
+
     <div class="grid grid-2">
+      <!-- Account card with verification status -->
       <div class="card">
         <h3 class="mt-0">Account</h3>
         <p><strong>{{ landlord.email }}</strong></p>
         <p class="help">Member since {{ landlord.created_at }}</p>
-        <p><a class="btn" href="{{ url_for('landlord_profile') }}">Edit profile</a></p>
+
+        {% set verified = profile.is_verified|default(0, true) %}
+        {% if verified %}
+          <p><span class="badge" style="background:#e5f9f5; color:#0f5132; border:1px solid #a7e3d4">✅ Verified landlord/agent</span></p>
+        {% else %}
+          <p><span class="badge" style="background:#eee; color:#666; border:1px solid #ddd">Not verified</span></p>
+        {% endif %}
+
+        <p style="margin-top:10px">
+          <a class="btn" href="{{ url_for('landlord_profile') }}">Edit profile</a>
+        </p>
       </div>
+
+      <!-- Quick actions -->
       <div class="card">
         <h3 class="mt-0">Quick actions</h3>
         <p>
-          <a class="btn" href="#">My houses</a>
-          <a class="btn" href="#">Add a house</a>
+          <a class="btn" href="{{ url_for('landlord_houses') }}">My houses</a>
+          <a class="btn" href="{{ url_for('house_new') }}">Add a house</a>
         </p>
       </div>
     </div>
+
+    <!-- Recent houses -->
     <div class="card" style="margin-top:14px">
       <h3 class="mt-0">Recent houses</h3>
-      <p class="help">Houses CRUD arrives in Step 4.</p>
+      {% if houses and houses|length %}
+        <ul>
+          {% for h in houses[:5] %}
+            <li><a href="{{ url_for('house_edit', hid=h.id) }}">{{ h.title }}</a> – {{ h.city }}</li>
+          {% endfor %}
+        </ul>
+        <p><a class="btn" href="{{ url_for('landlord_houses') }}">View all</a></p>
+      {% else %}
+        <p>No houses yet. <a href="{{ url_for('house_new') }}">Add your first house</a>.</p>
+      {% endif %}
     </div>
+
   {% endif %}
 </section>
 {% endblock %}
