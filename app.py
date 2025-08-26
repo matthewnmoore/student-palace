@@ -127,7 +127,7 @@ def ensure_db():
     );
     """)
 
-    # NEW: Rooms (CRUD Step 1)
+    # Rooms (CRUD)
     c.execute("""
     CREATE TABLE IF NOT EXISTS rooms(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -650,7 +650,7 @@ def landlord_public_by_id(lid):
     return render_template("landlord_profile_public.html", profile=prof, contact_email=ll["email"] if ll else "")
 
 # =========================
-# Phase 4: Houses CRUD (landlord)
+# Houses CRUD (landlord)
 # =========================
 @app.route("/landlord/houses")
 def landlord_houses():
@@ -803,7 +803,7 @@ def house_delete(hid):
     return redirect(url_for("landlord_houses"))
 
 # =========================
-# Rooms CRUD (NEW)
+# Rooms CRUD
 # =========================
 def _room_form_values():
     """Extract & validate room form values. Returns (values_dict, errors_list)."""
@@ -857,7 +857,22 @@ def room_new(hid):
         conn.close()
         return redirect(url_for("landlord_houses"))
 
+    # ---- HARD LIMIT: do not allow more rooms than bedrooms_total
+    current_count = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
+    if request.method == "GET":
+        # If already full, stop here and guide user back.
+        if current_count >= int(house["bedrooms_total"]):
+            flash(f"This house already has the maximum of {house['bedrooms_total']} room(s).", "error")
+            conn.close()
+            return redirect(url_for("rooms_list", hid=hid))
+
     if request.method == "POST":
+        # Re-check on POST to prevent race/double submits
+        if current_count >= int(house["bedrooms_total"]):
+            flash(f"Cannot add more than {house['bedrooms_total']} room(s) for this house.", "error")
+            conn.close()
+            return redirect(url_for("rooms_list", hid=hid))
+
         vals, errors = _room_form_values()
         if errors:
             for e in errors: flash(e, "error")
@@ -877,7 +892,7 @@ def room_new(hid):
         flash("Room added.", "ok")
         return redirect(url_for("rooms_list", hid=hid))
 
-    # GET
+    # GET (not full)
     conn.close()
     return render_template("room_form.html", house=house, form={}, mode="new")
 
