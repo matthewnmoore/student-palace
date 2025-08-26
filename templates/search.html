@@ -3,15 +3,7 @@
 {% block content %}
 <section class="wrap">
   <h1>Search results</h1>
-
-  {% if query.error %}
-    <div class="card warn">
-      <p><strong>Oops.</strong> {{ query.error }}. Please try updating the filters below.</p>
-    </div>
-  {% else %}
-    <p class="help">Step 1 preview only – results will appear once we wire the database in Step 5.</p>
-  {% endif %}
-
+  <p class="help">Step 1 preview only – results will appear once we wire the database in Step 5.</p>
   <form class="search-inline" action="/search" method="get">
     <select name="city">
       <option value="">City</option>
@@ -19,41 +11,21 @@
         <option value="{{ c }}" {% if query.city==c %}selected{% endif %}>{{ c }}</option>
       {% endfor %}
     </select>
-
     <select name="group_size">
       <option value="">Group size</option>
       {% for n in range(1,10) %}
         <option value="{{ n }}" {% if query.group_size==n|string %}selected{% endif %}>{{ n }}</option>
       {% endfor %}
     </select>
-
     <select name="gender">
       <option value="">Either</option>
       <option {% if query.gender=='Male' %}selected{% endif %}>Male</option>
       <option {% if query.gender=='Female' %}selected{% endif %}>Female</option>
       <option {% if query.gender=='Mixed' %}selected{% endif %}>Mixed</option>
     </select>
-
-    <label class="check">
-      <input type="checkbox" name="ensuite" {% if query.ensuite %}checked{% endif %}> Ensuite
-    </label>
-
-    <label class="check">
-      <input type="checkbox" name="bills_included" {% if query.bills_included %}checked{% endif %}> Bills included
-    </label>
-
+    <label class="check"><input type="checkbox" name="ensuite" {% if query.ensuite %}checked{% endif %}> Ensuite</label>
+    <label class="check"><input type="checkbox" name="bills_included" {% if query.bills_included %}checked{% endif %}> Bills included</label>
     <button class="btn" type="submit">Update</button>
   </form>
-
-  <div class="card">
-    <p class="help">Preview: filters echoed here for now.</p>
-    <ul style="margin:0;padding-left:18px">
-      <li>City: <code>{{ query.city or 'Any' }}</code></li>
-      <li>Group size: <code>{{ query.group_size or 'Any' }}</code></li>
-      <li>Gender: <code>{{ query.gender or 'Either' }}</code></li>
-      <li>Ensuite: <code>{{ 'Yes' if query.ensuite else 'No preference' }}</code></li>
-      <li>Bills included: <code>{{ 'Yes' if query.bills_included else 'No preference' }}</code></li>
-    </ul>
-  </div>
 </section>
 {% endblock %}

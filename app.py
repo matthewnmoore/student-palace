@@ -60,12 +60,13 @@ def ensure_db():
     conn = get_db()
     c = conn.cursor()
 
-    # Admin-managed cities
+    # Admin-managed cities (with ordering via 'position')
     c.execute("""
     CREATE TABLE IF NOT EXISTS cities(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
-      is_active INTEGER NOT NULL DEFAULT 1
+      is_active INTEGER NOT NULL DEFAULT 1,
+      position INTEGER NOT NULL DEFAULT 1000
     );
     """)
 
@@ -93,55 +94,29 @@ def ensure_db():
     );
     """)
 
-    # Houses (Phase 4)
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS houses(
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      landlord_id INTEGER NOT NULL,
-      title TEXT NOT NULL,
-      city TEXT NOT NULL,            -- must be an active city
-      address TEXT NOT NULL,
-      letting_type TEXT NOT NULL CHECK (letting_type IN ('whole','share')),
-      bedrooms_total INTEGER NOT NULL,
-      gender_preference TEXT NOT NULL CHECK (gender_preference IN ('Male','Female','Mixed','Either')),
-      bills_included INTEGER NOT NULL DEFAULT 0,
-      shared_bathrooms INTEGER NOT NULL DEFAULT 0,
-
-      -- non-searchable info flags
-      off_street_parking INTEGER NOT NULL DEFAULT 0,
-      local_parking INTEGER NOT NULL DEFAULT 0,
-      cctv INTEGER NOT NULL DEFAULT 0,
-      video_door_entry INTEGER NOT NULL DEFAULT 0,
-      bike_storage INTEGER NOT NULL DEFAULT 0,
-      cleaning_service TEXT NOT NULL DEFAULT 'none',  -- none, weekly, fortnightly, monthly
-      wifi INTEGER NOT NULL DEFAULT 1,
-      wired_internet INTEGER NOT NULL DEFAULT 0,
-      common_area_tv INTEGER NOT NULL DEFAULT 0,
-
-      created_at TEXT NOT NULL,
-
-      FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE
-    );
-    """)
+    # (Houses table will come later in Step 4; we keep Step 1-3 minimal)
 
     conn.commit()
 
-    # --- Migrations for older DBs (safe, non-destructive) ---
-    if not table_has_column(conn, "landlords", "created_at"):
-        print("[MIGRATE] Adding landlords.created_at")
-        conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
-        conn.commit()
-        now = dt.utcnow().isoformat()
-        conn.execute("UPDATE landlords SET created_at=? WHERE created_at='' OR created_at IS NULL", (now,))
-        conn.commit()
-
-    if table_has_column(conn, "houses", "cleaning_service") is False:
+    # --- Migrations for older DBs ---
+    if not table_has_column(conn, "cities", "position"):
+        print("[MIGRATE] Adding cities.position")
         try:
-            print("[MIGRATE] Adding houses.cleaning_service")
-            conn.execute("ALTER TABLE houses ADD COLUMN cleaning_service TEXT NOT NULL DEFAULT 'none'")
+            conn.execute("ALTER TABLE cities ADD COLUMN position INTEGER NOT NULL DEFAULT 1000")
             conn.commit()
         except Exception as e:
-            print("[WARN] MIGRATE cleaning_service:", e)
+            print("[WARN] MIGRATE cities.position:", e)
+
+    if not table_has_column(conn, "landlords", "created_at"):
+        print("[MIGRATE] Adding landlords.created_at")
+        try:
+            conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+            now = dt.utcnow().isoformat()
+            conn.execute("UPDATE landlords SET created_at=? WHERE created_at='' OR created_at IS NULL", (now,))
+            conn.commit()
+        except Exception as e:
+            print("[WARN] MIGRATE landlords.created_at:", e)
 
     conn.close()
 
@@ -173,29 +148,15 @@ def slugify(name: str) -> str:
     slug = "".join(out).strip("-")
     return slug or "landlord"
 
-def get_active_cities_safe():
-    try:
-        conn = get_db()
-        rows = conn.execute("SELECT name FROM cities WHERE is_active=1 ORDER BY name ASC").fetchall()
-        conn.close()
-        return [r["name"] for r in rows]
-    except Exception as e:
-        print("[WARN] get_active_cities_safe error:", e)
-        return []
-
-def validate_city_active(city):
-    if not city:
-        return False
+def get_active_cities():
     conn = get_db()
-    row = conn.execute("SELECT 1 FROM cities WHERE name=? AND is_active=1", (city,)).fetchone()
+    rows = conn.execute("SELECT name FROM cities WHERE is_active=1 ORDER BY position ASC, name ASC").fetchall()
     conn.close()
-    return bool(row)
+    return [r["name"] for r in rows]
 
-def clean_bool(field_name):
-    return 1 if (request.form.get(field_name) == "on") else 0
-
-def valid_choice(value, choices):
-    return value in choices
+def next_city_position(conn):
+    row = conn.execute("SELECT COALESCE(MAX(position), 999) AS m FROM cities").fetchone()
+    return (row["m"] or 999) + 1
 
 # =========================
 # Health / diagnostics
@@ -261,7 +222,7 @@ def admin_logout():
     return redirect(url_for("index"))
 
 # =========================
-# Admin: Cities
+# Admin: Cities (with ordering)
 # =========================
 @app.route("/admin/cities", methods=["GET","POST"])
 def admin_cities():
@@ -275,12 +236,13 @@ def admin_cities():
                 name = (request.form.get("name") or "").strip()
                 if name:
                     try:
-                        conn.execute("INSERT INTO cities(name,is_active) VALUES(?,1)", (name,))
+                        pos = next_city_position(conn)
+                        conn.execute("INSERT INTO cities(name,is_active,position) VALUES(?,1,?)", (name, pos))
                         conn.commit()
                         flash(f"Added city: {name}", "ok")
                     except sqlite3.IntegrityError:
                         flash("That city already exists.", "error")
-            elif action in ("activate","deactivate","delete"):
+            elif action in ("activate","deactivate","delete","move_up","move_down"):
                 try:
                     cid = int(request.form.get("city_id"))
                 except Exception:
@@ -290,131 +252,73 @@ def admin_cities():
                         conn.execute("DELETE FROM cities WHERE id=?", (cid,))
                         conn.commit()
                         flash("City deleted.", "ok")
-                    else:
+                    elif action in ("activate","deactivate"):
                         new_val = 1 if action == "activate" else 0
                         conn.execute("UPDATE cities SET is_active=? WHERE id=?", (new_val, cid))
                         conn.commit()
                         flash("City updated.", "ok")
-        rows = conn.execute("SELECT * FROM cities ORDER BY name ASC").fetchall()
+                    else:
+                        # move_up / move_down: swap position with neighbor
+                        cur = conn.execute("SELECT id, position FROM cities WHERE id=?", (cid,)).fetchone()
+                        if cur:
+                            if action == "move_up":
+                                neighbor = conn.execute("""
+                                  SELECT id, position FROM cities
+                                  WHERE position < ?
+                                  ORDER BY position DESC LIMIT 1
+                                """, (cur["position"],)).fetchone()
+                            else:
+                                neighbor = conn.execute("""
+                                  SELECT id, position FROM cities
+                                  WHERE position > ?
+                                  ORDER BY position ASC LIMIT 1
+                                """, (cur["position"],)).fetchone()
+                            if neighbor:
+                                conn.execute("UPDATE cities SET position=? WHERE id=?", (neighbor["position"], cur["id"]))
+                                conn.execute("UPDATE cities SET position=? WHERE id=?", (cur["position"], neighbor["id"]))
+                                conn.commit()
+        rows = conn.execute("SELECT * FROM cities ORDER BY position ASC, name ASC").fetchall()
         return render_template("admin_cities.html", cities=rows)
     finally:
         conn.close()
 
 # =========================
-# Admin: Landlords (view/edit/delete all)
+# Admin: Landlords (stub pages, to be expanded later)
 # =========================
-@app.route("/admin/landlords", methods=["GET"])
+@app.route("/admin/landlords")
 def admin_landlords():
     if not is_admin():
         return redirect(url_for("admin_login"))
-    q = (request.args.get("q") or "").strip().lower()
     conn = get_db()
-    try:
-        if q:
-            rows = conn.execute("""
-                SELECT l.id, l.email, l.created_at,
-                       COALESCE(p.display_name,'') AS display_name,
-                       COALESCE(p.public_slug,'') AS public_slug,
-                       COALESCE(p.profile_views,0) AS profile_views
-                FROM landlords l
-                LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
-                WHERE LOWER(l.email) LIKE ? OR LOWER(COALESCE(p.display_name,'')) LIKE ?
-                ORDER BY l.created_at DESC
-            """, (f"%{q}%", f"%{q}%")).fetchall()
-        else:
-            rows = conn.execute("""
-                SELECT l.id, l.email, l.created_at,
-                       COALESCE(p.display_name,'') AS display_name,
-                       COALESCE(p.public_slug,'') AS public_slug,
-                       COALESCE(p.profile_views,0) AS profile_views
-                FROM landlords l
-                LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
-                ORDER BY l.created_at DESC
-            """).fetchall()
-        return render_template("admin_landlords.html", landlords=rows, q=q)
-    except Exception as e:
-        print("[ERROR] admin_landlords:", e)
-        if ADMIN_DEBUG:
-            return f"admin_landlords error: {e}", 500
-        raise
-    finally:
-        conn.close()
+    rows = conn.execute("""
+        SELECT l.id, l.email, l.created_at,
+               COALESCE(p.display_name,'') AS display_name,
+               COALESCE(p.public_slug,'') AS public_slug,
+               COALESCE(p.profile_views,0) AS profile_views
+        FROM landlords l
+        LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
+        ORDER BY l.created_at DESC
+    """).fetchall()
+    conn.close()
+    return render_template("admin_landlords.html", landlords=rows, q="")
 
 @app.route("/admin/landlord/<int:lid>", methods=["GET","POST"])
 def admin_landlord_detail(lid):
     if not is_admin():
         return redirect(url_for("admin_login"))
     conn = get_db()
-    try:
-        if request.method == "POST":
-            action = request.form.get("action") or ""
-            if action == "update_email":
-                new_email = (request.form.get("email") or "").strip().lower()
-                if new_email:
-                    try:
-                        conn.execute("UPDATE landlords SET email=? WHERE id=?", (new_email, lid))
-                        conn.commit()
-                        flash("Email updated.", "ok")
-                    except sqlite3.IntegrityError:
-                        flash("That email is already taken.", "error")
-            elif action == "reset_password":
-                new_pw = (request.form.get("new_password") or "").strip()
-                if not new_pw:
-                    new_pw = secrets.token_urlsafe(8)
-                    flash(f"Generated temporary password: {new_pw}", "ok")
-                ph = generate_password_hash(new_pw)
-                conn.execute("UPDATE landlords SET password_hash=? WHERE id=?", (ph, lid))
-                conn.commit()
-                flash("Password reset.", "ok")
-            elif action == "update_profile":
-                display_name = (request.form.get("display_name") or "").strip()
-                phone = (request.form.get("phone") or "").strip()
-                website = (request.form.get("website") or "").strip()
-                bio = (request.form.get("bio") or "").strip()
-                conn.execute("INSERT OR IGNORE INTO landlord_profiles(landlord_id) VALUES(?)", (lid,))
-                prof = conn.execute("SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)).fetchone()
-                slug = prof["public_slug"]
-                if not slug and display_name:
-                    base = slugify(display_name)
-                    candidate = base
-                    i = 2
-                    while conn.execute("SELECT 1 FROM landlord_profiles WHERE public_slug=?", (candidate,)).fetchone():
-                        candidate = f"{base}-{i}"
-                        i += 1
-                    slug = candidate
-                conn.execute("""
-                    UPDATE landlord_profiles
-                    SET display_name=?, phone=?, website=?, bio=?, public_slug=COALESCE(?, public_slug)
-                    WHERE landlord_id=?
-                """, (display_name, phone, website, bio, slug, lid))
-                conn.commit()
-                flash("Profile updated.", "ok")
-            elif action == "delete_landlord":
-                conn.execute("DELETE FROM landlord_profiles WHERE landlord_id=?", (lid,))
-                conn.execute("DELETE FROM landlords WHERE id=?", (lid,))
-                conn.commit()
-                flash("Landlord deleted.", "ok")
-                return redirect(url_for("admin_landlords"))
-
-        landlord = conn.execute("SELECT * FROM landlords WHERE id=?", (lid,)).fetchone()
-        profile = conn.execute("SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)).fetchone()
-        houses = conn.execute("SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC", (lid,)).fetchall()
-        return render_template("admin_landlord_view.html",
-                               landlord=landlord, profile=profile, houses=houses)
-    except Exception as e:
-        print("[ERROR] admin_landlord_detail:", e)
-        if ADMIN_DEBUG:
-            return f"admin_landlord_detail error: {e}", 500
-        raise
-    finally:
-        conn.close()
+    landlord = conn.execute("SELECT * FROM landlords WHERE id=?", (lid,)).fetchone()
+    profile = conn.execute("SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)).fetchone()
+    houses = []  # populated in Step 4
+    conn.close()
+    return render_template("admin_landlord_view.html", landlord=landlord, profile=profile, houses=houses)
 
 # =========================
 # Public: Home + Search (preview)
 # =========================
 @app.route("/")
 def index():
-    cities = get_active_cities_safe()
+    cities = get_active_cities()
     featured = {
         "title": "Spacious 5-bed student house",
         "city": cities[0] if cities else "Leeds",
@@ -427,7 +331,7 @@ def index():
 
 @app.route("/search")
 def search():
-    cities = get_active_cities_safe()
+    cities = get_active_cities()
     q = {
         "city": request.args.get("city", ""),
         "group_size": request.args.get("group_size", ""),
@@ -438,15 +342,12 @@ def search():
     return render_template("search.html", query=q, cities=cities)
 
 # =========================
-# Landlord entry page (navbar "Landlords" button)
+# Landlord entry + auth
 # =========================
 @app.route("/landlords")
 def landlords_entry():
     return render_template("landlords_entry.html")
 
-# =========================
-# Landlord auth (signup/login/logout)
-# =========================
 @app.route("/signup", methods=["GET","POST"])
 def signup():
     if request.method == "POST":
@@ -542,7 +443,7 @@ def dashboard():
     conn = get_db()
     landlord = conn.execute("SELECT id,email,created_at FROM landlords WHERE id=?", (lid,)).fetchone()
     profile = conn.execute("SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)).fetchone()
-    houses = conn.execute("SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC", (lid,)).fetchall()
+    houses = []  # Step 4
     conn.close()
     return render_template("dashboard.html", landlord=landlord, profile=profile, houses=houses)
 
@@ -594,7 +495,6 @@ def landlord_profile():
     conn.close()
     return render_template("landlord_profile_edit.html", profile=prof)
 
-# Public profile
 @app.route("/l/<slug>")
 def landlord_public_by_slug(slug):
     conn = get_db()
@@ -622,175 +522,14 @@ def landlord_public_by_id(lid):
     return render_template("landlord_profile_public.html", profile=prof, contact_email=ll["email"] if ll else "")
 
 # =========================
-# Phase 4: Houses CRUD (landlord)
-# =========================
-@app.route("/landlord/houses")
-def landlord_houses():
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC", (lid,)).fetchall()
-    conn.close()
-    return render_template("houses_list.html", houses=rows)
-
-@app.route("/landlord/houses/new", methods=["GET","POST"])
-def house_new():
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-    cities = get_active_cities_safe()
-
-    if request.method == "POST":
-        title = (request.form.get("title") or "").strip()
-        city = (request.form.get("city") or "").strip()
-        address = (request.form.get("address") or "").strip()
-        letting_type = (request.form.get("letting_type") or "").strip()
-        gender_pref = (request.form.get("gender_preference") or "").strip()
-        bills_included = clean_bool("bills_included")
-        shared_bathrooms = int(request.form.get("shared_bathrooms") or 0)
-        bedrooms_total = int(request.form.get("bedrooms_total") or 0)
-
-        off_street_parking = clean_bool("off_street_parking")
-        local_parking = clean_bool("local_parking")
-        cctv = clean_bool("cctv")
-        video_door_entry = clean_bool("video_door_entry")
-        bike_storage = clean_bool("bike_storage")
-        cleaning_service = (request.form.get("cleaning_service") or "none").strip()
-        wifi = 1 if request.form.get("wifi") is None else clean_bool("wifi")  # default on
-        wired_internet = clean_bool("wired_internet")
-        common_area_tv = clean_bool("common_area_tv")
-
-        errors = []
-        if not title: errors.append("Title is required.")
-        if not address: errors.append("Address is required.")
-        if bedrooms_total < 1: errors.append("Bedrooms must be at least 1.")
-        if not validate_city_active(city): errors.append("Please choose a valid active city.")
-        if not valid_choice(letting_type, ("whole","share")): errors.append("Invalid letting type.")
-        if not valid_choice(gender_pref, ("Male","Female","Mixed","Either")): errors.append("Invalid gender preference.")
-        if not valid_choice(cleaning_service, ("none","weekly","fortnightly","monthly")): errors.append("Invalid cleaning service value.")
-        if errors:
-            for e in errors: flash(e, "error")
-            return render_template("house_form.html", cities=cities, form=request.form, mode="new")
-
-        conn = get_db()
-        conn.execute("""
-          INSERT INTO houses(
-            landlord_id,title,city,address,letting_type,bedrooms_total,gender_preference,bills_included,
-            shared_bathrooms,off_street_parking,local_parking,cctv,video_door_entry,bike_storage,cleaning_service,
-            wifi,wired_internet,common_area_tv,created_at
-          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, (
-            lid, title, city, address, letting_type, bedrooms_total, gender_pref, bills_included,
-            shared_bathrooms, off_street_parking, local_parking, cctv, video_door_entry, bike_storage,
-            cleaning_service, wifi, wired_internet, common_area_tv, dt.utcnow().isoformat()
-        ))
-        conn.commit()
-        conn.close()
-        flash("House added.", "ok")
-        return redirect(url_for("landlord_houses"))
-
-    # GET
-    return render_template("house_form.html", cities=cities, form={}, mode="new")
-
-@app.route("/landlord/houses/<int:hid>/edit", methods=["GET","POST"])
-def house_edit(hid):
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-    cities = get_active_cities_safe()
-    conn = get_db()
-    house = conn.execute("SELECT * FROM houses WHERE id=? AND landlord_id=?", (hid, lid)).fetchone()
-    if not house:
-        conn.close()
-        flash("House not found.", "error")
-        return redirect(url_for("landlord_houses"))
-
-    if request.method == "POST":
-        title = (request.form.get("title") or "").strip()
-        city = (request.form.get("city") or "").strip()
-        address = (request.form.get("address") or "").strip()
-        letting_type = (request.form.get("letting_type") or "").strip()
-        gender_pref = (request.form.get("gender_preference") or "").strip()
-        bills_included = clean_bool("bills_included")
-        shared_bathrooms = int(request.form.get("shared_bathrooms") or 0)
-        bedrooms_total = int(request.form.get("bedrooms_total") or 0)
-
-        off_street_parking = clean_bool("off_street_parking")
-        local_parking = clean_bool("local_parking")
-        cctv = clean_bool("cctv")
-        video_door_entry = clean_bool("video_door_entry")
-        bike_storage = clean_bool("bike_storage")
-        cleaning_service = (request.form.get("cleaning_service") or "none").strip()
-        wifi = 1 if request.form.get("wifi") is None else clean_bool("wifi")
-        wired_internet = clean_bool("wired_internet")
-        common_area_tv = clean_bool("common_area_tv")
-
-        errors = []
-        if not title: errors.append("Title is required.")
-        if not address: errors.append("Address is required.")
-        if bedrooms_total < 1: errors.append("Bedrooms must be at least 1.")
-        if not validate_city_active(city): errors.append("Please choose a valid active city.")
-        if not valid_choice(letting_type, ("whole","share")): errors.append("Invalid letting type.")
-        if not valid_choice(gender_pref, ("Male","Female","Mixed","Either")): errors.append("Invalid gender preference.")
-        if not valid_choice(cleaning_service, ("none","weekly","fortnightly","monthly")): errors.append("Invalid cleaning service value.")
-        if errors:
-            for e in errors: flash(e, "error")
-            conn.close()
-            return render_template("house_form.html", cities=cities, form=request.form, mode="edit", house=house)
-
-        conn.execute("""
-          UPDATE houses SET
-            title=?, city=?, address=?, letting_type=?, bedrooms_total=?, gender_preference=?, bills_included=?,
-            shared_bathrooms=?, off_street_parking=?, local_parking=?, cctv=?, video_door_entry=?, bike_storage=?,
-            cleaning_service=?, wifi=?, wired_internet=?, common_area_tv=?
-          WHERE id=? AND landlord_id=?
-        """, (
-            title, city, address, letting_type, bedrooms_total, gender_pref, bills_included,
-            shared_bathrooms, off_street_parking, local_parking, cctv, video_door_entry, bike_storage,
-            cleaning_service, wifi, wired_internet, common_area_tv, hid, lid
-        ))
-        conn.commit()
-        conn.close()
-        flash("House updated.", "ok")
-        return redirect(url_for("landlord_houses"))
-
-    # GET
-    form = dict(house)
-    conn.close()
-    return render_template("house_form.html", cities=cities, form=form, mode="edit", house=house)
-
-@app.route("/landlord/houses/<int:hid>/delete", methods=["POST"])
-def house_delete(hid):
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-    conn = get_db()
-    conn.execute("DELETE FROM houses WHERE id=? AND landlord_id=?", (hid, lid))
-    conn.commit()
-    conn.close()
-    flash("House deleted.", "ok")
-    return redirect(url_for("landlord_houses"))
-
-# Public property page (minimal placeholder)
-@app.route("/p/<int:hid>")
-def property_public(hid):
-    conn = get_db()
-    h = conn.execute("SELECT * FROM houses WHERE id=?", (hid,)).fetchone()
-    conn.close()
-    if not h:
-        return render_template("property.html", house=None), 404
-    return render_template("property.html", house=h)
-
-# =========================
-# Errors (JSON for .json endpoints)
+# Errors
 # =========================
 @app.errorhandler(404)
 def not_found(e):
     path = request.path or ""
     if path.endswith(".json"):
         return jsonify({"error": "not found", "path": path}), 404
-    cities = get_active_cities_safe()
+    cities = get_active_cities()
     return render_template("search.html", query={"error": "Page not found"}, cities=cities), 404
 
 @app.errorhandler(500)
@@ -801,7 +540,7 @@ def server_error(e):
         return jsonify({"error": "server error", "detail": str(e)}), 500
     if ADMIN_DEBUG:
         return f"Internal Server Error: {e}", 500
-    cities = get_active_cities_safe()
+    cities = get_active_cities()
     return render_template("search.html", query={"error": "Something went wrong"}, cities=cities), 500
 
 # =========================

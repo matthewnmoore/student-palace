@@ -1,55 +1,49 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>{% block title %}Student Palace{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ BUILD_VERSION }}">
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ BUILD_VERSION|urlencode }}">
 </head>
 <body>
-  <header class="site-header">
-    <div class="wrap flex-between">
-      <a href="{{ url_for('index') }}" class="logo-link">
-        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Student Palace" class="logo-img">
-      </a>
-      <nav class="nav">
-        <ul class="nav-buttons">
-          <li><a class="btn" href="{{ url_for('index') }}">Tenants</a></li>
-          {% if session.get('landlord_id') %}
-            <li><a class="btn" href="{{ url_for('dashboard') }}">Dashboard</a></li>
-            <li><a class="btn" href="{{ url_for('logout') }}">Logout</a></li>
-          {% else %}
-            <li><a class="btn" href="{{ url_for('landlords_entry') }}">Landlords</a></li>
-          {% endif %}
-          {% if session.get('is_admin') %}
-            <li><a class="btn btn-admin" href="{{ url_for('admin_cities') }}">Admin</a></li>
-          {% endif %}
-        </ul>
-      </nav>
-    </div>
-  </header>
 
-  <main>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash-wrap wrap">
-          {% for category, message in messages %}
-            <div class="flash {{ category }}">{{ message }}</div>
-          {% endfor %}
-        </div>
+<header class="navbar">
+  <div class="wrap flex-between">
+    <a class="logo" href="{{ url_for('index') }}">
+      <img class="logo-img" src="{{ url_for('static', filename='img/student-palace-logo.svg') }}" alt="Student Palace">
+    </a>
+    <nav class="nav-links">
+      <a class="btn btn-accent" href="{{ url_for('index') }}">Tenants</a>
+      <a class="btn" href="{{ url_for('landlords_entry') }}">Landlords</a>
+      {% if session.get('is_admin') %}
+        <a class="btn btn-outline" href="{{ url_for('admin_cities') }}">Admin</a>
       {% endif %}
-    {% endwith %}
+    </nav>
+  </div>
+</header>
 
-    {% block content %}{% endblock %}
-  </main>
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <section class="wrap">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </section>
+    {% endif %}
+  {% endwith %}
 
-  <footer class="site-footer">
-    <div class="wrap">
-      <p>&copy; {{ now().year }} Student Palace</p>
-      <p class="muted">Build {{ BUILD_VERSION }}</p>
-    </div>
-  </footer>
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <div class="wrap flex-between">
+    <div>© {{ now().year }} Student Palace</div>
+    <div class="small">Build: {{ BUILD_VERSION|default('', true) }}</div>
+  </div>
+</footer>
+
 </body>
 </html>
