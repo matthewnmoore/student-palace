@@ -1,15 +1,21 @@
+import os
 import sqlite3
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from datetime import datetime as dt
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 
-from models import get_db, is_admin  # uses the helpers you already have
+# We only rely on get_db from models; is_admin is defined locally here.
+from models import get_db  # noqa: F401
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
 
-# -------------------------------
-# Utilities (admin-local)
-# -------------------------------
+# -------------------------------------------------
+# Local helpers
+# -------------------------------------------------
+def is_admin() -> bool:
+    """Check admin session flag."""
+    return bool(session.get("is_admin"))
+
 
 def _has_column(conn, table, column):
     try:
@@ -22,8 +28,10 @@ def _has_column(conn, table, column):
 
 def _ensure_city_columns(conn):
     """
-    Add order_index (for reordering) and image_url (for future city images)
-    if they don't exist. Initialize order_index for existing rows.
+    Make sure cities has:
+      - order_index (for admin-controlled ordering)
+      - image_url (for optional city image on the homepage)
+    Initialize order_index for rows where it's NULL.
     """
     changed = False
 
@@ -38,13 +46,10 @@ def _ensure_city_columns(conn):
     if changed:
         conn.commit()
 
-    # Initialize order_index where it is NULL
-    # Use alphabetical order to preserve current UX.
-    # New rows will default to (max + 10) when inserted via this admin page.
+    # Initialize order_index (step by 10) for any rows still NULL
     cur = conn.execute("SELECT id FROM cities WHERE order_index IS NULL ORDER BY name ASC")
     rows = cur.fetchall()
     if rows:
-        # start at 10, step by 10 for easy inserts between
         idx = 10
         for r in rows:
             conn.execute("UPDATE cities SET order_index=? WHERE id=?", (idx, r["id"]))
@@ -59,17 +64,29 @@ def _next_order_index(conn):
     return int(m) + 10
 
 
-# -------------------------------
-# Auth
-# -------------------------------
+def _get_db():
+    # Tiny wrapper so we can swap easily if needed
+    return get_db()
 
+
+def _get_admin_token():
+    # Prefer models.ADMIN_TOKEN if present, otherwise env
+    try:
+        from models import ADMIN_TOKEN as MODELS_ADMIN_TOKEN  # type: ignore
+        return MODELS_ADMIN_TOKEN
+    except Exception:
+        return os.environ.get("ADMIN_TOKEN", "")
+
+
+# -------------------------------------------------
+# Auth
+# -------------------------------------------------
 @admin_bp.route("/login", methods=["GET", "POST"])
 def login():
-    from models import ADMIN_TOKEN  # keep config in models/env, re-use existing
     try:
         if request.method == "POST":
             token = (request.form.get("token") or "").strip()
-            if ADMIN_TOKEN and token == ADMIN_TOKEN:
+            if _get_admin_token() and token == _get_admin_token():
                 session["is_admin"] = True
                 flash("Admin session started.", "ok")
                 return redirect(url_for("admin.cities"))
@@ -88,18 +105,16 @@ def logout():
     return redirect(url_for("public.index"))
 
 
-# -------------------------------
-# Cities
-# -------------------------------
-
+# -------------------------------------------------
+# Cities (add / activate / deactivate / delete / reorder / set image_url)
+# -------------------------------------------------
 @admin_bp.route("/cities", methods=["GET", "POST"])
 def cities():
     if not is_admin():
         return redirect(url_for("admin.login"))
 
-    conn = get_db()
+    conn = _get_db()
     try:
-        # Make sure columns exist before any queries
         _ensure_city_columns(conn)
 
         if request.method == "POST":
@@ -141,8 +156,6 @@ def cities():
                 except Exception:
                     cid = 0
                 if cid:
-                    # Swap order_index with previous/next city in order.
-                    # We’ll step by 10s; nearest neighbor swap is fine.
                     row = conn.execute(
                         "SELECT id, order_index FROM cities WHERE id=?",
                         (cid,)
@@ -177,7 +190,6 @@ def cities():
                             flash("City reordered.", "ok")
 
             elif action == "update_image":
-                # Optional: admin can store an image URL for city cards (future)
                 try:
                     cid = int(request.form.get("city_id") or "0")
                 except Exception:
@@ -188,7 +200,6 @@ def cities():
                     conn.commit()
                     flash("City image updated.", "ok")
 
-        # Always show with ordering first, then name
         rows = conn.execute(
             "SELECT * FROM cities ORDER BY order_index ASC, name ASC"
         ).fetchall()
@@ -198,18 +209,16 @@ def cities():
         conn.close()
 
 
-# -------------------------------
-# Landlords list + detail
-# (kept identical to your previous behavior)
-# -------------------------------
-
+# -------------------------------------------------
+# Landlords list + detail (unchanged behavior)
+# -------------------------------------------------
 @admin_bp.route("/landlords", methods=["GET"])
 def landlords():
     if not is_admin():
         return redirect(url_for("admin.login"))
-    from models import get_db
+
     q = (request.args.get("q") or "").strip().lower()
-    conn = get_db()
+    conn = _get_db()
     try:
         if q:
             rows = conn.execute("""
@@ -243,12 +252,13 @@ def landlord_detail(lid):
         return redirect(url_for("admin.login"))
 
     from werkzeug.security import generate_password_hash
-    from models import slugify
+    from models import slugify  # re-use your existing slugify
 
-    conn = get_db()
+    conn = _get_db()
     try:
         if request.method == "POST":
             action = request.form.get("action") or ""
+
             if action == "update_email":
                 new_email = (request.form.get("email") or "").strip().lower()
                 if new_email:
