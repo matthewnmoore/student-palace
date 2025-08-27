@@ -6,40 +6,33 @@
   <div class="flex-between" style="margin-bottom:14px">
     <h1 class="mt-0">Admin · Cities</h1>
     <div class="inline-actions">
-      <a class="btn btn-outline" href="{{ url_for('admin.logout') }}">Admin logout</a>
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Admin logout</a>
     </div>
   </div>
 
   <div class="card" style="margin-bottom:14px">
     <h2 class="mt-0">Add a city</h2>
-    <form method="post" class="grid grid-2" action="{{ url_for('admin.cities') }}">
+    <form method="post" class="grid grid-2" action="{{ url_for('admin.admin_cities') }}">
       <input type="hidden" name="action" value="add">
-      <label class="field">
+      <label class="field" style="grid-column:1/-1">
         <span class="label">City name</span>
         <input type="text" name="name" required placeholder="e.g., Cardiff">
       </label>
-      <label class="field">
-        <span class="label">Image URL (optional)</span>
-        <input type="url" name="image_url" placeholder="https://example.com/cardiff.jpg">
-        <p class="help">Use a square(ish) image if possible. You can host it anywhere for now.</p>
-      </label>
-      <div style="grid-column:1 / -1">
+      <div style="grid-column:1/-1">
         <button class="btn" type="submit">Add city</button>
       </div>
     </form>
   </div>
 
   <div class="card">
-    <h2 class="mt-0">Cities (Up/Down to reorder)</h2>
+    <h2 class="mt-0">Cities</h2>
     {% if cities and cities|length %}
       <table class="table" style="margin-top:10px">
         <thead>
           <tr>
             <th style="width:60px">ID</th>
             <th>Name</th>
-            <th>Image URL</th>
-            <th style="width:110px">Active</th>
-            <th style="width:220px">Order</th>
+            <th style="width:120px">Status</th>
             <th style="width:320px">Actions</th>
           </tr>
         </thead>
@@ -47,17 +40,7 @@
           {% for c in cities %}
             <tr>
               <td>{{ c.id }}</td>
-              <td>
-                <form method="post" action="{{ url_for('admin.cities') }}">
-                  <input type="hidden" name="action" value="update">
-                  <input type="hidden" name="city_id" value="{{ c.id }}">
-                  <input type="text" name="name" value="{{ c.name }}" style="width:180px">
-              </td>
-              <td>
-                  <input type="url" name="image_url" value="{{ c.image_url or '' }}" placeholder="https://..." style="width:260px">
-                  <button class="btn btn-outline" type="submit">Save</button>
-                </form>
-              </td>
+              <td>{{ c.name }}</td>
               <td>
                 {% if c.is_active %}
                   <span class="badge">Active</span>
@@ -67,34 +50,20 @@
               </td>
               <td>
                 <div class="inline-actions">
-                  <form method="post" action="{{ url_for('admin.cities') }}">
-                    <input type="hidden" name="action" value="move_up">
-                    <input type="hidden" name="city_id" value="{{ c.id }}">
-                    <button class="btn btn-outline" type="submit">↑ Up</button>
-                  </form>
-                  <form method="post" action="{{ url_for('admin.cities') }}">
-                    <input type="hidden" name="action" value="move_down">
-                    <input type="hidden" name="city_id" value="{{ c.id }}">
-                    <button class="btn btn-outline" type="submit">↓ Down</button>
-                  </form>
-                </div>
-              </td>
-              <td>
-                <div class="inline-actions">
                   {% if not c.is_active %}
-                    <form method="post" action="{{ url_for('admin.cities') }}">
+                    <form method="post" action="{{ url_for('admin.admin_cities') }}">
                       <input type="hidden" name="action" value="activate">
                       <input type="hidden" name="city_id" value="{{ c.id }}">
                       <button class="btn" type="submit">Activate</button>
                     </form>
                   {% else %}
-                    <form method="post" action="{{ url_for('admin.cities') }}">
+                    <form method="post" action="{{ url_for('admin.admin_cities') }}">
                       <input type="hidden" name="action" value="deactivate">
                       <input type="hidden" name="city_id" value="{{ c.id }}">
                       <button class="btn btn-outline" type="submit">Disable</button>
                     </form>
                   {% endif %}
-                  <form method="post" action="{{ url_for('admin.cities') }}" onsubmit="return confirm('Delete {{ c.name }}?')">
+                  <form method="post" action="{{ url_for('admin.admin_cities') }}" onsubmit="return confirm('Delete {{ c.name }}?')">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="city_id" value="{{ c.id }}">
                     <button class="btn btn-admin" type="submit">Delete</button>
