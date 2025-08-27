@@ -4,22 +4,19 @@
 <section class="wrap">
 
   <!-- HERO / INTRO -->
-  <div class="card center" style="border-left:6px solid var(--brand)">
+  <div class="card hero-centered" style="border-left:6px solid var(--brand)">
     <h1 class="mt-0" style="margin-bottom:6px">Your next student home — without the faff.</h1>
-    <p class="muted" style="margin-bottom:6px">
-      Look out for the ✅ green tick – it means properties from verified landlords and agents.
-    </p>
     <p class="muted" style="margin-bottom:0">
-      Search for rooms, flats or houses just for Students.
+      Look out for the ✅ green tick – it means properties from verified landlords and agents.
     </p>
   </div>
 
   <!-- SEARCH -->
   <div class="card">
     <h2 class="mt-0">Search verified properties</h2>
-    <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2">
-      <label class="field row">
-        <span class="label inline">City</span>
+    <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2 form-compact-labels">
+      <label class="field">
+        <span class="label-inline">City</span>
         <select name="city">
           <option value="">Any city</option>
           {% for c in cities %}
@@ -28,8 +25,8 @@
         </select>
       </label>
 
-      <label class="field row">
-        <span class="label inline">Group size</span>
+      <label class="field">
+        <span class="label-inline">Group size</span>
         <select name="group_size">
           <option value="">Any</option>
           {% for n in range(1,10) %}
@@ -38,8 +35,8 @@
         </select>
       </label>
 
-      <label class="field row">
-        <span class="label inline">I want a house that is</span>
+      <label class="field">
+        <span class="label-inline">I want a house that is</span>
         <select name="gender" required>
           <option value="" selected>Please choose one</option>
           <option value="Male">Male</option>
@@ -48,9 +45,9 @@
         </select>
       </label>
 
-      <label class="field" style="grid-column:1 / -1">
+      <label class="field" style="grid-column:1/-1">
         <span class="label">Preferences</span>
-        <div class="pref-row">
+        <div class="prefs-row">
           <label><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
           <label><input type="checkbox" name="bills_included"> All bills included</label>
         </div>
@@ -71,6 +68,28 @@
       <a class="btn btn-outline" href="{{ url_for('public.index') }}">Back to home</a>
     </div>
   </div>
+
+  <!-- CITY GRID (order per admin, only active cities) -->
+  {% if cities_with_meta and cities_with_meta|length %}
+    <div class="card" style="padding:16px">
+      <div class="city-grid">
+        {% for c in cities_with_meta %}
+          <a class="city-card" href="{{ url_for('public.search') }}?city={{ c.name|urlencode }}">
+            {% if c.image_url %}
+              <div class="city-thumb" style="background-image:url('{{ c.image_url }}')">
+                <span class="city-name">{{ c.name }}</span>
+              </div>
+            {% else %}
+              <div class="city-thumb city-thumb--placeholder">
+                <span class="city-initial">{{ c.name[:1] }}</span>
+                <span class="city-name">{{ c.name }}</span>
+              </div>
+            {% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
 
 </section>
 {% endblock %}
