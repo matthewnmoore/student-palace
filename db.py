@@ -19,6 +19,16 @@ def table_has_column(conn, table, column):
     except Exception:
         return False
 
+def table_exists(conn, table):
+    try:
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table,)
+        ).fetchone()
+        return bool(row)
+    except Exception:
+        return False
+
 def ensure_db():
     conn = get_db()
     c = conn.cursor()
@@ -105,23 +115,18 @@ def ensure_db():
     );
     """)
 
-    # House images (processed, resized + watermarked)
+    # NEW: House images
     c.execute("""
     CREATE TABLE IF NOT EXISTS house_images(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       house_id INTEGER NOT NULL,
-      file_name TEXT NOT NULL,          -- basename only, e.g. abc123.jpg
-      file_path TEXT NOT NULL,          -- relative path under /static, e.g. uploads/houses/abc123.jpg
-      width INTEGER NOT NULL,
-      height INTEGER NOT NULL,
-      bytes INTEGER NOT NULL,
-      is_primary INTEGER NOT NULL DEFAULT 0,  -- 1 = primary image for the house
+      filename TEXT NOT NULL,            -- stored filename (resized + watermarked)
+      is_primary INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE
     );
     """)
-    c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_house_id ON house_images(house_id);")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_primary ON house_images(house_id,is_primary);")
 
     conn.commit()
 
@@ -168,5 +173,38 @@ def ensure_db():
                END
         """)
         conn.commit()
+
+    # house_images table/columns safety (future-proof)
+    if not table_exists(conn, "house_images"):
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS house_images(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          house_id INTEGER NOT NULL,
+          filename TEXT NOT NULL,
+          is_primary INTEGER NOT NULL DEFAULT 0,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE
+        );
+        """)
+        conn.commit()
+    else:
+        # Ensure required columns exist (in case of older partial tables)
+        for col_def in [
+            ("filename", "TEXT NOT NULL", "''"),
+            ("is_primary", "INTEGER NOT NULL DEFAULT 0", "0"),
+            ("sort_order", "INTEGER NOT NULL DEFAULT 0", "0"),
+            ("created_at", "TEXT NOT NULL", "''"),
+        ]:
+            name, ddl, default_val = col_def
+            if not table_has_column(conn, "house_images", name):
+                conn.execute(f"ALTER TABLE house_images ADD COLUMN {name} {ddl};")
+                conn.commit()
+                # Backfill minimal defaults where needed
+                if default_val != "''":  # numeric defaults
+                    conn.execute(f"UPDATE house_images SET {name}={default_val} WHERE {name} IS NULL;")
+                else:
+                    conn.execute(f"UPDATE house_images SET {name}='' WHERE {name} IS NULL;")
+                conn.commit()
 
     conn.close()
