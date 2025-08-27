@@ -115,18 +115,24 @@ def ensure_db():
     );
     """)
 
-    # NEW: House images
+    # House images (processed, resized + watermarked)
     c.execute("""
     CREATE TABLE IF NOT EXISTS house_images(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       house_id INTEGER NOT NULL,
-      filename TEXT NOT NULL,            -- stored filename (resized + watermarked)
+      filename TEXT NOT NULL,            -- stored filename (basename, e.g. abc123.jpg)
+      file_path TEXT NOT NULL,           -- relative path under /static, e.g. uploads/houses/abc123.jpg
+      width INTEGER NOT NULL,
+      height INTEGER NOT NULL,
+      bytes INTEGER NOT NULL,
       is_primary INTEGER NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE
     );
     """)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_house ON house_images(house_id);")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_primary ON house_images(house_id,is_primary);")
 
     conn.commit()
 
@@ -174,13 +180,17 @@ def ensure_db():
         """)
         conn.commit()
 
-    # house_images table/columns safety (future-proof)
+    # house_images table/columns safety/migration (in case of older partial versions)
     if not table_exists(conn, "house_images"):
         conn.execute("""
         CREATE TABLE IF NOT EXISTS house_images(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           house_id INTEGER NOT NULL,
           filename TEXT NOT NULL,
+          file_path TEXT NOT NULL,
+          width INTEGER NOT NULL,
+          height INTEGER NOT NULL,
+          bytes INTEGER NOT NULL,
           is_primary INTEGER NOT NULL DEFAULT 0,
           sort_order INTEGER NOT NULL DEFAULT 0,
           created_at TEXT NOT NULL,
@@ -189,22 +199,24 @@ def ensure_db():
         """)
         conn.commit()
     else:
-        # Ensure required columns exist (in case of older partial tables)
-        for col_def in [
-            ("filename", "TEXT NOT NULL", "''"),
-            ("is_primary", "INTEGER NOT NULL DEFAULT 0", "0"),
+        for name, ddl, default_val in [
+            ("file_path", "TEXT NOT NULL", "''"),
+            ("width", "INTEGER NOT NULL DEFAULT 0", "0"),
+            ("height", "INTEGER NOT NULL DEFAULT 0", "0"),
+            ("bytes", "INTEGER NOT NULL DEFAULT 0", "0"),
             ("sort_order", "INTEGER NOT NULL DEFAULT 0", "0"),
-            ("created_at", "TEXT NOT NULL", "''"),
         ]:
-            name, ddl, default_val = col_def
             if not table_has_column(conn, "house_images", name):
                 conn.execute(f"ALTER TABLE house_images ADD COLUMN {name} {ddl};")
                 conn.commit()
-                # Backfill minimal defaults where needed
-                if default_val != "''":  # numeric defaults
+                if default_val != "''":
                     conn.execute(f"UPDATE house_images SET {name}={default_val} WHERE {name} IS NULL;")
                 else:
                     conn.execute(f"UPDATE house_images SET {name}='' WHERE {name} IS NULL;")
                 conn.commit()
+
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_house_images_house ON house_images(house_id);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_house_images_primary ON house_images(house_id,is_primary);")
+        conn.commit()
 
     conn.close()
