@@ -17,8 +17,8 @@
       <div>
         <h3 class="mt-0" style="margin-bottom:6px">Upload photos</h3>
         <p class="help" style="margin:0">
-          Add high-quality images (JPG/PNG). We’ll resize and watermark automatically.
-          Max {{ max_images }} photos per house. You can still re-order by choosing a new <em>Primary</em>.
+          Phase 1: UI only — uploading is disabled until we wire processing (resize + watermark).
+          Max {{ max_images }} photos per house.
         </p>
       </div>
 
@@ -30,11 +30,11 @@
         <input type="file"
                name="photos"
                accept="image/jpeg,image/png"
-               {% if remaining <= 0 %}disabled{% endif %}
+               disabled
                multiple
                style="padding:8px; border:1px solid var(--border); border-radius:10px; background:#fff">
-        <button class="btn" type="submit" {% if remaining <= 0 %}disabled{% endif %}>
-          Upload{% if remaining > 0 %} ({{ remaining }} left){% endif %}
+        <button class="btn" type="submit" disabled>
+          Upload ({{ remaining }} left)
         </button>
       </form>
     </div>
@@ -48,7 +48,7 @@
         {% if images and images|length %}
           {{ images|length }} / {{ max_images }} uploaded
         {% else %}
-          No photos yet — add some above.
+          No photos yet — upload will be enabled soon.
         {% endif %}
       </div>
     </div>
@@ -69,25 +69,23 @@
 
             <div class="meta">
               <div class="meta-left">
-                <div class="muted small">
-                  {{ img.width }}×{{ img.height }} · {{ (img.bytes / 1024)|round(0) }} KB
-                </div>
+                {# Size info will be added in Phase 2 when we store width/height/bytes #}
               </div>
               <div class="meta-actions">
                 {% if not img.is_primary %}
                   <form method="post"
-                        action="{{ url_for('landlord.house_photo_set_primary', hid=house.id, img_id=img.id) }}"
+                        action="{{ url_for('landlord.house_photos_primary', hid=house.id, img_id=img.id) }}"
                         style="display:inline">
-                    <button class="btn btn-outline" type="submit">Make primary</button>
+                    <button class="btn btn-outline" type="submit" disabled>Make primary</button>
                   </form>
                 {% else %}
                   <button class="btn" type="button" disabled>Primary</button>
                 {% endif %}
                 <form method="post"
-                      action="{{ url_for('landlord.house_photo_delete', hid=house.id, img_id=img.id) }}"
+                      action="{{ url_for('landlord.house_photos_delete', hid=house.id, img_id=img.id) }}"
                       style="display:inline"
                       onsubmit="return confirm('Delete this photo?');">
-                  <button class="btn btn-admin" type="submit">Delete</button>
+                  <button class="btn btn-admin" type="submit" disabled>Delete</button>
                 </form>
               </div>
             </div>
