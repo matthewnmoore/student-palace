@@ -8,7 +8,7 @@ from flask import (
 from werkzeug.security import generate_password_hash
 from datetime import datetime as dt
 
-# Pull DB helpers from your shared module
+# Use your existing helper
 from models import get_db
 
 # ---------------------------------
@@ -16,7 +16,7 @@ from models import get_db
 # ---------------------------------
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
-# Small helper
+# Small helpers
 def _is_admin() -> bool:
     return bool(session.get("is_admin"))
 
@@ -120,10 +120,13 @@ def admin_landlords():
     try:
         if q:
             rows = conn.execute("""
-                SELECT l.id, l.email, l.created_at, l.is_verified,
+                SELECT l.id,
+                       l.email,
+                       l.created_at,
                        COALESCE(p.display_name,'') AS display_name,
-                       COALESCE(p.public_slug,'') AS public_slug,
-                       COALESCE(p.profile_views,0) AS profile_views
+                       COALESCE(p.public_slug,'')  AS public_slug,
+                       COALESCE(p.profile_views,0) AS profile_views,
+                       COALESCE(p.is_verified,0)   AS is_verified
                 FROM landlords l
                 LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
                 WHERE LOWER(l.email) LIKE ? OR LOWER(COALESCE(p.display_name,'')) LIKE ?
@@ -131,10 +134,13 @@ def admin_landlords():
             """, (f"%{q}%", f"%{q}%")).fetchall()
         else:
             rows = conn.execute("""
-                SELECT l.id, l.email, l.created_at, l.is_verified,
+                SELECT l.id,
+                       l.email,
+                       l.created_at,
                        COALESCE(p.display_name,'') AS display_name,
-                       COALESCE(p.public_slug,'') AS public_slug,
-                       COALESCE(p.profile_views,0) AS profile_views
+                       COALESCE(p.public_slug,'')  AS public_slug,
+                       COALESCE(p.profile_views,0) AS profile_views,
+                       COALESCE(p.is_verified,0)   AS is_verified
                 FROM landlords l
                 LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
                 ORDER BY l.created_at DESC
@@ -183,15 +189,29 @@ def admin_landlord_detail(lid: int):
                 conn.commit()
                 flash("Password reset.", "ok")
 
+            elif action == "set_verified":
+                # Ensure profile row exists, then set flag from checkbox
+                conn.execute(
+                    "INSERT OR IGNORE INTO landlord_profiles(landlord_id) VALUES(?)",
+                    (lid,)
+                )
+                is_verified = 1 if request.form.get("is_verified") == "on" else 0
+                conn.execute(
+                    "UPDATE landlord_profiles SET is_verified=? WHERE landlord_id=?",
+                    (is_verified, lid)
+                )
+                conn.commit()
+                flash("Verification status updated.", "ok")
+
             elif action == "update_profile":
                 display_name = (request.form.get("display_name") or "").strip()
-                phone = (request.form.get("phone") or "").strip()
-                website = (request.form.get("website") or "").strip()
-                bio = (request.form.get("bio") or "").strip()
+                phone        = (request.form.get("phone") or "").strip()
+                website      = (request.form.get("website") or "").strip()
+                bio          = (request.form.get("bio") or "").strip()
 
+                # Ensure profile row
                 conn.execute(
-                    "INSERT OR IGNORE INTO landlord_profiles(landlord_id)"
-                    " VALUES(?)",
+                    "INSERT OR IGNORE INTO landlord_profiles(landlord_id) VALUES(?)",
                     (lid,)
                 )
                 prof = conn.execute(
@@ -199,6 +219,7 @@ def admin_landlord_detail(lid: int):
                     (lid,)
                 ).fetchone()
 
+                # Auto-generate slug if missing and we have a display name
                 slug = prof["public_slug"] if prof else None
                 if not slug and display_name:
                     s = (display_name or "").strip().lower()
@@ -231,20 +252,8 @@ def admin_landlord_detail(lid: int):
                 conn.commit()
                 flash("Profile updated.", "ok")
 
-            elif action == "toggle_verified":
-                landlord = conn.execute(
-                    "SELECT is_verified FROM landlords WHERE id=?",
-                    (lid,)
-                ).fetchone()
-                new_val = 0 if landlord and landlord["is_verified"] else 1
-                conn.execute(
-                    "UPDATE landlords SET is_verified=? WHERE id=?",
-                    (new_val, lid)
-                )
-                conn.commit()
-                flash("Verification status updated.", "ok")
-
             elif action == "delete_landlord":
+                # Remove profile then landlord (safe even if FK pragma off)
                 conn.execute("DELETE FROM landlord_profiles WHERE landlord_id=?", (lid,))
                 conn.execute("DELETE FROM landlords WHERE id=?", (lid,))
                 conn.commit()
