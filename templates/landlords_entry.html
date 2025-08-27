@@ -1,16 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Landlords – Student Palace{% endblock %}
+
 {% block content %}
 <section class="wrap">
+
   <div class="card">
-    <h1 class="mt-0">For Landlords &amp; Agents</h1>
-    <p class="muted" style="margin-bottom:14px">
-      List your rooms, flats or houses and reach students directly.
-    </p>
-    <div class="inline-actions" style="margin-top:8px">
+    <h1 class="mt-0">For landlords & agents</h1>
+    <p class="muted">List your student properties, manage rooms, and verify your account for the green tick.</p>
+
+    <div class="inline-actions" style="margin-top:12px">
       <a class="btn" href="{{ url_for('auth.login') }}">Log in</a>
-      <a class="btn btn-outline" href="{{ url_for('auth.signup') }}">Create account</a>
+      <a class="btn btn-outline" href="{{ url_for('auth.register') if 'auth.register' in current_app.view_functions else url_for('auth.login') }}">Create account</a>
     </div>
   </div>
+
+  <div class="card">
+    <h2 class="mt-0">What you get</h2>
+    <ul>
+      <li>Manage houses and rooms</li>
+      <li>Upload photos (with size optimisation)</li>
+      <li>Verified badge for trusted listings</li>
+    </ul>
+  </div>
+
 </section>
 {% endblock %}
