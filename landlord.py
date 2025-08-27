@@ -52,6 +52,10 @@ def landlord_profile():
             phone = (request.form.get("phone") or "").strip()
             website = (request.form.get("website") or "").strip()
             bio = (request.form.get("bio") or "").strip()
+            role = (request.form.get("role") or "owner").strip().lower()
+            if role not in ("owner", "agent"):
+                role = "owner"
+
             slug = prof["public_slug"]
             if not slug and display_name:
                 base = slugify(display_name)
@@ -63,15 +67,18 @@ def landlord_profile():
                     candidate = f"{base}-{i}"
                     i += 1
                 slug = candidate
+
             conn.execute("""
                 UPDATE landlord_profiles
-                   SET display_name=?, phone=?, website=?, bio=?, public_slug=COALESCE(?, public_slug)
+                   SET display_name=?,
+                       phone=?,
+                       website=?,
+                       bio=?,
+                       role=?,
+                       public_slug=COALESCE(?, public_slug)
                  WHERE landlord_id=?
-            """, (display_name, phone, website, bio, slug, lid))
+            """, (display_name, phone, website, bio, role, slug, lid))
             conn.commit()
-            prof = conn.execute(
-                "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
-            ).fetchone()
             conn.close()
             flash("Profile saved.", "ok")
             return redirect(url_for("landlord.landlord_profile"))
@@ -140,7 +147,6 @@ def landlord_houses():
     if r: return r
     lid = current_landlord_id()
     conn = get_db()
-    # ✅ get verification from landlord_profiles (your DB schema)
     prof = conn.execute(
         "SELECT is_verified FROM landlord_profiles WHERE landlord_id=?", (lid,)
     ).fetchone()
