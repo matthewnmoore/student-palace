@@ -36,6 +36,7 @@ def landlord_profile():
         "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
     ).fetchone()
     if not prof:
+        # role defaults to 'owner' per schema
         conn.execute(
             "INSERT INTO landlord_profiles(landlord_id, display_name) VALUES (?,?)",
             (lid, "")
@@ -52,6 +53,12 @@ def landlord_profile():
             phone = (request.form.get("phone") or "").strip()
             website = (request.form.get("website") or "").strip()
             bio = (request.form.get("bio") or "").strip()
+
+            # NEW: read & validate role from form (owner | agent)
+            incoming_role = (request.form.get("role") or (prof["role"] if prof and "role" in prof.keys() else "owner")).strip().lower()
+            role = incoming_role if incoming_role in ("owner", "agent") else "owner"
+
+            # Generate slug once, when first saving a display name
             slug = prof["public_slug"]
             if not slug and display_name:
                 base = slugify(display_name)
@@ -63,15 +70,20 @@ def landlord_profile():
                     candidate = f"{base}-{i}"
                     i += 1
                 slug = candidate
+
+            # UPDATED: also persist role
             conn.execute("""
                 UPDATE landlord_profiles
-                   SET display_name=?, phone=?, website=?, bio=?, public_slug=COALESCE(?, public_slug)
+                   SET display_name=?,
+                       phone=?,
+                       website=?,
+                       bio=?,
+                       role=?,
+                       public_slug=COALESCE(?, public_slug)
                  WHERE landlord_id=?
-            """, (display_name, phone, website, bio, slug, lid))
+            """, (display_name, phone, website, bio, role, slug, lid))
             conn.commit()
-            prof = conn.execute(
-                "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
-            ).fetchone()
+
             conn.close()
             flash("Profile saved.", "ok")
             return redirect(url_for("landlord.landlord_profile"))
@@ -161,7 +173,7 @@ def house_new():
     lid = current_landlord_id()
     cities = get_active_cities_safe()
 
-    # pull default listing type from profile.role
+    # default listing type from profile.role
     conn = get_db()
     prof = conn.execute(
         "SELECT role FROM landlord_profiles WHERE landlord_id=?", (lid,)
@@ -201,7 +213,6 @@ def house_new():
         if errors:
             for e in errors: flash(e, "error")
             conn.close()
-            # keep their chosen listing_type in the form dict
             f = dict(request.form)
             f["listing_type"] = listing_type
             return render_template("house_form.html", cities=cities, form=f, mode="new", default_listing_type=default_listing_type)
@@ -222,7 +233,6 @@ def house_new():
         flash("House added.", "ok")
         return redirect(url_for("landlord.landlord_houses"))
 
-    # GET
     conn.close()
     return render_template("house_form.html", cities=cities, form={}, mode="new", default_listing_type=default_listing_type)
 
@@ -239,7 +249,6 @@ def house_edit(hid):
         flash("House not found.", "error")
         return redirect(url_for("landlord.landlord_houses"))
 
-    # default for edit is the house’s current listing_type (fallback to profile)
     prof = conn.execute(
         "SELECT role FROM landlord_profiles WHERE landlord_id=?", (lid,)
     ).fetchone()
@@ -300,7 +309,6 @@ def house_edit(hid):
         flash("House updated.", "ok")
         return redirect(url_for("landlord.landlord_houses"))
 
-    # GET
     form = dict(house)
     conn.close()
     return render_template("house_form.html", cities=cities, form=form, mode="edit", house=house, default_listing_type=default_listing_type)
