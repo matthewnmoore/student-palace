@@ -26,14 +26,14 @@ def dashboard():
     ).fetchall()
     conn.close()
 
-    # UK date for "Member since"
+    # UK-style "Member since"
     created_at_uk = None
     try:
         created_at_uk = dt.fromisoformat(landlord["created_at"]).strftime("%d %B %Y")
     except Exception:
         created_at_uk = landlord["created_at"]
 
-    # Role label
+    # role label
     role_raw = (profile["role"] if profile and "role" in profile.keys() else "owner") or "owner"
     role_label = "Owner" if role_raw == "owner" else "Agent"
 
@@ -342,46 +342,6 @@ def house_delete(hid):
     flash("House deleted.", "ok")
     return redirect(url_for("landlord.landlord_houses"))
 
-# ---------- Photos (Phase 1: UI only, stub actions) ----------
-@landlord_bp.route("/landlord/houses/<int:hid>/photos")
-def house_photos(hid):
-    """Simple manager page (no DB yet)."""
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-    conn = get_db()
-    house = owned_house_or_none(conn, hid, lid)
-    conn.close()
-    if not house:
-        flash("House not found.", "error")
-        return redirect(url_for("landlord.landlord_houses"))
-
-    # Phase 1: no photos stored yet
-    photos = []  # list of dicts later; empty for now
-    return render_template("house_photos.html", house=house, photos=photos)
-
-@landlord_bp.route("/landlord/houses/<int:hid>/photos/upload", methods=["POST"])
-def house_photos_upload(hid):
-    """Stub: we’ll wire processing/storage in Phase 2."""
-    r = require_landlord()
-    if r: return r
-    flash("Photo uploads are coming soon. (UI stub)", "error")
-    return redirect(url_for("landlord.house_photos", hid=hid))
-
-@landlord_bp.route("/landlord/houses/<int:hid>/photos/<int:img_id>/primary", methods=["POST"])
-def house_photos_primary(hid, img_id):
-    r = require_landlord()
-    if r: return r
-    flash("Setting a primary photo will work once images are stored. (UI stub)", "error")
-    return redirect(url_for("landlord.house_photos", hid=hid))
-
-@landlord_bp.route("/landlord/houses/<int:hid>/photos/<int:img_id>/delete", methods=["POST"])
-def house_photos_delete(hid, img_id):
-    r = require_landlord()
-    if r: return r
-    flash("Deleting photos will work once images are stored. (UI stub)", "error")
-    return redirect(url_for("landlord.house_photos", hid=hid))
-
 # -------- Rooms helpers --------
 def _room_form_values(request):
     name = (request.form.get("name") or "").strip()
@@ -412,6 +372,7 @@ def _room_counts(conn, hid):
     cnt = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
     return max_rooms, int(cnt)
 
+# -------- Rooms CRUD --------
 @landlord_bp.route("/landlord/houses/<int:hid>/rooms")
 def rooms_list(hid):
     r = require_landlord()
@@ -532,3 +493,63 @@ def room_delete(hid, rid):
     conn.close()
     flash("Room deleted.", "ok")
     return redirect(url_for("landlord.rooms_list", hid=hid))
+
+# -------------------------------
+# Photos (Phase 1: UI only)
+# -------------------------------
+
+@landlord_bp.route("/landlord/houses/<int:hid>/photos")
+def house_photos(hid):
+    """Render the photos page for a house (no upload/processing yet)."""
+    r = require_landlord()
+    if r: return r
+    lid = current_landlord_id()
+    conn = get_db()
+    house = owned_house_or_none(conn, hid, lid)
+    if not house:
+        conn.close()
+        flash("House not found.", "error")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    # Load any existing photos (will be empty until Phase 2)
+    rows = conn.execute("""
+        SELECT id, file_path, is_primary
+          FROM house_images
+         WHERE house_id=?
+         ORDER BY is_primary DESC, id ASC
+    """, (hid,)).fetchall()
+    conn.close()
+
+    photos = []
+    for r_ in rows:
+        photos.append({
+            "id": r_["id"],
+            "is_primary": bool(r_["is_primary"]),
+            "url": url_for("static", filename=r_["file_path"]),
+        })
+
+    return render_template("house_photos.html", house=house, photos=photos)
+
+@landlord_bp.route("/landlord/houses/<int:hid>/photos/upload", methods=["POST"])
+def house_photos_upload(hid):
+    """Stub: uploading disabled until Phase 2 processing is added."""
+    r = require_landlord()
+    if r: return r
+    flash("Photo uploading will be enabled in the next step.", "error")
+    return redirect(url_for("landlord.house_photos", hid=hid))
+
+@landlord_bp.route("/landlord/houses/<int:hid>/photos/<int:img_id>/primary", methods=["POST"])
+def house_photos_primary(hid, img_id):
+    """Stub: marking primary will be enabled in the next step."""
+    r = require_landlord()
+    if r: return r
+    flash("Setting a primary photo will be enabled in the next step.", "error")
+    return redirect(url_for("landlord.house_photos", hid=hid))
+
+@landlord_bp.route("/landlord/houses/<int:hid>/photos/<int:img_id>/delete", methods=["POST"])
+def house_photos_delete(hid, img_id):
+    """Stub: deleting will be enabled in the next step."""
+    r = require_landlord()
+    if r: return r
+    flash("Deleting photos will be enabled in the next step.", "error")
+    return redirect(url_for("landlord.house_photos", hid=hid))
