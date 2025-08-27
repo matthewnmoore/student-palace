@@ -1,45 +1,24 @@
+# public.py
 from flask import Blueprint, render_template, request
 from datetime import datetime as dt
 
-from models import get_db
+# Import helpers from your models module
+from models import get_active_city_names
 
-bp = Blueprint("public", __name__)
+# --- Blueprint ---
+public_bp = Blueprint("public", __name__)
 
-# ---------------------------
-# Helpers
-# ---------------------------
+# --- Routes ---
 
-def _get_active_cities_list():
-    """Return active city names in admin-defined order."""
-    conn = get_db()
-    rows = conn.execute(
-        "SELECT name FROM cities WHERE is_active=1 ORDER BY sort_order ASC, name ASC"
-    ).fetchall()
-    conn.close()
-    return [r["name"] for r in rows]
-
-def _get_active_cities_rows():
-    """Return active city rows with image_url for the home page grid."""
-    conn = get_db()
-    rows = conn.execute("""
-        SELECT name, image_url
-        FROM cities
-        WHERE is_active=1
-        ORDER BY sort_order ASC, name ASC
-    """).fetchall()
-    conn.close()
-    return rows
-
-# ---------------------------
-# Routes
-# ---------------------------
-
-@bp.route("/")
+@public_bp.route("/")
 def index():
-    # City list for selects
-    cities = _get_active_cities_list()
+    """
+    Home page: shows hero, search form, and featured card.
+    Expects a list of city names for the selects and copy blocks.
+    """
+    cities = get_active_city_names(order_by_admin=True)
 
-    # Simple featured placeholder (can be wired later)
+    # Simple featured stub (can be wired to DB later)
     featured = {
         "title": "Spacious 5-bed student house",
         "city": cities[0] if cities else "Leeds",
@@ -47,28 +26,27 @@ def index():
         "badges": ["Bills included", "Close to campus", "Wi-Fi"],
         "image": "",
         "link": "#",
+        "generated_at": dt.utcnow().isoformat()
     }
 
-    # City cards (with image overlays)
-    cities_with_meta = _get_active_cities_rows()
+    return render_template("index.html", cities=cities, featured=featured)
 
-    return render_template(
-        "index.html",
-        cities=cities,
-        featured=featured,
-        cities_with_meta=cities_with_meta,
-    )
 
-@bp.route("/search")
+@public_bp.route("/search")
 def search():
-    cities = _get_active_cities_list()
+    """
+    Basic search echo (DB wiring comes later).
+    Keeps params compatible with current templates.
+    """
+    cities = get_active_city_names(order_by_admin=True)
+
     q = {
         "city": request.args.get("city", ""),
         "group_size": request.args.get("group_size", ""),
         "gender": request.args.get("gender", ""),
         "ensuite": "on" if request.args.get("ensuite") else "",
         "bills_included": "on" if request.args.get("bills_included") else "",
-        "error": "",
+        "error": None
     }
-    # (Results come later when DB search is wired.)
+
     return render_template("search.html", query=q, cities=cities)
