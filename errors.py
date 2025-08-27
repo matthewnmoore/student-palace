@@ -1,35 +1,32 @@
-from flask import Blueprint, jsonify, request
+# errors.py
+from flask import render_template
 
-errors_bp = Blueprint("errors", __name__)
+def register_error_handlers(app):
+    @app.errorhandler(404)
+    def not_found(e):
+        # Import inside the handler to avoid circular imports
+        try:
+            from models import get_active_cities_safe
+            cities = get_active_cities_safe()
+        except Exception:
+            cities = []
+        return render_template(
+            "search.html",
+            query={"error": "Page not found"},
+            cities=cities
+        ), 404
 
-@errors_bp.app_errorhandler(404)
-def not_found(e):
-    # For JSON-ish requests, return JSON
-    path = request.path or ""
-    if path.endswith(".json") or "application/json" in (request.headers.get("Accept") or ""):
-        return jsonify({"error": "not found", "path": path}), 404
-    # Keep it dead-simple to avoid secondary template errors
-    return (
-        "<!doctype html><meta charset='utf-8'>"
-        "<title>Not found</title>"
-        "<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:32px;background:#f9f7ff;color:#333}</style>"
-        "<h1>Page not found</h1>"
-        "<p>Sorry, we couldn’t find that page.</p>",
-        404,
-        {"Content-Type": "text/html; charset=utf-8"},
-    )
-
-@errors_bp.app_errorhandler(500)
-def server_error(e):
-    path = request.path or ""
-    if path.endswith(".json") or "application/json" in (request.headers.get("Accept") or ""):
-        return jsonify({"error": "server error"}), 500
-    return (
-        "<!doctype html><meta charset='utf-8'>"
-        "<title>Something went wrong</title>"
-        "<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;padding:32px;background:#f9f7ff;color:#333}</style>"
-        "<h1>Something went wrong</h1>"
-        "<p>We’re working on it. Try again in a moment.</p>",
-        500,
-        {"Content-Type": "text/html; charset=utf-8"},
-    )
+    @app.errorhandler(500)
+    def server_error(e):
+        # Keep this generic to avoid referencing settings that may not exist here
+        print("[ERROR] 500:", e)
+        try:
+            from models import get_active_cities_safe
+            cities = get_active_cities_safe()
+        except Exception:
+            cities = []
+        return render_template(
+            "search.html",
+            query={"error": "Something went wrong"},
+            cities=cities
+        ), 500
