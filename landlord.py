@@ -1,10 +1,18 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+import os
+import io
+import uuid
 from datetime import datetime as dt
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from PIL import Image, ImageDraw, ImageFont
+
 from db import get_db
 from utils import (
     current_landlord_id, require_landlord, get_active_cities_safe,
-    validate_city_active, clean_bool, valid_choice, owned_house_or_none
+    validate_city_active, clean_bool, valid_choice, owned_house_or_none,
+    allowed_image_ext
 )
+from config import UPLOADS_HOUSES_DIR, HOUSE_IMAGES_MAX, WATERMARK_TEXT, IMAGE_MAX_WIDTH, IMAGE_MAX_HEIGHT, IMAGE_TARGET_BYTES
 
 landlord_bp = Blueprint("landlord", __name__, url_prefix="")
 
@@ -372,135 +380,89 @@ def _room_counts(conn, hid):
     cnt = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
     return max_rooms, int(cnt)
 
-# -------- Rooms CRUD --------
-@landlord_bp.route("/landlord/houses/<int:hid>/rooms")
-def rooms_list(hid):
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-    conn = get_db()
-    house = owned_house_or_none(conn, hid, lid)
-    if not house:
-        conn.close()
-        flash("House not found.", "error")
-        return redirect(url_for("landlord.landlord_houses"))
-    rows = conn.execute("SELECT * FROM rooms WHERE house_id=? ORDER BY id ASC", (hid,)).fetchall()
-    max_rooms, cnt = _room_counts(conn, hid)
-    conn.close()
-    remaining = max(0, max_rooms - cnt)
-    can_add = cnt < max_rooms
-    return render_template(
-        "rooms_list.html",
-        house=house,
-        rooms=rows,
-        can_add=can_add,
-        remaining=remaining,
-        max_rooms=max_rooms
-    )
-
-@landlord_bp.route("/landlord/houses/<int:hid>/rooms/new", methods=["GET","POST"])
-def room_new(hid):
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-    conn = get_db()
-    house = owned_house_or_none(conn, hid, lid)
-    if not house:
-        conn.close()
-        return redirect(url_for("landlord.landlord_houses"))
-
-    max_rooms, cnt = _room_counts(conn, hid)
-    if cnt >= max_rooms:
-        conn.close()
-        flash(f"You’ve reached the room limit for this house ({max_rooms} bedrooms).", "error")
-        return redirect(url_for("landlord.rooms_list", hid=hid))
-
-    if request.method == "POST":
-        vals, errors = _room_form_values(request)
-        if errors:
-            for e in errors: flash(e, "error")
-            conn.close()
-            return render_template("room_form.html", house=house, form=vals, mode="new")
-        conn.execute("""
-          INSERT INTO rooms(house_id,name,ensuite,bed_size,tv,desk_chair,wardrobe,chest_drawers,lockable_door,wired_internet,room_size,created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-        """, (
-            hid, vals["name"], vals["ensuite"], vals["bed_size"], vals["tv"],
-            vals["desk_chair"], vals["wardrobe"], vals["chest_drawers"],
-            vals["lockable_door"], vals["wired_internet"], vals["room_size"],
-            dt.utcnow().isoformat()
-        ))
-        conn.commit()
-        conn.close()
-        flash("Room added.", "ok")
-        return redirect(url_for("landlord.rooms_list", hid=hid))
-
-    conn.close()
-    return render_template("room_form.html", house=house, form={}, mode="new")
-
-@landlord_bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/edit", methods=["GET","POST"])
-def room_edit(hid, rid):
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-    conn = get_db()
-    house = owned_house_or_none(conn, hid, lid)
-    if not house:
-        conn.close()
-        return redirect(url_for("landlord.landlord_houses"))
-    room = conn.execute("SELECT * FROM rooms WHERE id=? AND house_id=?", (rid, hid)).fetchone()
-    if not room:
-        conn.close()
-        flash("Room not found.", "error")
-        return redirect(url_for("landlord.rooms_list", hid=hid))
-
-    if request.method == "POST":
-        vals, errors = _room_form_values(request)
-        if errors:
-            for e in errors: flash(e, "error")
-            conn.close()
-            return render_template("room_form.html", house=house, form=vals, mode="edit", room=room)
-        conn.execute("""
-          UPDATE rooms SET
-            name=?, ensuite=?, bed_size=?, tv=?, desk_chair=?, wardrobe=?, chest_drawers=?, lockable_door=?, wired_internet=?, room_size=?
-          WHERE id=? AND house_id=?
-        """, (
-            vals["name"], vals["ensuite"], vals["bed_size"], vals["tv"], vals["desk_chair"],
-            vals["wardrobe"], vals["chest_drawers"], vals["lockable_door"], vals["wired_internet"],
-            vals["room_size"], rid, hid
-        ))
-        conn.commit()
-        conn.close()
-        flash("Room updated.", "ok")
-        return redirect(url_for("landlord.rooms_list", hid=hid))
-
-    form = dict(room)
-    conn.close()
-    return render_template("room_form.html", house=house, form=form, mode="edit", room=room)
-
-@landlord_bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/delete", methods=["POST"])
-def room_delete(hid, rid):
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-    conn = get_db()
-    house = owned_house_or_none(conn, hid, lid)
-    if not house:
-        conn.close()
-        return redirect(url_for("landlord.landlord_houses"))
-    conn.execute("DELETE FROM rooms WHERE id=? AND house_id=?", (rid, hid))
-    conn.commit()
-    conn.close()
-    flash("Room deleted.", "ok")
-    return redirect(url_for("landlord.rooms_list", hid=hid))
-
 # -------------------------------
-# Photos (Phase 1: UI only)
+# Photos (Phase 2: processing)
 # -------------------------------
+
+def _uploads_abs_dir():
+    # absolute path to 'static/uploads/houses'
+    base = current_app.root_path
+    return os.path.join(base, UPLOADS_HOUSES_DIR)
+
+def _ensure_uploads_dir():
+    os.makedirs(_uploads_abs_dir(), exist_ok=True)
+
+def _unique_jpg_name():
+    return f"{uuid.uuid4().hex}.jpg"
+
+def _add_watermark(img: Image.Image, text: str) -> Image.Image:
+    # draw subtle bottom-right watermark with padding
+    draw = ImageDraw.Draw(img)
+    W, H = img.size
+    # font: default PIL font (avoid external deps)
+    try:
+        font = ImageFont.load_default()
+    except Exception:
+        font = None
+    # scale watermark size based on image width
+    base_font_px = max(12, min(24, W // 40))  # roughly 2.5% of width
+    if font is None or getattr(font, "size", None) != base_font_px:
+        try:
+            font = ImageFont.load_default()
+        except Exception:
+            font = None
+    # text size
+    tw, th = draw.textbbox((0, 0), text, font=font)[2:]
+    pad = max(8, W // 100)
+    x = W - tw - pad
+    y = H - th - pad
+    # draw subtle shadow box for legibility
+    box_pad = 4
+    draw.rectangle([x - box_pad, y - box_pad, x + tw + box_pad, y + th + box_pad],
+                   fill=(0, 0, 0, 90))
+    # draw text (white)
+    draw.text((x, y), text, fill=(255, 255, 255), font=font)
+    return img
+
+def _process_image(file_storage) -> tuple:
+    """
+    Returns (final_bytes, width, height) where final_bytes is a BytesIO buffer of JPEG data.
+    """
+    file_storage.stream.seek(0)
+    with Image.open(file_storage.stream) as im:
+        # Convert to RGB (drop alpha)
+        if im.mode not in ("RGB", "L"):
+            im = im.convert("RGB")
+        elif im.mode == "L":
+            im = im.convert("RGB")
+
+        # Resize to max
+        im.thumbnail((IMAGE_MAX_WIDTH, IMAGE_MAX_HEIGHT), Image.LANCZOS)
+
+        # Watermark
+        im = _add_watermark(im, WATERMARK_TEXT)
+
+        # Compress to <= target bytes
+        quality = 85
+        min_quality = 50
+        step = 5
+
+        def encode(q):
+            bio = io.BytesIO()
+            im.save(bio, format="JPEG", optimize=True, progressive=True, quality=q)
+            return bio
+
+        bio = encode(quality)
+        while bio.tell() > IMAGE_TARGET_BYTES and quality > min_quality:
+            quality = max(min_quality, quality - step)
+            bio = encode(quality)
+
+        data = bio.getvalue()
+        width, height = im.size
+        return io.BytesIO(data), width, height
 
 @landlord_bp.route("/landlord/houses/<int:hid>/photos")
 def house_photos(hid):
-    """Render the photos page for a house (no upload/processing yet)."""
     r = require_landlord()
     if r: return r
     lid = current_landlord_id()
@@ -512,53 +474,175 @@ def house_photos(hid):
         return redirect(url_for("landlord.landlord_houses"))
 
     rows = conn.execute("""
-        SELECT id, filename, is_primary
+        SELECT id, file_path, width, height, bytes, is_primary
           FROM house_images
          WHERE house_id=?
          ORDER BY is_primary DESC, sort_order ASC, id ASC
     """, (hid,)).fetchall()
-
-    max_images = 24
-    current_count = len(rows)
-
-    images = []
-    for r_ in rows:
-        images.append({
-            "id": r_["id"],
-            "is_primary": bool(r_["is_primary"]),
-            "file_path": f"uploads/houses/{r_['filename']}",
-        })
     conn.close()
 
-    remaining = max(0, max_images - current_count)
+    images = list(rows)
+    current_count = len(images)
+    remaining = max(0, HOUSE_IMAGES_MAX - current_count)
+
     return render_template(
         "house_photos.html",
         house=house,
         images=images,
-        max_images=max_images,
+        max_images=HOUSE_IMAGES_MAX,
         remaining=remaining
     )
 
 @landlord_bp.route("/landlord/houses/<int:hid>/photos/upload", methods=["POST"])
 def house_photos_upload(hid):
-    """Stub: uploading disabled until Phase 2 processing is added."""
     r = require_landlord()
     if r: return r
-    flash("Photo uploading will be enabled in the next step.", "error")
+    lid = current_landlord_id()
+    conn = get_db()
+    house = owned_house_or_none(conn, hid, lid)
+    if not house:
+        conn.close()
+        flash("House not found.", "error")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    # count existing
+    row = conn.execute("SELECT COUNT(*) AS c FROM house_images WHERE house_id=?", (hid,)).fetchone()
+    existing = int(row["c"]) if row else 0
+    remaining = max(0, HOUSE_IMAGES_MAX - existing)
+    if remaining <= 0:
+        conn.close()
+        flash(f"Limit reached: {HOUSE_IMAGES_MAX} photos per house.", "error")
+        return redirect(url_for("landlord.house_photos", hid=hid))
+
+    files = request.files.getlist("photos")
+    if not files:
+        conn.close()
+        flash("Please choose one or more images.", "error")
+        return redirect(url_for("landlord.house_photos", hid=hid))
+
+    _ensure_uploads_dir()
+    saved = 0
+    errors = 0
+
+    # find next sort_order start
+    srow = conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS m FROM house_images WHERE house_id=?", (hid,)).fetchone()
+    sort_order = int(srow["m"]) if srow and srow["m"] is not None else 0
+
+    for fs in files:
+        if saved >= remaining:
+            break
+        filename = fs.filename or ""
+        if not allowed_image_ext(filename):
+            errors += 1
+            continue
+
+        try:
+            out_bytes, w, h = _process_image(fs)
+        except Exception as e:
+            print("[IMG] process error:", e)
+            errors += 1
+            continue
+
+        # write to disk
+        fname = _unique_jpg_name()
+        rel_path = os.path.join("uploads", "houses", fname)   # relative under /static
+        abs_path = os.path.join(current_app.root_path, "static", rel_path)
+        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+        with open(abs_path, "wb") as f:
+            f.write(out_bytes.getvalue())
+
+        file_size = os.path.getsize(abs_path)
+
+        # first image ever? set primary
+        is_primary = 0
+        if existing == 0 and saved == 0:
+            is_primary = 1
+
+        sort_order += 1
+        conn.execute("""
+            INSERT INTO house_images(house_id, filename, file_path, width, height, bytes, is_primary, sort_order, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?)
+        """, (hid, fname, rel_path, w, h, int(file_size), is_primary, sort_order, dt.utcnow().isoformat()))
+        conn.commit()
+        saved += 1
+
+    conn.close()
+
+    if saved:
+        flash(f"Uploaded {saved} photo(s).", "ok")
+    if errors:
+        flash(f"{errors} file(s) were skipped due to errors or unsupported types.", "error")
+
     return redirect(url_for("landlord.house_photos", hid=hid))
 
 @landlord_bp.route("/landlord/houses/<int:hid>/photos/<int:img_id>/primary", methods=["POST"])
 def house_photos_primary(hid, img_id):
-    """Stub: marking primary will be enabled in the next step."""
     r = require_landlord()
     if r: return r
-    flash("Setting a primary photo will be enabled in the next step.", "error")
+    lid = current_landlord_id()
+    conn = get_db()
+    house = owned_house_or_none(conn, hid, lid)
+    if not house:
+        conn.close()
+        flash("House not found.", "error")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    # ensure img belongs to house
+    img = conn.execute("SELECT id FROM house_images WHERE id=? AND house_id=?", (img_id, hid)).fetchone()
+    if not img:
+        conn.close()
+        flash("Photo not found.", "error")
+        return redirect(url_for("landlord.house_photos", hid=hid))
+
+    conn.execute("UPDATE house_images SET is_primary=0 WHERE house_id=?", (hid,))
+    conn.execute("UPDATE house_images SET is_primary=1 WHERE id=? AND house_id=?", (img_id, hid))
+    conn.commit()
+    conn.close()
+    flash("Primary photo updated.", "ok")
     return redirect(url_for("landlord.house_photos", hid=hid))
 
 @landlord_bp.route("/landlord/houses/<int:hid>/photos/<int:img_id>/delete", methods=["POST"])
 def house_photos_delete(hid, img_id):
-    """Stub: deleting will be enabled in the next step."""
     r = require_landlord()
     if r: return r
-    flash("Deleting photos will be enabled in the next step.", "error")
+    lid = current_landlord_id()
+    conn = get_db()
+    house = owned_house_or_none(conn, hid, lid)
+    if not house:
+        conn.close()
+        flash("House not found.", "error")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    img = conn.execute("SELECT id, file_path, is_primary FROM house_images WHERE id=? AND house_id=?", (img_id, hid)).fetchone()
+    if not img:
+        conn.close()
+        flash("Photo not found.", "error")
+        return redirect(url_for("landlord.house_photos", hid=hid))
+
+    # remove from disk
+    try:
+        abs_path = os.path.join(current_app.root_path, "static", img["file_path"])
+        if os.path.isfile(abs_path):
+            os.remove(abs_path)
+    except Exception as e:
+        print("[IMG] delete file error:", e)
+
+    # delete db row
+    conn.execute("DELETE FROM house_images WHERE id=? AND house_id=?", (img_id, hid))
+    conn.commit()
+
+    # if deleted was primary, set another as primary (oldest first)
+    if int(img["is_primary"]) == 1:
+        row = conn.execute("""
+            SELECT id FROM house_images
+             WHERE house_id=?
+             ORDER BY sort_order ASC, id ASC
+             LIMIT 1
+        """, (hid,)).fetchone()
+        if row:
+            conn.execute("UPDATE house_images SET is_primary=1 WHERE id=?", (row["id"],))
+            conn.commit()
+
+    conn.close()
+    flash("Photo deleted.", "ok")
     return redirect(url_for("landlord.house_photos", hid=hid))
