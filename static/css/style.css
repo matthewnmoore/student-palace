@@ -28,8 +28,7 @@ a:hover{text-decoration:underline}
 .wrap{max-width:var(--wrap); margin:0 auto; padding:0 16px}
 .flex-between{display:flex; justify-content:space-between; align-items:center}
 .inline-actions{display:flex; gap:10px; flex-wrap:wrap}
-.badge{display:inline-block; padding:4px 8px; border-radius:999px; background:#f2ecff; border:1px solid var(--border); font-size:12px; margin-right:6px}
-.help{color:var(--muted); font-size:13px}
+.center{text-align:center}
 
 /* ===== Navbar ===== */
 .navbar{background:#fff; border-bottom:1px solid var(--border); box-shadow:var(--shadow); padding:10px 0}
@@ -51,29 +50,23 @@ a:hover{text-decoration:underline}
 .btn-admin:hover{background:#b51f1f}
 
 /* ===== Cards & Forms ===== */
-.card{
-  background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-  box-shadow:var(--shadow); padding:20px; margin:18px 0
-}
+.card{background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin:18px 0}
 .grid{display:grid; gap:14px}
 .grid-2{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .grid-3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .field{display:flex; flex-direction:column}
 .field .label{font-weight:600; margin-bottom:6px}
+.field.row{display:grid; grid-template-columns:220px minmax(0,1fr); align-items:center; gap:12px}
+.field .label.inline{margin:0}
 input[type="text"],input[type="email"],input[type="password"],input[type="number"],select,textarea{
   padding:10px; border:1px solid var(--border); border-radius:10px; font-size:14px; background:#fff
 }
 
-/* Inline labels variant for compact search form */
-.form-compact-labels .label-inline{
-  font-weight:600; display:inline-block; margin-bottom:6px; margin-right:10px
-}
+.pref-row{display:flex; gap:18px; flex-wrap:wrap}
 
-/* Preferences row spacing */
-.prefs-row{display:flex; gap:18px; flex-wrap:wrap}
-
-/* Center the hero intro text */
-.hero-centered{text-align:center}
+/* badges & helpers */
+.badge{display:inline-block; padding:4px 8px; border-radius:999px; background:#f2ecff; border:1px solid var(--border); font-size:12px; margin-right:6px}
+.help{color:var(--muted); font-size:13px}
 
 /* ===== Tables ===== */
 .table{width:100%; border-collapse:collapse}
@@ -89,49 +82,14 @@ input[type="text"],input[type="email"],input[type="password"],input[type="number
 .footer{background:#fff; border-top:1px solid var(--border); padding:14px 0; color:#666}
 .small{font-size:12px}
 
-/* ===== Search inline (legacy small filter bars) ===== */
+/* ===== Search inline ===== */
 .search-inline{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0}
 .search-inline select{min-width:140px}
 .check{display:flex; align-items:center; gap:6px}
-
-/* ===== City Grid ===== */
-.city-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-  gap:14px;
-}
-.city-card{display:block; text-decoration:none}
-.city-thumb{
-  position:relative;
-  width:100%;
-  padding-top:100%; /* square */
-  background-size:cover;
-  background-position:center;
-  border-radius:12px;
-  box-shadow:var(--shadow);
-  overflow:hidden;
-}
-.city-thumb::after{
-  content:"";
-  position:absolute; inset:0;
-  background:linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,.45) 100%);
-}
-.city-name{
-  position:absolute; right:10px; bottom:8px;
-  z-index:2; color:#fff; font-weight:700; font-size:16px;
-  padding:4px 8px; border-radius:8px;
-  background:rgba(0,0,0,0.25); backdrop-filter:saturate(1.2);
-}
-.city-thumb--placeholder{
-  background:linear-gradient(135deg, #ede8ff, #f8f6ff);
-  display:flex; align-items:center; justify-content:center;
-}
-.city-initial{
-  position:absolute; font-size:42px; font-weight:800; color:#c6b6ff; opacity:.45;
-}
 
 /* ===== Responsive ===== */
 @media (max-width:720px){
   .flex-between{flex-direction:column; align-items:flex-start; gap:8px}
   .logo-img{height:64px}
+  .field.row{grid-template-columns:1fr}
 }
