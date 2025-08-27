@@ -2,20 +2,9 @@
 {% block title %}Student Palace – Find rooms{% endblock %}
 {% block content %}
 <section class="wrap">
-
-  <!-- Hero section -->
-  <div class="card" style="text-align:center; padding:40px; margin-bottom:20px">
-    <h1 class="mt-0">Your next student home without the faff</h1>
-    <p class="muted">Search properties from trusted landlords.</p>
-    <p style="margin-top:8px; font-weight:600; color:var(--brand)">
-      ✅ Look out for the green tick – it means properties from verified landlords and agents.
-    </p>
-  </div>
-
-  <!-- Search box -->
-  <div class="card" id="search-box">
-    <h2 class="mt-0">Find rooms</h2>
-    <form action="{{ url_for('search') }}" method="get" class="grid grid-2">
+  <div class="card">
+    <h1 class="mt-0">Find rooms</h1>
+    <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2">
       <label class="field">
         <span class="label">City</span>
         <select name="city">
@@ -61,15 +50,13 @@
     </form>
   </div>
 
-  <!-- Featured section -->
   <div class="card">
     <h2 class="mt-0">Featured this week</h2>
     <p class="muted">A popular pick in {{ cities[0] if cities else 'Cardiff' }}.</p>
     <div class="inline-actions" style="margin-top:8px">
-      <a class="btn" href="{{ url_for('search') }}">Browse all</a>
-      <a class="btn btn-outline" href="{{ url_for('index') }}">Back to home</a>
+      <a class="btn" href="{{ url_for('public.search') }}">Browse all</a>
+      <a class="btn btn-outline" href="{{ url_for('public.index') }}">Back to home</a>
     </div>
   </div>
-
 </section>
 {% endblock %}
