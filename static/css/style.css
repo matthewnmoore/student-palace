@@ -49,7 +49,11 @@ a:hover{text-decoration:underline}
 .btn-admin:hover{background:#b51f1f}
 
 /* ===== Cards & Forms ===== */
-.card{background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin:18px 0}
+.card{
+  background:#fff; border:1px solid var(--border);
+  border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:20px; margin:18px 0
+}
 .grid{display:grid; gap:14px}
 .grid-2{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .grid-3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
@@ -76,26 +80,74 @@ input[type="text"],input[type="email"],input[type="password"],input[type="number
 .footer{background:#fff; border-top:1px solid var(--border); padding:14px 0; color:#666}
 .small{font-size:12px}
 
-/* ===== Search inline ===== */
+/* ===== Search inline (legacy small filters) ===== */
 .search-inline{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0}
 .search-inline select{min-width:140px}
 .check{display:flex; align-items:center; gap:6px}
 
-/* ===== Responsive ===== */
-@media (max-width:720px){
-  .flex-between{flex-direction:column; align-items:flex-start; gap:8px}
-  .logo-img{height:64px}
+/* ===== Home page: hero & search form ===== */
+.hero-intro{
+  border-left:6px solid var(--brand);
+  text-align:center;
+}
+.hero-intro h1{
+  margin-bottom:6px;
+}
+.hero-intro .muted{
+  margin:0;
 }
 
-/* ===== Hero Box ===== */
-.hero-box{
-  text-align:center;
-  border-left:6px solid var(--brand);
-  padding:24px;
+.search-form{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
 }
-.hero-box h1{
-  margin-bottom:10px;
+
+/* Horizontal label + control row */
+.field-row{
+  display:grid;
+  grid-template-columns: 260px minmax(220px, 1fr);
+  align-items:center;
+  gap:14px;
 }
-.hero-box p{
-  margin:6px 0;
+.label-inline{
+  font-weight:600;
+}
+.control{
+  width:100%;
+  max-width:420px;
+}
+
+/* Preferences layout */
+.preferences{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px 18px; /* a bit more breathing room */
+}
+.pref-item{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 8px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#fff;
+}
+
+/* Submit row */
+.form-actions{
+  margin-top:6px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 720px){
+  .flex-between{flex-direction:column; align-items:flex-start; gap:8px}
+  .logo-img{height:64px}
+
+  .field-row{
+    grid-template-columns: 1fr;
+  }
+  .control{
+    max-width:100%;
+  }
 }
