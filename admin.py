@@ -1,134 +1,265 @@
-import secrets
+# admin.py
+import os
 import sqlite3
-from datetime import datetime as dt
 from flask import (
-    Blueprint, render_template, request, redirect, url_for,
-    session, flash
+    Blueprint, render_template, request, redirect,
+    url_for, session, flash, current_app
 )
+from werkzeug.security import generate_password_hash
+from datetime import datetime as dt
 
+# Pull DB helpers from your shared module
 from models import get_db
 
-bp = Blueprint("admin", __name__, url_prefix="/admin")
+# ---------------------------------
+# Blueprint
+# ---------------------------------
+admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
-# --- Helpers ---
-def is_admin():
+# Small helper
+def _is_admin() -> bool:
     return bool(session.get("is_admin"))
 
-# --- Auth ---
-@bp.route("/login", methods=["GET","POST"])
-def login():
-    import os
-    ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
-    if request.method == "POST":
-        token = (request.form.get("token") or "").strip()
-        if ADMIN_TOKEN and token == ADMIN_TOKEN:
-            session["is_admin"] = True
-            flash("Admin session started.", "ok")
-            return redirect(url_for("admin.cities"))
-        flash("Invalid admin token.", "error")
-    return render_template("admin_login.html")
+def _admin_token() -> str:
+    # Prefer app config, fall back to env
+    return (current_app.config.get("ADMIN_TOKEN")
+            or os.environ.get("ADMIN_TOKEN", ""))
 
-@bp.route("/logout")
-def logout():
+# ---------------------------------
+# Auth
+# ---------------------------------
+@admin_bp.route("/login", methods=["GET", "POST"])
+def admin_login():
+    try:
+        if request.method == "POST":
+            token = (request.form.get("token") or "").strip()
+            if _admin_token() and token == _admin_token():
+                session["is_admin"] = True
+                flash("Admin session started.", "ok")
+                return redirect(url_for("admin.admin_cities"))
+            flash("Invalid admin token.", "error")
+        return render_template("admin_login.html")
+    except Exception as e:
+        current_app.logger.error("admin_login: %s", e)
+        flash("Admin login error.", "error")
+        return redirect(url_for("public.index"))
+
+@admin_bp.route("/logout")
+def admin_logout():
     session.pop("is_admin", None)
     flash("Admin logged out.", "ok")
     return redirect(url_for("public.index"))
 
-# --- Cities ---
-@bp.route("/cities", methods=["GET","POST"])
-def cities():
-    if not is_admin():
-        return redirect(url_for("admin.login"))
+# ---------------------------------
+# Cities (basic add/activate/deactivate/delete)
+# NOTE: This version orders alphabetically. If you later add
+# an explicit 'position' column, you can wire move up/down actions.
+# ---------------------------------
+@admin_bp.route("/cities", methods=["GET", "POST"])
+def admin_cities():
+    if not _is_admin():
+        return redirect(url_for("admin.admin_login"))
 
     conn = get_db()
     try:
         if request.method == "POST":
-            action = (request.form.get("action") or "").strip()
+            action = request.form.get("action") or ""
             if action == "add":
                 name = (request.form.get("name") or "").strip()
-                image_url = (request.form.get("image_url") or "").strip() or None
                 if name:
-                    # new city default sort_order to end of list
-                    max_order = conn.execute("SELECT COALESCE(MAX(sort_order), 0) FROM cities").fetchone()[0] or 0
-                    sort_order = max_order + 10
                     try:
                         conn.execute(
-                            "INSERT INTO cities(name, is_active, sort_order, image_url) VALUES (?, 1, ?, ?)",
-                            (name, sort_order, image_url)
+                            "CREATE TABLE IF NOT EXISTS cities("
+                            " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                            " name TEXT UNIQUE NOT NULL,"
+                            " is_active INTEGER NOT NULL DEFAULT 1"
+                            ");"
+                        )
+                        conn.execute(
+                            "INSERT INTO cities(name,is_active) VALUES(?,1)",
+                            (name,)
                         )
                         conn.commit()
                         flash(f"Added city: {name}", "ok")
                     except sqlite3.IntegrityError:
                         flash("That city already exists.", "error")
 
-            elif action == "update":
+            elif action in ("activate", "deactivate", "delete"):
                 try:
                     cid = int(request.form.get("city_id") or 0)
                 except Exception:
                     cid = 0
-                name = (request.form.get("name") or "").strip()
-                image_url = (request.form.get("image_url") or "").strip() or None
-                if cid and name:
-                    try:
+                if cid:
+                    if action == "delete":
+                        conn.execute("DELETE FROM cities WHERE id=?", (cid,))
+                        conn.commit()
+                        flash("City deleted.", "ok")
+                    else:
+                        new_val = 1 if action == "activate" else 0
                         conn.execute(
-                            "UPDATE cities SET name=?, image_url=? WHERE id=?",
-                            (name, image_url, cid)
+                            "UPDATE cities SET is_active=? WHERE id=?",
+                            (new_val, cid)
                         )
                         conn.commit()
                         flash("City updated.", "ok")
-                    except sqlite3.IntegrityError:
-                        flash("City name must be unique.", "error")
 
-            elif action in ("activate", "deactivate"):
-                try:
-                    cid = int(request.form.get("city_id") or 0)
-                except Exception:
-                    cid = 0
-                if cid:
-                    new_val = 1 if action == "activate" else 0
-                    conn.execute("UPDATE cities SET is_active=? WHERE id=?", (new_val, cid))
-                    conn.commit()
-                    flash("City status updated.", "ok")
-
-            elif action == "delete":
-                try:
-                    cid = int(request.form.get("city_id") or 0)
-                except Exception:
-                    cid = 0
-                if cid:
-                    conn.execute("DELETE FROM cities WHERE id=?", (cid,))
-                    conn.commit()
-                    flash("City deleted.", "ok")
-
-            elif action in ("move_up", "move_down"):
-                try:
-                    cid = int(request.form.get("city_id") or 0)
-                except Exception:
-                    cid = 0
-                if cid:
-                    # fetch this city
-                    row = conn.execute("SELECT id, sort_order FROM cities WHERE id=?", (cid,)).fetchone()
-                    if row:
-                        direction = -15 if action == "move_up" else 15
-                        new_order = (row["sort_order"] or 1000) + direction
-                        conn.execute("UPDATE cities SET sort_order=? WHERE id=?", (new_order, cid))
-                        conn.commit()
-                        # normalize gaps to keep ordering stable
-                        _normalize_city_order(conn)
-                        flash("City reordered.", "ok")
-
-        rows = conn.execute("""
-            SELECT * FROM cities
-            ORDER BY sort_order ASC, name ASC
-        """).fetchall()
+        rows = conn.execute(
+            "SELECT * FROM cities ORDER BY name ASC"
+        ).fetchall()
         return render_template("admin_cities.html", cities=rows)
     finally:
         conn.close()
 
-def _normalize_city_order(conn):
-    rows = conn.execute("SELECT id FROM cities ORDER BY sort_order ASC, name ASC").fetchall()
-    order = 10
-    for r in rows:
-        conn.execute("UPDATE cities SET sort_order=? WHERE id=?", (order, r["id"]))
-        order += 10
-    conn.commit()
+# ---------------------------------
+# Landlords list
+# ---------------------------------
+@admin_bp.route("/landlords", methods=["GET"])
+def admin_landlords():
+    if not _is_admin():
+        return redirect(url_for("admin.admin_login"))
+
+    q = (request.args.get("q") or "").strip().lower()
+    conn = get_db()
+    try:
+        if q:
+            rows = conn.execute("""
+                SELECT l.id, l.email, l.created_at,
+                       COALESCE(p.display_name,'') AS display_name,
+                       COALESCE(p.public_slug,'') AS public_slug,
+                       COALESCE(p.profile_views,0) AS profile_views
+                FROM landlords l
+                LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
+                WHERE LOWER(l.email) LIKE ? OR LOWER(COALESCE(p.display_name,'')) LIKE ?
+                ORDER BY l.created_at DESC
+            """, (f"%{q}%", f"%{q}%")).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT l.id, l.email, l.created_at,
+                       COALESCE(p.display_name,'') AS display_name,
+                       COALESCE(p.public_slug,'') AS public_slug,
+                       COALESCE(p.profile_views,0) AS profile_views
+                FROM landlords l
+                LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
+                ORDER BY l.created_at DESC
+            """).fetchall()
+        return render_template("admin_landlords.html", landlords=rows, q=q)
+    finally:
+        conn.close()
+
+# ---------------------------------
+# Landlord detail / edit / delete
+# ---------------------------------
+@admin_bp.route("/landlord/<int:lid>", methods=["GET", "POST"])
+def admin_landlord_detail(lid: int):
+    if not _is_admin():
+        return redirect(url_for("admin.admin_login"))
+
+    conn = get_db()
+    try:
+        if request.method == "POST":
+            action = request.form.get("action") or ""
+
+            if action == "update_email":
+                new_email = (request.form.get("email") or "").strip().lower()
+                if new_email:
+                    try:
+                        conn.execute(
+                            "UPDATE landlords SET email=? WHERE id=?",
+                            (new_email, lid)
+                        )
+                        conn.commit()
+                        flash("Email updated.", "ok")
+                    except sqlite3.IntegrityError:
+                        flash("That email is already taken.", "error")
+
+            elif action == "reset_password":
+                new_pw = (request.form.get("new_password") or "").strip()
+                if not new_pw:
+                    # generate simple temporary password
+                    import secrets
+                    new_pw = secrets.token_urlsafe(8)
+                    flash(f"Generated temporary password: {new_pw}", "ok")
+                ph = generate_password_hash(new_pw)
+                conn.execute(
+                    "UPDATE landlords SET password_hash=? WHERE id=?",
+                    (ph, lid)
+                )
+                conn.commit()
+                flash("Password reset.", "ok")
+
+            elif action == "update_profile":
+                display_name = (request.form.get("display_name") or "").strip()
+                phone = (request.form.get("phone") or "").strip()
+                website = (request.form.get("website") or "").strip()
+                bio = (request.form.get("bio") or "").strip()
+
+                # Ensure profile row
+                conn.execute(
+                    "INSERT OR IGNORE INTO landlord_profiles(landlord_id)"
+                    " VALUES(?)",
+                    (lid,)
+                )
+                prof = conn.execute(
+                    "SELECT * FROM landlord_profiles WHERE landlord_id=?",
+                    (lid,)
+                ).fetchone()
+
+                # Auto-generate slug if missing
+                slug = prof["public_slug"] if prof else None
+                if not slug and display_name:
+                    # local slugify
+                    s = (display_name or "").strip().lower()
+                    out = []
+                    for ch in s:
+                        if ch.isalnum():
+                            out.append(ch)
+                        elif ch in " -_":
+                            out.append("-")
+                    base = "".join(out).strip("-") or "landlord"
+                    candidate = base
+                    i = 2
+                    while conn.execute(
+                        "SELECT 1 FROM landlord_profiles WHERE public_slug=?",
+                        (candidate,)
+                    ).fetchone():
+                        candidate = f"{base}-{i}"
+                        i += 1
+                    slug = candidate
+
+                conn.execute("""
+                    UPDATE landlord_profiles
+                       SET display_name=?,
+                           phone=?,
+                           website=?,
+                           bio=?,
+                           public_slug=COALESCE(?, public_slug)
+                     WHERE landlord_id=?
+                """, (display_name, phone, website, bio, slug, lid))
+                conn.commit()
+                flash("Profile updated.", "ok")
+
+            elif action == "delete_landlord":
+                # Remove profile then landlord (FK-safe even if PRAGMA off)
+                conn.execute("DELETE FROM landlord_profiles WHERE landlord_id=?", (lid,))
+                conn.execute("DELETE FROM landlords WHERE id=?", (lid,))
+                conn.commit()
+                flash("Landlord deleted.", "ok")
+                return redirect(url_for("admin.admin_landlords"))
+
+        landlord = conn.execute(
+            "SELECT * FROM landlords WHERE id=?", (lid,)
+        ).fetchone()
+        profile = conn.execute(
+            "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
+        ).fetchone()
+        houses = conn.execute(
+            "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC",
+            (lid,)
+        ).fetchall()
+
+        return render_template(
+            "admin_landlord_view.html",
+            landlord=landlord, profile=profile, houses=houses
+        )
+    finally:
+        conn.close()
