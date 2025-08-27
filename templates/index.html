@@ -4,20 +4,18 @@
 <section class="wrap">
 
   <!-- HERO / INTRO -->
-  <div class="card hero-box">
-    <h1 class="mt-0">Your next student home — without the faff.</h1>
-    <p class="muted">
-      Look out for the ✅ green tick – it means properties from verified landlords and agents.
-    </p>
-    <p class="muted">
-      Search for rooms, flats or houses just for Students.
-    </p>
+  <div class="card hero-text">
+    <h1>Your next student home — without the faff.</h1>
+    <p>Look out for the ✅ green tick – it means properties from verified landlords and agents.</p>
+    <p>Search for rooms, flats or houses just for Students.</p>
   </div>
 
   <!-- SEARCH -->
-  <div class="card">
-    <h2 class="mt-0">Search verified properties</h2>
-    <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2">
+  <div class="card search-card">
+    <h2>Search verified properties</h2>
+    <form action="{{ url_for('public.search') }}" method="get" class="search-form">
+
+      <!-- City -->
       <label class="field">
         <span class="label">City</span>
         <select name="city">
@@ -28,6 +26,7 @@
         </select>
       </label>
 
+      <!-- Group size -->
       <label class="field">
         <span class="label">Group size</span>
         <select name="group_size">
@@ -38,6 +37,7 @@
         </select>
       </label>
 
+      <!-- Gender -->
       <label class="field">
         <span class="label">I want a house that is</span>
         <select name="gender" required>
@@ -48,16 +48,17 @@
         </select>
       </label>
 
+      <!-- Preferences -->
       <label class="field">
         <span class="label">Preferences</span>
-        <div>
+        <div class="preferences">
           <label><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
-          &nbsp;&nbsp;
           <label><input type="checkbox" name="bills_included"> All bills included</label>
         </div>
       </label>
 
-      <div style="grid-column:1/-1; margin-top:6px">
+      <!-- Submit -->
+      <div class="form-actions">
         <button class="btn btn-accent" type="submit">Find rooms</button>
       </div>
     </form>
@@ -71,13 +72,6 @@
       <a class="btn" href="{{ url_for('public.search') }}">Browse all</a>
       <a class="btn btn-outline" href="{{ url_for('public.index') }}">Back to home</a>
     </div>
-  </div>
-
-  <!-- SITE NOTE -->
-  <div class="card" style="text-align:center">
-    <p class="muted" style="margin:0">
-      An independent website by a landlord to help landlords and students.
-    </p>
   </div>
 
 </section>
