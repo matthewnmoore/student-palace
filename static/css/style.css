@@ -87,7 +87,15 @@ input[type="text"],input[type="email"],input[type="password"],input[type="number
   .logo-img{height:64px}
 }
 
-/* ===== Centered Card ===== */
-.center-card {
-  text-align: center;
+/* ===== Hero Box ===== */
+.hero-box{
+  text-align:center;
+  border-left:6px solid var(--brand);
+  padding:24px;
+}
+.hero-box h1{
+  margin-bottom:10px;
+}
+.hero-box p{
+  margin:6px 0;
 }
