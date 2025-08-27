@@ -13,6 +13,7 @@ def dashboard():
     lid = current_landlord_id()
     if not lid:
         return render_template("dashboard.html", landlord=None, profile=None)
+
     conn = get_db()
     landlord = conn.execute(
         "SELECT id,email,created_at FROM landlords WHERE id=?", (lid,)
@@ -24,7 +25,26 @@ def dashboard():
         "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC", (lid,)
     ).fetchall()
     conn.close()
-    return render_template("dashboard.html", landlord=landlord, profile=profile, houses=houses)
+
+    # --- UK date string for "Member since" ---
+    created_at_uk = None
+    try:
+        created_at_uk = dt.fromisoformat(landlord["created_at"]).strftime("%d %B %Y")
+    except Exception:
+        created_at_uk = landlord["created_at"]
+
+    # --- Pretty role label for display ---
+    role_raw = (profile["role"] if profile and "role" in profile.keys() else "owner") or "owner"
+    role_label = "Owner" if role_raw == "owner" else "Agent"
+
+    return render_template(
+        "dashboard.html",
+        landlord=landlord,
+        profile=profile,
+        houses=houses,
+        created_at_uk=created_at_uk,
+        role_label=role_label
+    )
 
 @landlord_bp.route("/landlord/profile", methods=["GET","POST"])
 def landlord_profile():
@@ -36,7 +56,6 @@ def landlord_profile():
         "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
     ).fetchone()
     if not prof:
-        # role defaults to 'owner' per schema
         conn.execute(
             "INSERT INTO landlord_profiles(landlord_id, display_name) VALUES (?,?)",
             (lid, "")
@@ -53,12 +72,11 @@ def landlord_profile():
             phone = (request.form.get("phone") or "").strip()
             website = (request.form.get("website") or "").strip()
             bio = (request.form.get("bio") or "").strip()
+            # NEW: capture role from the form (owner/agent)
+            role = (request.form.get("role") or "").strip().lower()
+            if role not in ("owner", "agent"):
+                role = (prof["role"] if prof and "role" in prof.keys() else "owner")
 
-            # NEW: read & validate role from form (owner | agent)
-            incoming_role = (request.form.get("role") or (prof["role"] if prof and "role" in prof.keys() else "owner")).strip().lower()
-            role = incoming_role if incoming_role in ("owner", "agent") else "owner"
-
-            # Generate slug once, when first saving a display name
             slug = prof["public_slug"]
             if not slug and display_name:
                 base = slugify(display_name)
@@ -71,19 +89,16 @@ def landlord_profile():
                     i += 1
                 slug = candidate
 
-            # UPDATED: also persist role
             conn.execute("""
                 UPDATE landlord_profiles
-                   SET display_name=?,
-                       phone=?,
-                       website=?,
-                       bio=?,
-                       role=?,
+                   SET display_name=?, phone=?, website=?, bio=?, role=?,
                        public_slug=COALESCE(?, public_slug)
                  WHERE landlord_id=?
             """, (display_name, phone, website, bio, role, slug, lid))
             conn.commit()
-
+            prof = conn.execute(
+                "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
+            ).fetchone()
             conn.close()
             flash("Profile saved.", "ok")
             return redirect(url_for("landlord.landlord_profile"))
@@ -173,7 +188,6 @@ def house_new():
     lid = current_landlord_id()
     cities = get_active_cities_safe()
 
-    # default listing type from profile.role
     conn = get_db()
     prof = conn.execute(
         "SELECT role FROM landlord_profiles WHERE landlord_id=?", (lid,)
@@ -329,7 +343,6 @@ def house_delete(hid):
     flash("House deleted.", "ok")
     return redirect(url_for("landlord.landlord_houses"))
 
-# -------- Rooms helpers --------
 def _room_form_values(request):
     name = (request.form.get("name") or "").strip()
     from utils import clean_bool
@@ -359,7 +372,6 @@ def _room_counts(conn, hid):
     cnt = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
     return max_rooms, int(cnt)
 
-# -------- Rooms CRUD --------
 @landlord_bp.route("/landlord/houses/<int:hid>/rooms")
 def rooms_list(hid):
     r = require_landlord()
