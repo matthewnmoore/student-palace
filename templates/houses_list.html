@@ -22,7 +22,7 @@
             <th>City</th>
             <th>Type</th>
             <th>Beds</th>
-            <th style="width:420px">Actions</th>
+            <th style="width:520px">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -38,10 +38,11 @@
               <td>{{ 'Whole property' if h.letting_type=='whole' else 'House share' }}</td>
               <td>{{ h.bedrooms_total }}</td>
               <td>
-                <div class="inline-actions">
+                <div class="inline-actions" style="flex-wrap:wrap; gap:6px">
                   <a class="btn" href="{{ url_for('landlord.house_edit', hid=h.id) }}">Edit</a>
                   <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=h.id) }}">Manage rooms</a>
-                  {# Add your public route when ready
+                  <a class="btn btn-outline" href="{{ url_for('landlord.house_photos', hid=h.id) }}">Photos</a>
+                  {# Public link when ready:
                   <a class="btn btn-outline" href="{{ url_for('public.property', hid=h.id) }}" target="_blank">View public</a>
                   #}
                   <form method="post" action="{{ url_for('landlord.house_delete', hid=h.id) }}" onsubmit="return confirm('Delete this house and its rooms?');" style="display:inline">
