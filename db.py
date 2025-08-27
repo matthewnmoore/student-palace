@@ -105,6 +105,24 @@ def ensure_db():
     );
     """)
 
+    # House images (processed, resized + watermarked)
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS house_images(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      house_id INTEGER NOT NULL,
+      file_name TEXT NOT NULL,          -- basename only, e.g. abc123.jpg
+      file_path TEXT NOT NULL,          -- relative path under /static, e.g. uploads/houses/abc123.jpg
+      width INTEGER NOT NULL,
+      height INTEGER NOT NULL,
+      bytes INTEGER NOT NULL,
+      is_primary INTEGER NOT NULL DEFAULT 0,  -- 1 = primary image for the house
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE
+    );
+    """)
+    c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_house_id ON house_images(house_id);")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_primary ON house_images(house_id,is_primary);")
+
     conn.commit()
 
     # --- Migrations (non-destructive) ---
