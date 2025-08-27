@@ -1,74 +1,54 @@
 {% extends "base.html" %}
-{% block title %}Student Palace – Find rooms{% endblock %}
+
 {% block content %}
-<section class="wrap">
-
-  <!-- HERO / INTRO -->
-  <div class="card" style="border-left:6px solid var(--brand)">
-    <h1 class="mt-0" style="margin-bottom:6px">Your next student home — without the faff.</h1>
-    <p class="muted" style="margin-bottom:0">
-      Look out for the ✅ green tick – it means properties from verified landlords and agents.
-    </p>
-  </div>
-
-  <!-- SEARCH -->
-  <div class="card">
-    <h2 class="mt-0">Search verified properties</h2>
-    <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2">
-      <label class="field">
-        <span class="label">City</span>
-        <select name="city">
-          <option value="">Any city</option>
-          {% for c in cities %}
-            <option value="{{ c }}">{{ c }}</option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <label class="field">
-        <span class="label">Group size</span>
-        <select name="group_size">
-          <option value="">Any</option>
-          {% for n in range(1,10) %}
-            <option value="{{ n }}">{{ n }}</option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <label class="field">
-        <span class="label">I want a house that is</span>
-        <select name="gender" required>
-          <option value="" selected>Please choose one</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-          <option value="Anything">Anything</option>
-        </select>
-      </label>
-
-      <label class="field">
-        <span class="label">Preferences</span>
-        <div>
-          <label><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
-          &nbsp;&nbsp;
-          <label><input type="checkbox" name="bills_included"> All bills included</label>
-        </div>
-      </label>
-
-      <div style="grid-column:1/-1; margin-top:6px">
-        <button class="btn btn-accent" type="submit">Find rooms</button>
+<section class="hero">
+  <div class="hero-overlay">
+    <div class="hero-text">
+      <h1>Your next student home without the faff</h1>
+      <p>Search verified properties from trusted landlords</p>
+      <form action="{{ url_for('public.search') }}" method="get" class="search-form">
+        <input type="text" name="q" placeholder="Search by city or property..." required>
+        <button type="submit">Search</button>
+      </form>
+      <div class="verified-info">
+        <p style="text-align: center;">
+          Look out for the ✅ green tick – it means properties from verified landlords and agents.<br>
+          To search for rooms, flats or houses just for Students
+        </p>
       </div>
-    </form>
-  </div>
-
-  <!-- FEATURED -->
-  <div class="card">
-    <h2 class="mt-0">Featured this week</h2>
-    <p class="muted">A popular pick in {{ cities[0] if cities else 'Cardiff' }}.</p>
-    <div class="inline-actions" style="margin-top:8px">
-      <a class="btn" href="{{ url_for('public.search') }}">Browse all</a>
-      <a class="btn btn-outline" href="{{ url_for('public.index') }}">Back to home</a>
     </div>
   </div>
+</section>
 
+<section class="featured">
+  <h2>Featured Cities</h2>
+  <div class="city-grid">
+    {% for city in cities %}
+      <a href="{{ url_for('public.search', city=city.name) }}" class="city-card">
+        <img src="{{ url_for('static', filename='img/' ~ city.image) }}" alt="{{ city.name }}">
+        <span>{{ city.name }}</span>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="featured-properties">
+  <h2>Featured Properties</h2>
+  <div class="property-grid">
+    {% for house in featured %}
+      <a href="{{ url_for('public.property_detail', house_id=house.id) }}" class="property-card">
+        {% if house.images %}
+          <img src="{{ url_for('static', filename='uploads/' ~ house.images[0].filename) }}" alt="{{ house.title }}">
+        {% else %}
+          <img src="{{ url_for('static', filename='img/default-house.jpg') }}" alt="{{ house.title }}">
+        {% endif %}
+        <div class="property-info">
+          <h3>{{ house.title }}</h3>
+          <p>{{ house.city.name }} · {{ house.bedrooms_total }} bedrooms</p>
+          <p>£{{ house.price_pppw }} pppw{% if house.bills_included %} (bills included){% endif %}</p>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
 </section>
 {% endblock %}
