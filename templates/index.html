@@ -4,58 +4,64 @@
 <section class="wrap">
 
   <!-- HERO / INTRO -->
-  <div class="card hero-text">
-    <h1>Your next student home — without the faff.</h1>
-    <p>Look out for the ✅ green tick – it means properties from verified landlords and agents.</p>
-    <p>Search for rooms, flats or houses just for Students.</p>
+  <div class="card hero-intro">
+    <h1 class="mt-0">Your next student home — without the faff.</h1>
+    <p class="muted">Look out for the ✅ green tick – it means properties from verified landlords and agents.</p>
+    <p class="muted">Search for rooms, flats or houses just for Students.</p>
   </div>
 
   <!-- SEARCH -->
-  <div class="card search-card">
-    <h2>Search verified properties</h2>
-    <form action="{{ url_for('public.search') }}" method="get" class="search-form">
+  <div class="card">
+    <h2 class="mt-0">Search verified properties</h2>
 
+    <form action="{{ url_for('public.search') }}" method="get" class="search-form">
       <!-- City -->
-      <label class="field">
-        <span class="label">City</span>
-        <select name="city">
+      <div class="field field-row">
+        <label class="label-inline" for="city">City</label>
+        <select id="city" name="city" class="control">
           <option value="">Any city</option>
           {% for c in cities %}
             <option value="{{ c }}">{{ c }}</option>
           {% endfor %}
         </select>
-      </label>
+      </div>
 
       <!-- Group size -->
-      <label class="field">
-        <span class="label">Group size</span>
-        <select name="group_size">
+      <div class="field field-row">
+        <label class="label-inline" for="group_size">Group size</label>
+        <select id="group_size" name="group_size" class="control">
           <option value="">Any</option>
           {% for n in range(1,10) %}
             <option value="{{ n }}">{{ n }}</option>
           {% endfor %}
         </select>
-      </label>
+      </div>
 
-      <!-- Gender -->
-      <label class="field">
-        <span class="label">I want a house that is</span>
-        <select name="gender" required>
+      <!-- Gender / house type -->
+      <div class="field field-row">
+        <label class="label-inline" for="gender">I want a house that is</label>
+        <select id="gender" name="gender" class="control" required>
           <option value="" selected>Please choose one</option>
           <option value="Male">Male</option>
           <option value="Female">Female</option>
           <option value="Anything">Anything</option>
         </select>
-      </label>
+      </div>
 
       <!-- Preferences -->
-      <label class="field">
-        <span class="label">Preferences</span>
+      <div class="field field-row">
+        <span class="label-inline">Preferences</span>
         <div class="preferences">
-          <label><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
-          <label><input type="checkbox" name="bills_included"> All bills included</label>
+          <label class="pref-item">
+            <input type="checkbox" name="ensuite">
+            <span>Ensuite / own bathroom</span>
+          </label>
+          <label class="pref-item">
+            <input type="checkbox" name="bills_included">
+            <span>All bills included</span>
+          </label>
         </div>
-      </label>
+      </div>
 
       <!-- Submit -->
       <div class="form-actions">
