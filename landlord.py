@@ -52,10 +52,6 @@ def landlord_profile():
             phone = (request.form.get("phone") or "").strip()
             website = (request.form.get("website") or "").strip()
             bio = (request.form.get("bio") or "").strip()
-            role = (request.form.get("role") or "owner").strip().lower()
-            if role not in ("owner", "agent"):
-                role = "owner"
-
             slug = prof["public_slug"]
             if not slug and display_name:
                 base = slugify(display_name)
@@ -67,18 +63,15 @@ def landlord_profile():
                     candidate = f"{base}-{i}"
                     i += 1
                 slug = candidate
-
             conn.execute("""
                 UPDATE landlord_profiles
-                   SET display_name=?,
-                       phone=?,
-                       website=?,
-                       bio=?,
-                       role=?,
-                       public_slug=COALESCE(?, public_slug)
+                   SET display_name=?, phone=?, website=?, bio=?, public_slug=COALESCE(?, public_slug)
                  WHERE landlord_id=?
-            """, (display_name, phone, website, bio, role, slug, lid))
+            """, (display_name, phone, website, bio, slug, lid))
             conn.commit()
+            prof = conn.execute(
+                "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
+            ).fetchone()
             conn.close()
             flash("Profile saved.", "ok")
             return redirect(url_for("landlord.landlord_profile"))
@@ -168,6 +161,13 @@ def house_new():
     lid = current_landlord_id()
     cities = get_active_cities_safe()
 
+    # pull default listing type from profile.role
+    conn = get_db()
+    prof = conn.execute(
+        "SELECT role FROM landlord_profiles WHERE landlord_id=?", (lid,)
+    ).fetchone()
+    default_listing_type = (prof["role"] if prof and prof["role"] in ("owner","agent") else "owner")
+
     if request.method == "POST":
         title = (request.form.get("title") or "").strip()
         city = (request.form.get("city") or "").strip()
@@ -177,6 +177,7 @@ def house_new():
         bills_included = clean_bool("bills_included")
         shared_bathrooms = int(request.form.get("shared_bathrooms") or 0)
         bedrooms_total = int(request.form.get("bedrooms_total") or 0)
+        listing_type = (request.form.get("listing_type") or default_listing_type or "owner").strip()
 
         off_street_parking = clean_bool("off_street_parking")
         local_parking = clean_bool("local_parking")
@@ -196,28 +197,34 @@ def house_new():
         if not valid_choice(letting_type, ("whole","share")): errors.append("Invalid letting type.")
         if not valid_choice(gender_pref, ("Male","Female","Mixed","Either")): errors.append("Invalid gender preference.")
         if not valid_choice(cleaning_service, ("none","weekly","fortnightly","monthly")): errors.append("Invalid cleaning service value.")
+        if not valid_choice(listing_type, ("owner","agent")): errors.append("Invalid listing type.")
         if errors:
             for e in errors: flash(e, "error")
-            return render_template("house_form.html", cities=cities, form=request.form, mode="new")
+            conn.close()
+            # keep their chosen listing_type in the form dict
+            f = dict(request.form)
+            f["listing_type"] = listing_type
+            return render_template("house_form.html", cities=cities, form=f, mode="new", default_listing_type=default_listing_type)
 
-        conn = get_db()
         conn.execute("""
           INSERT INTO houses(
             landlord_id,title,city,address,letting_type,bedrooms_total,gender_preference,bills_included,
             shared_bathrooms,off_street_parking,local_parking,cctv,video_door_entry,bike_storage,cleaning_service,
-            wifi,wired_internet,common_area_tv,created_at
-          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            wifi,wired_internet,common_area_tv,listing_type,created_at
+          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             lid, title, city, address, letting_type, bedrooms_total, gender_pref, bills_included,
             shared_bathrooms, off_street_parking, local_parking, cctv, video_door_entry, bike_storage,
-            cleaning_service, wifi, wired_internet, common_area_tv, dt.utcnow().isoformat()
+            cleaning_service, wifi, wired_internet, common_area_tv, listing_type, dt.utcnow().isoformat()
         ))
         conn.commit()
         conn.close()
         flash("House added.", "ok")
         return redirect(url_for("landlord.landlord_houses"))
 
-    return render_template("house_form.html", cities=cities, form={}, mode="new")
+    # GET
+    conn.close()
+    return render_template("house_form.html", cities=cities, form={}, mode="new", default_listing_type=default_listing_type)
 
 @landlord_bp.route("/landlord/houses/<int:hid>/edit", methods=["GET","POST"])
 def house_edit(hid):
@@ -232,6 +239,14 @@ def house_edit(hid):
         flash("House not found.", "error")
         return redirect(url_for("landlord.landlord_houses"))
 
+    # default for edit is the house’s current listing_type (fallback to profile)
+    prof = conn.execute(
+        "SELECT role FROM landlord_profiles WHERE landlord_id=?", (lid,)
+    ).fetchone()
+    default_listing_type = house["listing_type"] if "listing_type" in house.keys() and house["listing_type"] else (
+        prof["role"] if prof and prof["role"] in ("owner","agent") else "owner"
+    )
+
     if request.method == "POST":
         title = (request.form.get("title") or "").strip()
         city = (request.form.get("city") or "").strip()
@@ -241,6 +256,7 @@ def house_edit(hid):
         bills_included = clean_bool("bills_included")
         shared_bathrooms = int(request.form.get("shared_bathrooms") or 0)
         bedrooms_total = int(request.form.get("bedrooms_total") or 0)
+        listing_type = (request.form.get("listing_type") or default_listing_type or "owner").strip()
 
         off_street_parking = clean_bool("off_street_parking")
         local_parking = clean_bool("local_parking")
@@ -260,30 +276,34 @@ def house_edit(hid):
         if not valid_choice(letting_type, ("whole","share")): errors.append("Invalid letting type.")
         if not valid_choice(gender_pref, ("Male","Female","Mixed","Either")): errors.append("Invalid gender preference.")
         if not valid_choice(cleaning_service, ("none","weekly","fortnightly","monthly")): errors.append("Invalid cleaning service value.")
+        if not valid_choice(listing_type, ("owner","agent")): errors.append("Invalid listing type.")
         if errors:
             for e in errors: flash(e, "error")
             conn.close()
-            return render_template("house_form.html", cities=cities, form=request.form, mode="edit", house=house)
+            f = dict(request.form)
+            f["listing_type"] = listing_type
+            return render_template("house_form.html", cities=cities, form=f, mode="edit", house=house, default_listing_type=default_listing_type)
 
         conn.execute("""
           UPDATE houses SET
             title=?, city=?, address=?, letting_type=?, bedrooms_total=?, gender_preference=?, bills_included=?,
             shared_bathrooms=?, off_street_parking=?, local_parking=?, cctv=?, video_door_entry=?, bike_storage=?,
-            cleaning_service=?, wifi=?, wired_internet=?, common_area_tv=?
+            cleaning_service=?, wifi=?, wired_internet=?, common_area_tv=?, listing_type=?
           WHERE id=? AND landlord_id=?
         """, (
             title, city, address, letting_type, bedrooms_total, gender_pref, bills_included,
             shared_bathrooms, off_street_parking, local_parking, cctv, video_door_entry, bike_storage,
-            cleaning_service, wifi, wired_internet, common_area_tv, hid, lid
+            cleaning_service, wifi, wired_internet, common_area_tv, listing_type, hid, lid
         ))
         conn.commit()
         conn.close()
         flash("House updated.", "ok")
         return redirect(url_for("landlord.landlord_houses"))
 
+    # GET
     form = dict(house)
     conn.close()
-    return render_template("house_form.html", cities=cities, form=form, mode="edit", house=house)
+    return render_template("house_form.html", cities=cities, form=form, mode="edit", house=house, default_listing_type=default_listing_type)
 
 @landlord_bp.route("/landlord/houses/<int:hid>/delete", methods=["POST"])
 def house_delete(hid):
@@ -291,7 +311,6 @@ def house_delete(hid):
     if r: return r
     lid = current_landlord_id()
     conn = get_db()
-    # Safety: also delete rooms if FK pragma off
     conn.execute(
         "DELETE FROM rooms WHERE house_id=(SELECT id FROM houses WHERE id=? AND landlord_id=?)",
         (hid, lid)
@@ -369,7 +388,6 @@ def room_new(hid):
         conn.close()
         return redirect(url_for("landlord.landlord_houses"))
 
-    # Enforce capacity before showing/processing the form
     max_rooms, cnt = _room_counts(conn, hid)
     if cnt >= max_rooms:
         conn.close()
