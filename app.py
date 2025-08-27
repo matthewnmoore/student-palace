@@ -1,13 +1,15 @@
 import os
+import io
 import sqlite3
 import secrets
 import datetime
 from datetime import datetime as dt
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, flash, jsonify
+    session, flash, jsonify, send_from_directory, abort
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from PIL import Image, ImageOps
 
 # =========================
 # Config (Render-friendly)
@@ -24,6 +26,20 @@ db_dir = os.path.dirname(DB_PATH)
 if db_dir:
     os.makedirs(db_dir, exist_ok=True)
 
+# Subfolders for uploads
+PHOTOS_ROOT = os.path.join(UPLOAD_FOLDER, "photos")
+os.makedirs(PHOTOS_ROOT, exist_ok=True)
+
+ALLOWED_EXTS = {"jpg", "jpeg", "png", "webp"}
+HOUSE_PHOTOS_MAX = 5
+ROOM_PHOTOS_MAX = 5
+
+WATERMARK_PATH = os.path.join("static", "img", "student-palace-mark.png")  # optional
+WATERMARK_OPACITY = 0.28
+WATERMARK_MARGIN = 16  # px
+WATERMARK_RELATIVE_WIDTH = 0.18  # watermark width as fraction of image width
+
+# App
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
 
@@ -45,7 +61,6 @@ def inject_globals():
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    # ensure FK cascades (rooms -> houses)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
     except Exception:
@@ -127,7 +142,7 @@ def ensure_db():
     );
     """)
 
-    # Rooms (CRUD)
+    # Rooms
     c.execute("""
     CREATE TABLE IF NOT EXISTS rooms(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -135,7 +150,6 @@ def ensure_db():
       name TEXT NOT NULL,
       ensuite INTEGER NOT NULL DEFAULT 0,
 
-      -- non-searchable room info
       bed_size TEXT NOT NULL CHECK (bed_size IN ('Single','Small double','Double','King')),
       tv INTEGER NOT NULL DEFAULT 0,
       desk_chair INTEGER NOT NULL DEFAULT 0,
@@ -144,7 +158,7 @@ def ensure_db():
       lockable_door INTEGER NOT NULL DEFAULT 0,
       wired_internet INTEGER NOT NULL DEFAULT 0,
 
-      room_size TEXT, -- optional free text (e.g. "12.5 m²")
+      room_size TEXT,
 
       created_at TEXT NOT NULL,
 
@@ -152,9 +166,38 @@ def ensure_db():
     );
     """)
 
+    # NEW: Photos tables
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS house_photos(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      house_id INTEGER NOT NULL,
+      orig_filename TEXT NOT NULL,
+      rel_thumb TEXT NOT NULL,
+      rel_display TEXT NOT NULL,
+      rel_full TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE
+    );
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS room_photos(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      room_id INTEGER NOT NULL,
+      orig_filename TEXT NOT NULL,
+      rel_thumb TEXT NOT NULL,
+      rel_display TEXT NOT NULL,
+      rel_full TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+    );
+    """)
+
     conn.commit()
 
-    # --- Migrations for older DBs (safe, non-destructive) ---
+    # Migrations
     if not table_has_column(conn, "landlords", "created_at"):
         print("[MIGRATE] Adding landlords.created_at")
         conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
@@ -218,12 +261,99 @@ def valid_choice(value, choices):
     return value in choices
 
 def _owned_house_or_abort(conn, hid, landlord_id):
-    """Fetch house ensuring ownership; returns row or None (with flash+redirect)."""
     h = conn.execute("SELECT * FROM houses WHERE id=? AND landlord_id=?", (hid, landlord_id)).fetchone()
     if not h:
         flash("House not found.", "error")
         return None
     return h
+
+def _safe_ext(filename: str) -> str:
+    if not filename or "." not in filename:
+        return ""
+    ext = filename.rsplit(".", 1)[1].lower().strip()
+    return ext
+
+def _ok_ext(filename: str) -> bool:
+    return _safe_ext(filename) in ALLOWED_EXTS
+
+def _watermark(img: Image.Image) -> Image.Image:
+    """Return a copy of img with a bottom-right watermark if watermark file exists."""
+    try:
+        wm_path = WATERMARK_PATH
+        if not os.path.exists(wm_path):
+            return img
+        wm = Image.open(wm_path).convert("RGBA")
+        base = img.convert("RGBA")
+
+        # scale watermark
+        target_w = max(1, int(base.width * WATERMARK_RELATIVE_WIDTH))
+        scale = target_w / wm.width
+        new_size = (target_w, max(1, int(wm.height * scale)))
+        wm = wm.resize(new_size, Image.LANCZOS)
+
+        # apply opacity
+        if WATERMARK_OPACITY < 1.0:
+            alpha = wm.split()[3]
+            alpha = ImageOps.colorize(alpha, (0, 0, 0, 0), (255, 255, 255, int(255 * WATERMARK_OPACITY))).split()[3]
+            wm.putalpha(alpha)
+
+        # paste bottom-right
+        x = base.width - wm.width - WATERMARK_MARGIN
+        y = base.height - wm.height - WATERMARK_MARGIN
+        base.alpha_composite(wm, (x, y))
+        return base.convert("RGB")
+    except Exception as e:
+        print("[WARN] watermark skipped:", e)
+        return img
+
+def _save_variants(file_storage, dest_dir: str, base_slug: str):
+    """
+    Saves thumb (≤400w), display (≤1200w, watermarked), full (≤1600w, watermarked).
+    Returns dict with rel paths (relative to UPLOAD_FOLDER).
+    """
+    os.makedirs(dest_dir, exist_ok=True)
+    # load image
+    data = file_storage.read()
+    file_storage.stream.seek(0)
+    im = Image.open(io.BytesIO(data))
+    im = im.convert("RGB")  # normalise
+
+    def resized_copy(max_w):
+        if im.width <= max_w:
+            out = im.copy()
+        else:
+            ratio = max_w / float(im.width)
+            out = im.resize((max_w, max(1, int(im.height * ratio))), Image.LANCZOS)
+        return out
+
+    # Create images
+    thumb = resized_copy(400)
+    display = _watermark(resized_copy(1200))
+    full = _watermark(resized_copy(1600))
+
+    # file names (webp)
+    name_thumb = f"{base_slug}_thumb.webp"
+    name_disp  = f"{base_slug}_display.webp"
+    name_full  = f"{base_slug}_full.webp"
+
+    path_thumb = os.path.join(dest_dir, name_thumb)
+    path_disp  = os.path.join(dest_dir, name_disp)
+    path_full  = os.path.join(dest_dir, name_full)
+
+    # save WEBP
+    thumb.save(path_thumb, "WEBP", quality=82, method=6)
+    display.save(path_disp, "WEBP", quality=82, method=6)
+    full.save(path_full, "WEBP", quality=82, method=6)
+
+    # return rel paths for serving via /uploads/<path>
+    rel_thumb = os.path.relpath(path_thumb, UPLOAD_FOLDER)
+    rel_disp  = os.path.relpath(path_disp, UPLOAD_FOLDER)
+    rel_full  = os.path.relpath(path_full, UPLOAD_FOLDER)
+    return {
+        "rel_thumb": rel_thumb.replace("\\", "/"),
+        "rel_display": rel_disp.replace("\\", "/"),
+        "rel_full": rel_full.replace("\\", "/"),
+    }
 
 # =========================
 # Health / diagnostics
@@ -262,6 +392,17 @@ def admin_ping():
     if not is_admin():
         return "not-admin", 403
     return "admin-ok", 200
+
+# Serve uploaded files
+@app.route("/uploads/<path:filename>")
+def uploads(filename):
+    safe = os.path.normpath(filename).lstrip(os.sep)
+    full = os.path.join(UPLOAD_FOLDER, safe)
+    if not os.path.commonpath([os.path.abspath(full), os.path.abspath(UPLOAD_FOLDER)]) == os.path.abspath(UPLOAD_FOLDER):
+        abort(404)
+    directory = os.path.dirname(full)
+    fname = os.path.basename(full)
+    return send_from_directory(directory, fname, as_attachment=False)
 
 # =========================
 # Admin auth
@@ -329,7 +470,7 @@ def admin_cities():
         conn.close()
 
 # =========================
-# Admin: Landlords (view/edit/delete all)
+# Admin: Landlords
 # =========================
 @app.route("/admin/landlords", methods=["GET"])
 def admin_landlords():
@@ -466,15 +607,12 @@ def search():
     return render_template("search.html", query=q, cities=cities)
 
 # =========================
-# Landlord entry page (navbar "Landlords" button)
+# Landlord entry & auth
 # =========================
 @app.route("/landlords")
 def landlords_entry():
     return render_template("landlords_entry.html")
 
-# =========================
-# Landlord auth (signup/login/logout)
-# =========================
 @app.route("/signup", methods=["GET","POST"])
 def signup():
     if request.method == "POST":
@@ -718,7 +856,6 @@ def house_new():
         flash("House added.", "ok")
         return redirect(url_for("landlord_houses"))
 
-    # GET
     return render_template("house_form.html", cities=cities, form={}, mode="new")
 
 @app.route("/landlord/houses/<int:hid>/edit", methods=["GET","POST"])
@@ -783,7 +920,6 @@ def house_edit(hid):
         flash("House updated.", "ok")
         return redirect(url_for("landlord_houses"))
 
-    # GET
     form = dict(house)
     conn.close()
     return render_template("house_form.html", cities=cities, form=form, mode="edit", house=house)
@@ -794,7 +930,6 @@ def house_delete(hid):
     if r: return r
     lid = current_landlord_id()
     conn = get_db()
-    # safety: also delete rooms (if FK pragma off)
     conn.execute("DELETE FROM rooms WHERE house_id=(SELECT id FROM houses WHERE id=? AND landlord_id=?)", (hid, lid))
     conn.execute("DELETE FROM houses WHERE id=? AND landlord_id=?", (hid, lid))
     conn.commit()
@@ -806,7 +941,6 @@ def house_delete(hid):
 # Rooms CRUD
 # =========================
 def _room_form_values():
-    """Extract & validate room form values. Returns (values_dict, errors_list)."""
     name = (request.form.get("name") or "").strip()
     ensuite = clean_bool("ensuite")
     bed_size = (request.form.get("bed_size") or "").strip()
@@ -816,7 +950,7 @@ def _room_form_values():
     chest_drawers = clean_bool("chest_drawers")
     lockable_door = clean_bool("lockable_door")
     wired_internet = clean_bool("wired_internet")
-    room_size = (request.form.get("room_size") or "").strip()  # optional
+    room_size = (request.form.get("room_size") or "").strip()
 
     errors = []
     if not name:
@@ -857,20 +991,12 @@ def room_new(hid):
         conn.close()
         return redirect(url_for("landlord_houses"))
 
-    # ---- HARD LIMIT: do not allow more rooms than bedrooms_total
-    current_count = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
-    if request.method == "GET":
-        # If already full, stop here and guide user back.
-        if current_count >= int(house["bedrooms_total"]):
-            flash(f"This house already has the maximum of {house['bedrooms_total']} room(s).", "error")
-            conn.close()
-            return redirect(url_for("rooms_list", hid=hid))
-
     if request.method == "POST":
-        # Re-check on POST to prevent race/double submits
-        if current_count >= int(house["bedrooms_total"]):
-            flash(f"Cannot add more than {house['bedrooms_total']} room(s) for this house.", "error")
+        # enforce max rooms
+        cnt = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
+        if cnt >= house["bedrooms_total"]:
             conn.close()
+            flash(f"You set {house['bedrooms_total']} bedrooms. Please edit the house to raise this before adding another room.", "error")
             return redirect(url_for("rooms_list", hid=hid))
 
         vals, errors = _room_form_values()
@@ -892,7 +1018,6 @@ def room_new(hid):
         flash("Room added.", "ok")
         return redirect(url_for("rooms_list", hid=hid))
 
-    # GET (not full)
     conn.close()
     return render_template("room_form.html", house=house, form={}, mode="new")
 
@@ -932,7 +1057,6 @@ def room_edit(hid, rid):
         flash("Room updated.", "ok")
         return redirect(url_for("rooms_list", hid=hid))
 
-    # GET
     form = dict(room)
     conn.close()
     return render_template("room_form.html", house=house, form=form, mode="edit", room=room)
@@ -954,20 +1078,136 @@ def room_delete(hid, rid):
     return redirect(url_for("rooms_list", hid=hid))
 
 # =========================
+# Photos: upload + list (simple test pages)
+# =========================
+def _next_sort_order(conn, table_name, id_field, rec_id):
+    row = conn.execute(f"SELECT COALESCE(MAX(sort_order),-1) AS m FROM {table_name} WHERE {id_field}=?", (rec_id,)).fetchone()
+    return (row["m"] or -1) + 1
+
+@app.route("/landlord/houses/<int:hid>/photos", methods=["GET","POST"])
+def house_photos(hid):
+    r = require_landlord()
+    if r: return r
+    lid = current_landlord_id()
+    conn = get_db()
+    house = _owned_house_or_abort(conn, hid, lid)
+    if not house:
+        conn.close()
+        return redirect(url_for("landlord_houses"))
+
+    if request.method == "POST":
+        files = request.files.getlist("photos")
+        if not files:
+            flash("Choose one or more images.", "error")
+            conn.close()
+            return redirect(url_for("house_photos", hid=hid))
+
+        # enforce max 5
+        cur_count = conn.execute("SELECT COUNT(*) AS c FROM house_photos WHERE house_id=?", (hid,)).fetchone()["c"]
+        allow = max(0, HOUSE_PHOTOS_MAX - cur_count)
+        if allow <= 0:
+            flash("You already have 5 photos for this property.", "error")
+            conn.close()
+            return redirect(url_for("house_photos", hid=hid))
+        files = files[:allow]
+
+        dest_dir = os.path.join(PHOTOS_ROOT, "houses", str(hid))
+        for fs in files:
+            if not fs or not fs.filename:
+                continue
+            if not _ok_ext(fs.filename):
+                flash(f"Unsupported file type: {fs.filename}", "error")
+                continue
+            base_slug = secrets.token_urlsafe(8)
+            variants = _save_variants(fs, dest_dir, base_slug)
+            sort_order = _next_sort_order(conn, "house_photos", "house_id", hid)
+            conn.execute("""
+              INSERT INTO house_photos(house_id,orig_filename,rel_thumb,rel_display,rel_full,sort_order,created_at)
+              VALUES (?,?,?,?,?,?,?)
+            """, (
+                hid, fs.filename, variants["rel_thumb"], variants["rel_display"], variants["rel_full"],
+                sort_order, dt.utcnow().isoformat()
+            ))
+        conn.commit()
+        flash("Photos uploaded.", "ok")
+        conn.close()
+        return redirect(url_for("house_photos", hid=hid))
+
+    rows = conn.execute("SELECT * FROM house_photos WHERE house_id=? ORDER BY sort_order ASC, id ASC", (hid,)).fetchall()
+    conn.close()
+    return render_template("photos_house.html", house=house, photos=rows)
+
+@app.route("/landlord/houses/<int:hid>/rooms/<int:rid>/photos", methods=["GET","POST"])
+def room_photos(hid, rid):
+    r = require_landlord()
+    if r: return r
+    lid = current_landlord_id()
+    conn = get_db()
+    house = _owned_house_or_abort(conn, hid, lid)
+    if not house:
+        conn.close()
+        return redirect(url_for("landlord_houses"))
+    room = conn.execute("SELECT * FROM rooms WHERE id=? AND house_id=?", (rid, hid)).fetchone()
+    if not room:
+        conn.close()
+        flash("Room not found.", "error")
+        return redirect(url_for("rooms_list", hid=hid))
+
+    if request.method == "POST":
+        files = request.files.getlist("photos")
+        if not files:
+            flash("Choose one or more images.", "error")
+            conn.close()
+            return redirect(url_for("room_photos", hid=hid, rid=rid))
+
+        cur_count = conn.execute("SELECT COUNT(*) AS c FROM room_photos WHERE room_id=?", (rid,)).fetchone()["c"]
+        allow = max(0, ROOM_PHOTOS_MAX - cur_count)
+        if allow <= 0:
+            flash("You already have 5 photos for this room.", "error")
+            conn.close()
+            return redirect(url_for("room_photos", hid=hid, rid=rid))
+        files = files[:allow]
+
+        dest_dir = os.path.join(PHOTOS_ROOT, "rooms", str(rid))
+        for fs in files:
+            if not fs or not fs.filename:
+                continue
+            if not _ok_ext(fs.filename):
+                flash(f"Unsupported file type: {fs.filename}", "error")
+                continue
+            base_slug = secrets.token_urlsafe(8)
+            variants = _save_variants(fs, dest_dir, base_slug)
+            sort_order = _next_sort_order(conn, "room_photos", "room_id", rid)
+            conn.execute("""
+              INSERT INTO room_photos(room_id,orig_filename,rel_thumb,rel_display,rel_full,sort_order,created_at)
+              VALUES (?,?,?,?,?,?,?)
+            """, (
+                rid, fs.filename, variants["rel_thumb"], variants["rel_display"], variants["rel_full"],
+                sort_order, dt.utcnow().isoformat()
+            ))
+        conn.commit()
+        flash("Photos uploaded.", "ok")
+        conn.close()
+        return redirect(url_for("room_photos", hid=hid, rid=rid))
+
+    rows = conn.execute("SELECT * FROM room_photos WHERE room_id=? ORDER BY sort_order ASC, id ASC", (rid,)).fetchall()
+    conn.close()
+    return render_template("photos_room.html", house=house, room=room, photos=rows)
+
+# =========================
 # Public property page (minimal placeholder)
 # =========================
 @app.route("/p/<int:hid>")
 def property_public(hid):
     conn = get_db()
     h = conn.execute("SELECT * FROM houses WHERE id=?", (hid,)).fetchone()
-    # NOTE: We are not surfacing rooms here yet — that comes in Step 5.
     conn.close()
     if not h:
         return render_template("property.html", house=None), 404
     return render_template("property.html", house=h)
 
 # =========================
-# Errors (JSON for .json endpoints)
+# Errors
 # =========================
 @app.errorhandler(404)
 def not_found(e):
