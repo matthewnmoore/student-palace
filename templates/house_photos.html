@@ -13,30 +13,49 @@
 
   <!-- Upload card -->
   <div class="card" style="margin-bottom:14px">
-    <div class="flex-between" style="gap:16px; flex-wrap:wrap">
+    <div class="flex-between" style="gap:16px; flex-wrap:wrap; width:100%">
       <div>
         <h3 class="mt-0" style="margin-bottom:6px">Upload photos</h3>
         <p class="help" style="margin:0">
           JPG/PNG only. We resize to max 1600×1200, compress to ~200&nbsp;KB, and add a small watermark in the lower-right.
-          Max {{ max_images }} photos per house.
+          Max 5 photos per house.
         </p>
       </div>
 
-      <form method="post"
+      <form id="photo-form"
+            method="post"
             action="{{ url_for('landlord.house_photos_upload', hid=house.id) }}"
             enctype="multipart/form-data"
             class="flex-between"
             style="gap:10px; align-items:center">
-        <input type="file"
+        <input id="file-input"
+               type="file"
                name="photos"
                accept="image/jpeg,image/png"
                {% if remaining <= 0 %}disabled{% endif %}
                multiple
                style="padding:8px; border:1px solid var(--border); border-radius:10px; background:#fff">
-        <button class="btn" type="submit" {% if remaining <= 0 %}disabled{% endif %}>
+        <button id="upload-btn" class="btn" type="submit" {% if remaining <= 0 %}disabled{% endif %}>
           Upload{% if remaining > 0 %} ({{ remaining }} left){% endif %}
         </button>
       </form>
+    </div>
+
+    <!-- Drag & Drop Zone -->
+    <div id="drop-zone"
+         class="drop-zone {% if remaining <= 0 %}drop-zone--disabled{% endif %}"
+         data-remaining="{{ remaining }}"
+         aria-disabled="{{ 1 if remaining <= 0 else 0 }}"
+         style="margin-top:12px">
+      <div class="drop-zone__inner">
+        <div class="drop-zone__icon" aria-hidden="true">⬆︎</div>
+        {% if remaining > 0 %}
+          <div class="drop-zone__text"><strong>Drag & drop</strong> photos here, or use the file picker above.</div>
+          <div class="drop-zone__sub muted small">Up to {{ remaining }} more can be added.</div>
+        {% else %}
+          <div class="drop-zone__text"><strong>Limit reached</strong> — remove a photo before adding more.</div>
+        {% endif %}
+      </div>
     </div>
   </div>
 
@@ -46,7 +65,7 @@
       <h3 class="mt-0">Gallery</h3>
       <div class="muted small">
         {% if images and images|length %}
-          {{ images|length }} / {{ max_images }} uploaded
+          {{ images|length }} / 5 uploaded
         {% else %}
           No photos yet — add some above.
         {% endif %}
@@ -69,7 +88,7 @@
 
             <div class="meta">
               <div class="meta-left muted small">
-                {{ img.width }}×{{ img.height }} · {{ (img.bytes / 1024)|round(0) }} KB
+                {# Sizes will display once backend stores width/height/bytes in Phase 2 #}
               </div>
               <div class="meta-actions">
                 {% if not img.is_primary %}
@@ -99,6 +118,25 @@
 </section>
 
 <style>
+  /* Drag & Drop */
+  .drop-zone{
+    border:2px dashed var(--border);
+    border-radius:14px;
+    background:#fff;
+    padding:18px;
+    transition:border-color .15s ease, background-color .15s ease;
+  }
+  .drop-zone__inner{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+  .drop-zone__icon{
+    width:36px; height:36px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--border);
+    font-weight:700; user-select:none;
+  }
+  .drop-zone--hover{border-color: var(--brand-light); background:#faf7ff}
+  .drop-zone--disabled{opacity:.6; pointer-events:none}
+
+  /* Gallery grid */
   .photo-grid {
     --min: 220px;
     display: grid;
@@ -160,4 +198,70 @@
     .photo-grid { --min: 160px; }
   }
 </style>
+
+<script>
+(function () {
+  const drop = document.getElementById('drop-zone');
+  const input = document.getElementById('file-input');
+  const form  = document.getElementById('photo-form');
+  const uploadBtn = document.getElementById('upload-btn');
+  if (!drop || !input) return;
+
+  const remaining = parseInt(drop.getAttribute('data-remaining') || '0', 10) || 0;
+  const disabled = drop.classList.contains('drop-zone--disabled');
+
+  // Guard: if disabled (limit reached), do nothing
+  if (!disabled) {
+    const prevent = (e) => { e.preventDefault(); e.stopPropagation(); };
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt =>
+      drop.addEventListener(evt, prevent, false)
+    );
+
+    drop.addEventListener('dragenter', () => drop.classList.add('drop-zone--hover'));
+    drop.addEventListener('dragover', () => drop.classList.add('drop-zone--hover'));
+    drop.addEventListener('dragleave', () => drop.classList.remove('drop-zone--hover'));
+    drop.addEventListener('drop', (e) => {
+      drop.classList.remove('drop-zone--hover');
+      const files = Array.from(e.dataTransfer.files || []);
+      if (!files.length) return;
+
+      // Filter to images only
+      const images = files.filter(f => /image\/(jpeg|png)/i.test(f.type));
+      if (!images.length) return;
+
+      // Respect the remaining cap (front-end only; server enforces in Phase 2)
+      const toAdd = images.slice(0, Math.max(remaining, 0));
+
+      // Use DataTransfer to populate the file input
+      const dt = new DataTransfer();
+      // Preserve any already-chosen files from the picker, up to remaining
+      Array.from(input.files || []).forEach(f => dt.items.add(f));
+      const already = dt.files.length;
+      const avail = Math.max(remaining - already, 0);
+      toAdd.slice(0, avail).forEach(f => dt.items.add(f));
+
+      input.files = dt.files;
+
+      // If we now have files selected, enable submit button (if it was disabled due to zero remaining this won't flip)
+      if (input.files.length > 0 && uploadBtn) {
+        uploadBtn.disabled = false;
+      }
+    });
+
+    // Also allow clicking the drop zone to trigger the native picker
+    drop.addEventListener('click', () => {
+      if (document.activeElement !== input) input.click();
+    });
+  }
+
+  // Optional: when users pick via the native input, ensure we don't exceed remaining
+  input.addEventListener('change', () => {
+    const dt = new DataTransfer();
+    const files = Array.from(input.files || []);
+    files.slice(0, Math.max(remaining, 0)).forEach(f => dt.items.add(f));
+    input.files = dt.files;
+  });
+})();
+</script>
 {% endblock %}
