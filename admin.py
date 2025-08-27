@@ -21,7 +21,6 @@ def _is_admin() -> bool:
     return bool(session.get("is_admin"))
 
 def _admin_token() -> str:
-    # Prefer app config, fall back to env
     return (current_app.config.get("ADMIN_TOKEN")
             or os.environ.get("ADMIN_TOKEN", ""))
 
@@ -51,9 +50,7 @@ def admin_logout():
     return redirect(url_for("public.index"))
 
 # ---------------------------------
-# Cities (basic add/activate/deactivate/delete)
-# NOTE: This version orders alphabetically. If you later add
-# an explicit 'position' column, you can wire move up/down actions.
+# Cities
 # ---------------------------------
 @admin_bp.route("/cities", methods=["GET", "POST"])
 def admin_cities():
@@ -123,7 +120,7 @@ def admin_landlords():
     try:
         if q:
             rows = conn.execute("""
-                SELECT l.id, l.email, l.created_at,
+                SELECT l.id, l.email, l.created_at, l.is_verified,
                        COALESCE(p.display_name,'') AS display_name,
                        COALESCE(p.public_slug,'') AS public_slug,
                        COALESCE(p.profile_views,0) AS profile_views
@@ -134,7 +131,7 @@ def admin_landlords():
             """, (f"%{q}%", f"%{q}%")).fetchall()
         else:
             rows = conn.execute("""
-                SELECT l.id, l.email, l.created_at,
+                SELECT l.id, l.email, l.created_at, l.is_verified,
                        COALESCE(p.display_name,'') AS display_name,
                        COALESCE(p.public_slug,'') AS public_slug,
                        COALESCE(p.profile_views,0) AS profile_views
@@ -175,7 +172,6 @@ def admin_landlord_detail(lid: int):
             elif action == "reset_password":
                 new_pw = (request.form.get("new_password") or "").strip()
                 if not new_pw:
-                    # generate simple temporary password
                     import secrets
                     new_pw = secrets.token_urlsafe(8)
                     flash(f"Generated temporary password: {new_pw}", "ok")
@@ -193,7 +189,6 @@ def admin_landlord_detail(lid: int):
                 website = (request.form.get("website") or "").strip()
                 bio = (request.form.get("bio") or "").strip()
 
-                # Ensure profile row
                 conn.execute(
                     "INSERT OR IGNORE INTO landlord_profiles(landlord_id)"
                     " VALUES(?)",
@@ -204,10 +199,8 @@ def admin_landlord_detail(lid: int):
                     (lid,)
                 ).fetchone()
 
-                # Auto-generate slug if missing
                 slug = prof["public_slug"] if prof else None
                 if not slug and display_name:
-                    # local slugify
                     s = (display_name or "").strip().lower()
                     out = []
                     for ch in s:
@@ -238,8 +231,20 @@ def admin_landlord_detail(lid: int):
                 conn.commit()
                 flash("Profile updated.", "ok")
 
+            elif action == "toggle_verified":
+                landlord = conn.execute(
+                    "SELECT is_verified FROM landlords WHERE id=?",
+                    (lid,)
+                ).fetchone()
+                new_val = 0 if landlord and landlord["is_verified"] else 1
+                conn.execute(
+                    "UPDATE landlords SET is_verified=? WHERE id=?",
+                    (new_val, lid)
+                )
+                conn.commit()
+                flash("Verification status updated.", "ok")
+
             elif action == "delete_landlord":
-                # Remove profile then landlord (FK-safe even if PRAGMA off)
                 conn.execute("DELETE FROM landlord_profiles WHERE landlord_id=?", (lid,))
                 conn.execute("DELETE FROM landlords WHERE id=?", (lid,))
                 conn.commit()
