@@ -518,7 +518,8 @@ def house_photos(hid):
          ORDER BY is_primary DESC, sort_order ASC, id ASC
     """, (hid,)).fetchall()
 
-    max_images = 24
+    # Limit: 5 photos per house (UI only; upload still stubbed)
+    max_images = 5
     current_count = len(rows)
 
     images = []
