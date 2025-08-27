@@ -52,6 +52,7 @@ def ensure_db():
       bio TEXT,
       public_slug TEXT UNIQUE,
       profile_views INTEGER NOT NULL DEFAULT 0,
+      -- new field will be migrated below if missing
       FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE
     );
     """)
@@ -105,12 +106,19 @@ def ensure_db():
 
     conn.commit()
 
-    # Migrations (non-destructive)
+    # --- Migrations (non-destructive) ---
+
+    # Add created_at to landlords if missing
     if not table_has_column(conn, "landlords", "created_at"):
         conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         conn.commit()
         now = dt.utcnow().isoformat()
         conn.execute("UPDATE landlords SET created_at=? WHERE created_at='' OR created_at IS NULL", (now,))
+        conn.commit()
+
+    # Add is_verified to landlord_profiles if missing
+    if not table_has_column(conn, "landlord_profiles", "is_verified"):
+        conn.execute("ALTER TABLE landlord_profiles ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0;")
         conn.commit()
 
     conn.close()
