@@ -7,7 +7,11 @@
   {% if not landlord %}
     <div class="card">
       <p>You’re not logged in.</p>
-      <p><a class="btn" href="{{ url_for('login') }}">Log in</a> or <a class="btn" href="{{ url_for('signup') }}">Create an account</a></p>
+      <p>
+        <a class="btn" href="{{ url_for('auth.login') }}">Log in</a>
+        or
+        <a class="btn" href="{{ url_for('auth.signup') }}">Create an account</a>
+      </p>
     </div>
   {% else %}
     <div class="grid grid-2">
@@ -16,16 +20,16 @@
         <p><strong>{{ landlord.email }}</strong></p>
         <p class="help">Member since {{ landlord.created_at }}</p>
         <p class="inline-actions">
-          <a class="btn" href="{{ url_for('landlord_profile') }}">Edit profile</a>
-          <a class="btn btn-outline" href="{{ url_for('landlord_houses') }}">My houses</a>
-          <a class="btn" href="{{ url_for('house_new') }}">Add a house</a>
+          <a class="btn" href="{{ url_for('landlord.landlord_profile') }}">Edit profile</a>
+          <a class="btn btn-outline" href="{{ url_for('landlord.landlord_houses') }}">My houses</a>
+          <a class="btn" href="{{ url_for('landlord.house_new') }}">Add a house</a>
         </p>
       </div>
 
       <div class="card">
         <h3 class="mt-0">Quick links</h3>
         <p class="inline-actions">
-          <a class="btn btn-outline" href="{{ url_for('landlord_houses') }}">Manage houses</a>
+          <a class="btn btn-outline" href="{{ url_for('landlord.landlord_houses') }}">Manage houses</a>
         </p>
       </div>
     </div>
@@ -38,16 +42,18 @@
             <li>
               <strong>{{ h.title }}</strong> – {{ h.city }}
               <span class="inline-actions" style="margin-left:8px">
-                <a class="btn btn-outline" href="{{ url_for('house_edit', hid=h.id) }}">Edit</a>
-                <a class="btn btn-outline" href="{{ url_for('rooms_list', hid=h.id) }}">Rooms</a>
-                <a class="btn btn-outline" href="{{ url_for('property_public', hid=h.id) }}" target="_blank">Public</a>
+                <a class="btn btn-outline" href="{{ url_for('landlord.house_edit', hid=h.id) }}">Edit</a>
+                <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=h.id) }}">Rooms</a>
+                <!-- Public view link disabled until a route exists -->
               </span>
             </li>
           {% endfor %}
         </ul>
-        <p style="margin-top:10px"><a class="btn" href="{{ url_for('landlord_houses') }}">View all houses</a></p>
+        <p style="margin-top:10px">
+          <a class="btn" href="{{ url_for('landlord.landlord_houses') }}">View all houses</a>
+        </p>
       {% else %}
-        <p>No houses yet. <a href="{{ url_for('house_new') }}">Add your first house</a>.</p>
+        <p>No houses yet. <a href="{{ url_for('landlord.house_new') }}">Add your first house</a>.</p>
       {% endif %}
     </div>
   {% endif %}
