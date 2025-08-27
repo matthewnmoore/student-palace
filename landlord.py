@@ -243,7 +243,7 @@ def house_delete(hid):
     flash("House deleted.", "ok")
     return redirect(url_for("landlord.landlord_houses"))
 
-# Rooms CRUD
+# -------- Rooms helpers --------
 def _room_form_values(request):
     name = (request.form.get("name") or "").strip()
     from utils import clean_bool
@@ -267,6 +267,13 @@ def _room_form_values(request):
         "lockable_door": lockable_door, "wired_internet": wired_internet, "room_size": room_size
     }, errors)
 
+def _room_counts(conn, hid):
+    row = conn.execute("SELECT bedrooms_total FROM houses WHERE id=?", (hid,)).fetchone()
+    max_rooms = int(row["bedrooms_total"]) if row else 0
+    cnt = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
+    return max_rooms, int(cnt)
+
+# -------- Rooms CRUD --------
 @landlord_bp.route("/landlord/houses/<int:hid>/rooms")
 def rooms_list(hid):
     r = require_landlord()
@@ -279,8 +286,11 @@ def rooms_list(hid):
         flash("House not found.", "error")
         return redirect(url_for("landlord.landlord_houses"))
     rows = conn.execute("SELECT * FROM rooms WHERE house_id=? ORDER BY id ASC", (hid,)).fetchall()
+    max_rooms, cnt = _room_counts(conn, hid)
     conn.close()
-    return render_template("rooms_list.html", house=house, rooms=rows)
+    remaining = max(0, max_rooms - cnt)
+    can_add = cnt < max_rooms
+    return render_template("rooms_list.html", house=house, rooms=rows, can_add=can_add, remaining=remaining, max_rooms=max_rooms)
 
 @landlord_bp.route("/landlord/houses/<int:hid>/rooms/new", methods=["GET","POST"])
 def room_new(hid):
@@ -292,6 +302,13 @@ def room_new(hid):
     if not house:
         conn.close()
         return redirect(url_for("landlord.landlord_houses"))
+
+    # Enforce capacity before showing/processing the form
+    max_rooms, cnt = _room_counts(conn, hid)
+    if cnt >= max_rooms:
+        conn.close()
+        flash(f"You’ve reached the room limit for this house ({max_rooms} bedrooms).", "error")
+        return redirect(url_for("landlord.rooms_list", hid=hid))
 
     if request.method == "POST":
         vals, errors = _room_form_values(request)
