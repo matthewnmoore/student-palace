@@ -7,6 +7,16 @@
     <a class="btn" href="{{ url_for('landlord.house_new') }}">+ Add a house</a>
   </div>
 
+  {% if is_verified %}
+    <div class="flash ok" style="margin-bottom:10px">
+      ✅ You are <strong>verified</strong>. Your public pages will show a green tick.
+    </div>
+  {% else %}
+    <div class="flash info" style="margin-bottom:10px">
+      ℹ️ Your account is not verified yet.
+    </div>
+  {% endif %}
+
   <div class="card">
     {% if houses and houses|length %}
       <table class="table">
@@ -16,7 +26,8 @@
             <th>City</th>
             <th>Type</th>
             <th>Beds</th>
-            <th style="width:380px">Actions</th>
+            <th>Owner</th>
+            <th style="width:420px">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -27,15 +38,19 @@
               <td>{{ 'Whole property' if h.letting_type=='whole' else 'House share' }}</td>
               <td>{{ h.bedrooms_total }}</td>
               <td>
+                {% if is_verified %}
+                  <span class="badge">Verified ✅</span>
+                {% else %}
+                  <span class="badge" style="background:#fff6f6; color:#7f1d1d; border:1px solid #f7caca;">Not verified</span>
+                {% endif %}
+              </td>
+              <td>
                 <div class="inline-actions">
                   <a class="btn" href="{{ url_for('landlord.house_edit', hid=h.id) }}">Edit</a>
                   <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=h.id) }}">Manage rooms</a>
-                  <!-- Public link placeholder until the public property route is wired -->
-                  <a class="btn btn-outline" href="{{ url_for('public.index') }}" title="Public page coming soon">View public</a>
-                  <form method="post"
-                        action="{{ url_for('landlord.house_delete', hid=h.id) }}"
-                        onsubmit="return confirm('Delete this house and its rooms?');"
-                        style="display:inline">
+                  <!-- If/when you have a public property route, swap this endpoint -->
+                  <!-- <a class="btn btn-outline" href="{{ url_for('public.property', hid=h.id) }}" target="_blank">View public</a> -->
+                  <form method="post" action="{{ url_for('landlord.house_delete', hid=h.id) }}" onsubmit="return confirm('Delete this house and its rooms?');" style="display:inline">
                     <button class="btn btn-admin" type="submit">Delete</button>
                   </form>
                 </div>
