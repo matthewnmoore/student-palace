@@ -52,7 +52,7 @@ def ensure_db():
       bio TEXT,
       public_slug TEXT UNIQUE,
       profile_views INTEGER NOT NULL DEFAULT 0,
-      -- new field will be migrated below if missing
+      -- is_verified/role added by migrations below if missing
       FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE
     );
     """)
@@ -80,6 +80,7 @@ def ensure_db():
       wired_internet INTEGER NOT NULL DEFAULT 0,
       common_area_tv INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
+      -- listing_type added by migration below if missing
       FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE
     );
     """)
@@ -108,17 +109,46 @@ def ensure_db():
 
     # --- Migrations (non-destructive) ---
 
-    # Add created_at to landlords if missing
+    # landlords.created_at
     if not table_has_column(conn, "landlords", "created_at"):
         conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         conn.commit()
         now = dt.utcnow().isoformat()
-        conn.execute("UPDATE landlords SET created_at=? WHERE created_at='' OR created_at IS NULL", (now,))
+        conn.execute(
+            "UPDATE landlords SET created_at=? WHERE created_at='' OR created_at IS NULL",
+            (now,),
+        )
         conn.commit()
 
-    # Add is_verified to landlord_profiles if missing
+    # landlord_profiles.is_verified
     if not table_has_column(conn, "landlord_profiles", "is_verified"):
         conn.execute("ALTER TABLE landlord_profiles ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0;")
+        conn.commit()
+
+    # landlord_profiles.role  ('owner' | 'agent') default 'owner'
+    if not table_has_column(conn, "landlord_profiles", "role"):
+        conn.execute("ALTER TABLE landlord_profiles ADD COLUMN role TEXT NOT NULL DEFAULT 'owner';")
+        conn.commit()
+        conn.execute("""
+            UPDATE landlord_profiles
+               SET role = CASE
+                    WHEN LOWER(COALESCE(role,'')) IN ('owner','agent') THEN LOWER(role)
+                    ELSE 'owner'
+               END
+        """)
+        conn.commit()
+
+    # houses.listing_type ('owner' | 'agent') default 'owner'
+    if not table_has_column(conn, "houses", "listing_type"):
+        conn.execute("ALTER TABLE houses ADD COLUMN listing_type TEXT NOT NULL DEFAULT 'owner';")
+        conn.commit()
+        conn.execute("""
+            UPDATE houses
+               SET listing_type = CASE
+                    WHEN LOWER(COALESCE(listing_type,'')) IN ('owner','agent') THEN LOWER(listing_type)
+                    ELSE 'owner'
+               END
+        """)
         conn.commit()
 
     conn.close()
