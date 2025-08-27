@@ -1,57 +1,59 @@
 {% extends "base.html" %}
-{% block title %}Rooms – {{ house.title }} · Student Palace{% endblock %}
+{% block title %}Rooms – Student Palace{% endblock %}
 {% block content %}
 <section class="wrap">
-  <div class="flex-between" style="margin-bottom:10px">
-    <h1 class="mt-0">Rooms for <span style="color:var(--brand)">{{ house.title }}</span></h1>
-    <div class="inline-actions">
-      <a class="btn" href="{{ url_for('room_new', hid=house.id) }}">+ Add room</a>
-      <a class="btn btn-outline" href="{{ url_for('house_edit', hid=house.id) }}">Back to house</a>
-      <a class="btn btn-outline" href="{{ url_for('landlord_houses') }}">All my houses</a>
-    </div>
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Rooms for: {{ house.title }}</h1>
+    <a class="btn" href="{{ url_for('landlord.room_new', hid=house.id) }}">+ Add a room</a>
   </div>
 
   <div class="card">
+    <p class="muted" style="margin-top:0">
+      {{ house.city }} • {{ 'Whole property' if house.letting_type=='whole' else 'House share' }} • {{ house.bedrooms_total }} beds
+    </p>
+
     {% if rooms and rooms|length %}
       <table class="table">
         <thead>
           <tr>
-            <th style="width:60px">ID</th>
-            <th>Name</th>
-            <th style="width:100px">Ensuite</th>
-            <th style="width:130px">Bed size</th>
-            <th>Key features</th>
-            <th style="width:220px">Actions</th>
+            <th>Room</th>
+            <th>Bed</th>
+            <th>Ensuite</th>
+            <th>Wired internet</th>
+            <th>Desk & chair</th>
+            <th style="width:320px">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for r in rooms %}
             <tr>
-              <td>{{ r.id }}</td>
               <td><strong>{{ r.name }}</strong>{% if r.room_size %} <span class="muted">({{ r.room_size }})</span>{% endif %}</td>
-              <td>{{ 'Yes' if r.ensuite else 'No' }}</td>
               <td>{{ r.bed_size }}</td>
+              <td>{{ 'Yes' if r.ensuite else 'No' }}</td>
+              <td>{{ 'Yes' if r.wired_internet else 'No' }}</td>
+              <td>{{ 'Yes' if r.desk_chair else 'No' }}</td>
               <td>
-                <span class="badge" {% if not r.tv %}style="opacity:.35"{% endif %}>TV</span>
-                <span class="badge" {% if not r.desk_chair %}style="opacity:.35"{% endif %}>Desk &amp; chair</span>
-                <span class="badge" {% if not r.wardrobe %}style="opacity:.35"{% endif %}>Wardrobe</span>
-                <span class="badge" {% if not r.chest_drawers %}style="opacity:.35"{% endif %}>Chest of drawers</span>
-                <span class="badge" {% if not r.lockable_door %}style="opacity:.35"{% endif %}>Lockable door</span>
-                <span class="badge" {% if not r.wired_internet %}style="opacity:.35"{% endif %}>Wired internet</span>
-              </td>
-              <td class="inline-actions">
-                <a class="btn" href="{{ url_for('room_edit', hid=house.id, rid=r.id) }}">Edit</a>
-                <form method="post" action="{{ url_for('room_delete', hid=house.id, rid=r.id) }}" onsubmit="return confirm('Delete room {{ r.name }}?')">
-                  <button class="btn btn-admin" type="submit">Delete</button>
-                </form>
+                <div class="inline-actions">
+                  <a class="btn" href="{{ url_for('landlord.room_edit', hid=house.id, rid=r.id) }}">Edit</a>
+                  <form method="post" action="{{ url_for('landlord.room_delete', hid=house.id, rid=r.id) }}" onsubmit="return confirm('Delete this room?');" style="display:inline">
+                    <button class="btn btn-admin" type="submit">Delete</button>
+                  </form>
+                </div>
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     {% else %}
-      <p class="help">No rooms yet.</p>
+      <p>No rooms yet.</p>
+      <p style="margin-top:10px">
+        <a class="btn" href="{{ url_for('landlord.room_new', hid=house.id) }}">Add the first room</a>
+      </p>
     {% endif %}
   </div>
+
+  <p style="margin-top:12px">
+    <a class="btn btn-outline" href="{{ url_for('landlord.landlord_houses') }}">← Back to houses</a>
+  </p>
 </section>
 {% endblock %}
