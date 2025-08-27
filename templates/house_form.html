@@ -56,6 +56,17 @@
         <input type="checkbox" name="bills_included" {% if form and form.bills_included in ['1',1,'on',True] %}checked{% endif %}>
         <span class="label-inline">Bills included</span>
       </label>
+
+      <!-- NEW: Listing type (Owner/Agent) -->
+      <label class="field" style="grid-column:1 / -1">
+        <span class="label">This house is listed as</span>
+        {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
+        <select name="listing_type" required>
+          <option value="owner" {% if lt=='owner' %}selected{% endif %}>Owner</option>
+          <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
+        </select>
+        <p class="help">Defaults to your profile preference; you can change per house.</p>
+      </label>
     </div>
 
     <h3 style="margin-top:14px">Bathrooms</h3>
