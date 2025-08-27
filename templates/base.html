@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -8,39 +8,35 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-
-  <!-- NAVBAR -->
-  <nav class="navbar">
+  <header class="navbar">
     <div class="wrap flex-between">
-      <a class="logo" href="{{ url_for('public.index') }}" style="display:flex;align-items:center;gap:10px;text-decoration:none">
+      <a class="logo" href="{{ url_for('public.index') }}" style="display:flex;align-items:center;gap:10px">
         <img class="logo-img" src="{{ url_for('static', filename='img/student-palace-logo.svg') }}" alt="Student Palace">
       </a>
-      <div class="nav-links">
-        <a class="btn btn-outline" href="{{ url_for('public.index') }}">Tenants</a>
+      <nav class="nav-links">
+        <a class="btn btn-outline" href="{{ url_for('public.search') }}">Tenants</a>
         <a class="btn" href="{{ url_for('auth.landlords_entry') }}">Landlords</a>
-        <a class="btn btn-admin" href="{{ url_for('admin.login') }}">Admin</a>
-      </div>
+        <a class="btn btn-admin" href="{{ url_for('admin.admin_login') }}">Admin</a>
+      </nav>
     </div>
-  </nav>
+  </header>
 
-  <!-- FLASHES -->
-  <section class="wrap">
-    {% with msgs = get_flashed_messages(with_categories=true) %}
-      {% if msgs %}
-        {% for cat, msg in msgs %}
-          <div class="flash {{ cat }}">{{ msg }}</div>
-        {% endfor %}
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <section class="wrap">
+          {% for category, message in messages %}
+            <div class="flash {{ category|e }}">{{ message }}</div>
+          {% endfor %}
+        </section>
       {% endif %}
     {% endwith %}
-  </section>
+    {% block content %}{% endblock %}
+  </main>
 
-  <!-- PAGE CONTENT -->
-  {% block content %}{% endblock %}
-
-  <!-- FOOTER -->
   <footer class="footer">
     <div class="wrap flex-between">
-      <div class="small">© {{ now().year }} Student Palace</div>
+      <div class="small">© 2025 Student Palace</div>
       <div class="small">Build: {{ BUILD_VERSION }}</div>
     </div>
   </footer>
