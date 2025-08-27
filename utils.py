@@ -1,5 +1,6 @@
 from flask import session, redirect, url_for, flash, request
 from db import get_db
+import os
 
 def is_admin():
     return bool(session.get("is_admin"))
@@ -49,3 +50,11 @@ def valid_choice(value, choices):
 
 def owned_house_or_none(conn, hid, landlord_id):
     return conn.execute("SELECT * FROM houses WHERE id=? AND landlord_id=?", (hid, landlord_id)).fetchone()
+
+# --- Images helpers ----
+
+def allowed_image_ext(filename: str) -> bool:
+    if not filename or "." not in filename:
+        return False
+    ext = filename.rsplit(".", 1)[1].lower()
+    return ext in {"jpg", "jpeg", "png"}
