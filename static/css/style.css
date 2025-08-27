@@ -1,88 +1,171 @@
-/* ===== Root Variables ===== */
-:root{
-  --brand:#5E2B97;
-  --brand-light:#7D3FC6;
-  --accent:#FF6F61; /* coral */
-  --accent-dark:#e85b4d;
-  --bg:#f9f7ff;
-  --text:#333;
-  --muted:#666;
-  --border:#ddd;
-  --radius:8px;
-  --shadow:0 2px 8px rgba(0,0,0,0.08);
-  --wrap:1100px;
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f9f9f9;
+  color: #333;
 }
 
-/* ===== Base ===== */
-*{box-sizing:border-box}
-body{
-  margin:0; padding:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-}
-h1,h2,h3{color:var(--brand); margin:0 0 10px}
-p{margin:0 0 12px}
-a{color:var(--brand); text-decoration:none}
-a:hover{text-decoration:underline}
-.wrap{max-width:var(--wrap); margin:0 auto; padding:0 16px}
-.flex-between{display:flex; justify-content:space-between; align-items:center}
-.inline-actions{display:flex; gap:10px; flex-wrap:wrap}
-
-/* ===== Navbar ===== */
-.navbar{background:#fff; border-bottom:1px solid var(--border); box-shadow:var(--shadow); padding:10px 0}
-.logo-img{height:84px; width:auto; display:block}
-.nav-links{display:flex; gap:12px; align-items:center}
-
-/* ===== Buttons ===== */
-.btn{
-  display:inline-block; padding:10px 16px; border-radius:999px;
-  border:1px solid transparent; background:var(--brand); color:#fff;
-  font-weight:600; transition:.15s ease; box-shadow:var(--shadow)
-}
-.btn:hover{background:var(--brand-light); transform:translateY(-1px); text-decoration:none}
-.btn-outline{background:#fff; color:var(--brand); border:1px solid var(--brand)}
-.btn-outline:hover{background:var(--brand); color:#fff}
-.btn-accent{background:var(--accent)}
-.btn-accent:hover{background:var(--accent-dark)}
-.btn-admin{background:#d62828}
-.btn-admin:hover{background:#b51f1f}
-
-/* ===== Cards & Forms ===== */
-.card{background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin:18px 0}
-.grid{display:grid; gap:14px}
-.grid-2{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
-.grid-3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
-.field{display:flex; flex-direction:column}
-.field .label{font-weight:600; margin-bottom:6px}
-input[type="text"],input[type="email"],input[type="password"],input[type="number"],select,textarea{
-  padding:10px; border:1px solid var(--border); border-radius:10px; font-size:14px; background:#fff
+header {
+  background: #5a2d82;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.badge{display:inline-block; padding:4px 8px; border-radius:999px; background:#f2ecff; border:1px solid var(--border); font-size:12px; margin-right:6px}
-.help{color:var(--muted); font-size:13px}
+header .logo {
+  display: flex;
+  align-items: center;
+  color: white;
+  text-decoration: none;
+  font-size: 1.2rem;
+}
 
-/* ===== Tables ===== */
-.table{width:100%; border-collapse:collapse}
-.table th,.table td{padding:10px; border:1px solid var(--border); text-align:left}
-.table th{background:#f2ecff}
+header .logo img {
+  height: 30px;
+  margin-right: 0.5rem;
+}
 
-/* ===== Flash ===== */
-.flash{padding:10px 12px; border-radius:10px; margin:10px 0; font-weight:600; border:1px solid}
-.flash.ok,.flash.success{background:#e5f9f5; color:#0f5132; border-color:#a7e3d4}
-.flash.error{background:#ffe5e5; color:#7f1d1d; border-color:#f7caca}
+header nav a {
+  color: white;
+  margin-left: 1rem;
+  text-decoration: none;
+  font-weight: bold;
+}
 
-/* ===== Footer ===== */
-.footer{background:#fff; border-top:1px solid var(--border); padding:14px 0; color:#666}
-.small{font-size:12px}
+header nav a:hover {
+  text-decoration: underline;
+}
 
-/* ===== Search inline ===== */
-.search-inline{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0}
-.search-inline select{min-width:140px}
-.check{display:flex; align-items:center; gap:6px}
+.hero {
+  position: relative;
+  height: 400px;
+  background: url('../img/student-palace-hero.jpg') center/cover no-repeat;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 
-/* ===== Responsive ===== */
-@media (max-width:720px){
-  .flex-between{flex-direction:column; align-items:flex-start; gap:8px}
-  .logo-img{height:64px}
+.hero-overlay {
+  background: rgba(0, 0, 0, 0.5);
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-text {
+  text-align: center;
+  color: white;
+  max-width: 600px;
+  padding: 1rem;
+}
+
+.hero-text h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.hero-text p {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.search-form {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.search-form input {
+  padding: 0.5rem;
+  font-size: 1rem;
+  width: 70%;
+  border: none;
+  border-radius: 4px 0 0 4px;
+}
+
+.search-form button {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  border: none;
+  background: #ff6b6b;
+  color: white;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+}
+
+.search-form button:hover {
+  background: #e55a5a;
+}
+
+.verified-info {
+  margin-top: 1rem;
+  font-size: 1rem;
+  color: #fff;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.featured,
+.featured-properties {
+  padding: 2rem;
+  background: white;
+  margin-top: 1rem;
+}
+
+.featured h2,
+.featured-properties h2 {
+  margin-bottom: 1rem;
+}
+
+.city-grid,
+.property-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.city-card,
+.property-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+}
+
+.city-card:hover,
+.property-card:hover {
+  transform: scale(1.02);
+}
+
+.city-card img,
+.property-card img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.city-card span,
+.property-info {
+  display: block;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.property-info h3 {
+  margin: 0.5rem 0;
+}
+
+footer {
+  text-align: center;
+  padding: 1rem;
+  background: #5a2d82;
+  color: white;
+  margin-top: 2rem;
 }
