@@ -26,14 +26,14 @@ def dashboard():
     ).fetchall()
     conn.close()
 
-    # --- UK date string for "Member since" ---
+    # UK date for "Member since"
     created_at_uk = None
     try:
         created_at_uk = dt.fromisoformat(landlord["created_at"]).strftime("%d %B %Y")
     except Exception:
         created_at_uk = landlord["created_at"]
 
-    # --- Pretty role label for display ---
+    # Role label
     role_raw = (profile["role"] if profile and "role" in profile.keys() else "owner") or "owner"
     role_label = "Owner" if role_raw == "owner" else "Agent"
 
@@ -72,7 +72,6 @@ def landlord_profile():
             phone = (request.form.get("phone") or "").strip()
             website = (request.form.get("website") or "").strip()
             bio = (request.form.get("bio") or "").strip()
-            # NEW: capture role from the form (owner/agent)
             role = (request.form.get("role") or "").strip().lower()
             if role not in ("owner", "agent"):
                 role = (prof["role"] if prof and "role" in prof.keys() else "owner")
@@ -343,6 +342,47 @@ def house_delete(hid):
     flash("House deleted.", "ok")
     return redirect(url_for("landlord.landlord_houses"))
 
+# ---------- Photos (Phase 1: UI only, stub actions) ----------
+@landlord_bp.route("/landlord/houses/<int:hid>/photos")
+def house_photos(hid):
+    """Simple manager page (no DB yet)."""
+    r = require_landlord()
+    if r: return r
+    lid = current_landlord_id()
+    conn = get_db()
+    house = owned_house_or_none(conn, hid, lid)
+    conn.close()
+    if not house:
+        flash("House not found.", "error")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    # Phase 1: no photos stored yet
+    photos = []  # list of dicts later; empty for now
+    return render_template("house_photos.html", house=house, photos=photos)
+
+@landlord_bp.route("/landlord/houses/<int:hid>/photos/upload", methods=["POST"])
+def house_photos_upload(hid):
+    """Stub: we’ll wire processing/storage in Phase 2."""
+    r = require_landlord()
+    if r: return r
+    flash("Photo uploads are coming soon. (UI stub)", "error")
+    return redirect(url_for("landlord.house_photos", hid=hid))
+
+@landlord_bp.route("/landlord/houses/<int:hid>/photos/<int:img_id>/primary", methods=["POST"])
+def house_photos_primary(hid, img_id):
+    r = require_landlord()
+    if r: return r
+    flash("Setting a primary photo will work once images are stored. (UI stub)", "error")
+    return redirect(url_for("landlord.house_photos", hid=hid))
+
+@landlord_bp.route("/landlord/houses/<int:hid>/photos/<int:img_id>/delete", methods=["POST"])
+def house_photos_delete(hid, img_id):
+    r = require_landlord()
+    if r: return r
+    flash("Deleting photos will work once images are stored. (UI stub)", "error")
+    return redirect(url_for("landlord.house_photos", hid=hid))
+
+# -------- Rooms helpers --------
 def _room_form_values(request):
     name = (request.form.get("name") or "").strip()
     from utils import clean_bool
