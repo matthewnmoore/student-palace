@@ -15,16 +15,13 @@ def dashboard():
         return render_template("dashboard.html", landlord=None, profile=None)
     conn = get_db()
     landlord = conn.execute(
-        "SELECT id,email,created_at FROM landlords WHERE id=?",
-        (lid,)
+        "SELECT id,email,created_at FROM landlords WHERE id=?", (lid,)
     ).fetchone()
     profile = conn.execute(
-        "SELECT * FROM landlord_profiles WHERE landlord_id=?",
-        (lid,)
+        "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
     ).fetchone()
     houses = conn.execute(
-        "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC",
-        (lid,)
+        "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC", (lid,)
     ).fetchall()
     conn.close()
     return render_template("dashboard.html", landlord=landlord, profile=profile, houses=houses)
@@ -36,8 +33,7 @@ def landlord_profile():
     lid = current_landlord_id()
     conn = get_db()
     prof = conn.execute(
-        "SELECT * FROM landlord_profiles WHERE landlord_id=?",
-        (lid,)
+        "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
     ).fetchone()
     if not prof:
         conn.execute(
@@ -46,8 +42,7 @@ def landlord_profile():
         )
         conn.commit()
         prof = conn.execute(
-            "SELECT * FROM landlord_profiles WHERE landlord_id=?",
-            (lid,)
+            "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
         ).fetchone()
 
     if request.method == "POST":
@@ -63,21 +58,19 @@ def landlord_profile():
                 candidate = base
                 i = 2
                 while conn.execute(
-                    "SELECT 1 FROM landlord_profiles WHERE public_slug=?",
-                    (candidate,)
+                    "SELECT 1 FROM landlord_profiles WHERE public_slug=?", (candidate,)
                 ).fetchone():
                     candidate = f"{base}-{i}"
                     i += 1
                 slug = candidate
             conn.execute("""
                 UPDATE landlord_profiles
-                SET display_name=?, phone=?, website=?, bio=?, public_slug=COALESCE(?, public_slug)
-                WHERE landlord_id=?
+                   SET display_name=?, phone=?, website=?, bio=?, public_slug=COALESCE(?, public_slug)
+                 WHERE landlord_id=?
             """, (display_name, phone, website, bio, slug, lid))
             conn.commit()
             prof = conn.execute(
-                "SELECT * FROM landlord_profiles WHERE landlord_id=?",
-                (lid,)
+                "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
             ).fetchone()
             conn.close()
             flash("Profile saved.", "ok")
@@ -96,8 +89,7 @@ def landlord_profile():
 def landlord_public_by_slug(slug):
     conn = get_db()
     prof = conn.execute(
-        "SELECT * FROM landlord_profiles WHERE public_slug=?",
-        (slug,)
+        "SELECT * FROM landlord_profiles WHERE public_slug=?", (slug,)
     ).fetchone()
     if not prof:
         conn.close()
@@ -108,8 +100,7 @@ def landlord_public_by_slug(slug):
     )
     conn.commit()
     ll = conn.execute(
-        "SELECT email FROM landlords WHERE id=?",
-        (prof["landlord_id"],)
+        "SELECT email FROM landlords WHERE id=?", (prof["landlord_id"],)
     ).fetchone()
     conn.close()
     return render_template(
@@ -122,8 +113,7 @@ def landlord_public_by_slug(slug):
 def landlord_public_by_id(lid):
     conn = get_db()
     prof = conn.execute(
-        "SELECT * FROM landlord_profiles WHERE landlord_id=?",
-        (lid,)
+        "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
     ).fetchone()
     if not prof:
         conn.close()
@@ -134,8 +124,7 @@ def landlord_public_by_id(lid):
     )
     conn.commit()
     ll = conn.execute(
-        "SELECT email FROM landlords WHERE id=?",
-        (lid,)
+        "SELECT email FROM landlords WHERE id=?", (lid,)
     ).fetchone()
     conn.close()
     return render_template(
@@ -151,17 +140,20 @@ def landlord_houses():
     if r: return r
     lid = current_landlord_id()
     conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC",
-        (lid,)
-    ).fetchall()
+    # ✅ get verification from landlord_profiles (your DB schema)
     prof = conn.execute(
-        "SELECT is_verified FROM landlord_profiles WHERE landlord_id=?",
-        (lid,)
+        "SELECT is_verified FROM landlord_profiles WHERE landlord_id=?", (lid,)
     ).fetchone()
-    is_verified = bool(prof["is_verified"]) if prof else False
+    rows = conn.execute(
+        "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC", (lid,)
+    ).fetchall()
     conn.close()
-    return render_template("houses_list.html", houses=rows, is_verified=is_verified)
+    is_verified = int(prof["is_verified"]) if (prof and "is_verified" in prof.keys()) else 0
+    return render_template(
+        "houses_list.html",
+        houses=rows,
+        is_verified=is_verified
+    )
 
 @landlord_bp.route("/landlord/houses/new", methods=["GET","POST"])
 def house_new():
@@ -298,10 +290,7 @@ def house_delete(hid):
         "DELETE FROM rooms WHERE house_id=(SELECT id FROM houses WHERE id=? AND landlord_id=?)",
         (hid, lid)
     )
-    conn.execute(
-        "DELETE FROM houses WHERE id=? AND landlord_id=?",
-        (hid, lid)
-    )
+    conn.execute("DELETE FROM houses WHERE id=? AND landlord_id=?", (hid, lid))
     conn.commit()
     conn.close()
     flash("House deleted.", "ok")
@@ -332,15 +321,9 @@ def _room_form_values(request):
     }, errors)
 
 def _room_counts(conn, hid):
-    row = conn.execute(
-        "SELECT bedrooms_total FROM houses WHERE id=?",
-        (hid,)
-    ).fetchone()
+    row = conn.execute("SELECT bedrooms_total FROM houses WHERE id=?", (hid,)).fetchone()
     max_rooms = int(row["bedrooms_total"]) if row else 0
-    cnt = conn.execute(
-        "SELECT COUNT(*) AS c FROM rooms WHERE house_id=?",
-        (hid,)
-    ).fetchone()["c"]
+    cnt = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
     return max_rooms, int(cnt)
 
 # -------- Rooms CRUD --------
@@ -355,10 +338,7 @@ def rooms_list(hid):
         conn.close()
         flash("House not found.", "error")
         return redirect(url_for("landlord.landlord_houses"))
-    rows = conn.execute(
-        "SELECT * FROM rooms WHERE house_id=? ORDER BY id ASC",
-        (hid,)
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM rooms WHERE house_id=? ORDER BY id ASC", (hid,)).fetchall()
     max_rooms, cnt = _room_counts(conn, hid)
     conn.close()
     remaining = max(0, max_rooms - cnt)
@@ -423,10 +403,7 @@ def room_edit(hid, rid):
     if not house:
         conn.close()
         return redirect(url_for("landlord.landlord_houses"))
-    room = conn.execute(
-        "SELECT * FROM rooms WHERE id=? AND house_id=?",
-        (rid, hid)
-    ).fetchone()
+    room = conn.execute("SELECT * FROM rooms WHERE id=? AND house_id=?", (rid, hid)).fetchone()
     if not room:
         conn.close()
         flash("Room not found.", "error")
@@ -466,10 +443,7 @@ def room_delete(hid, rid):
     if not house:
         conn.close()
         return redirect(url_for("landlord.landlord_houses"))
-    conn.execute(
-        "DELETE FROM rooms WHERE id=? AND house_id=?",
-        (rid, hid)
-    )
+    conn.execute("DELETE FROM rooms WHERE id=? AND house_id=?", (rid, hid))
     conn.commit()
     conn.close()
     flash("Room deleted.", "ok")
