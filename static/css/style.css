@@ -86,3 +86,8 @@ input[type="text"],input[type="email"],input[type="password"],input[type="number
   .flex-between{flex-direction:column; align-items:flex-start; gap:8px}
   .logo-img{height:64px}
 }
+
+/* ===== Centered Card ===== */
+.center-card {
+  text-align: center;
+}
