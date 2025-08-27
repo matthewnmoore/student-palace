@@ -2,8 +2,18 @@
 {% block title %}Student Palace – Find rooms{% endblock %}
 {% block content %}
 <section class="wrap">
+
+  <!-- HERO / INTRO -->
+  <div class="card" style="border-left:6px solid var(--brand)">
+    <h1 class="mt-0" style="margin-bottom:6px">Your next student home — without the faff.</h1>
+    <p class="muted" style="margin-bottom:0">
+      Look out for the ✅ green tick – it means properties from verified landlords and agents.
+    </p>
+  </div>
+
+  <!-- SEARCH -->
   <div class="card">
-    <h1 class="mt-0">Find rooms</h1>
+    <h2 class="mt-0">Search verified properties</h2>
     <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2">
       <label class="field">
         <span class="label">City</span>
@@ -50,6 +60,7 @@
     </form>
   </div>
 
+  <!-- FEATURED -->
   <div class="card">
     <h2 class="mt-0">Featured this week</h2>
     <p class="muted">A popular pick in {{ cities[0] if cities else 'Cardiff' }}.</p>
@@ -58,5 +69,6 @@
       <a class="btn btn-outline" href="{{ url_for('public.index') }}">Back to home</a>
     </div>
   </div>
+
 </section>
 {% endblock %}
