@@ -511,24 +511,33 @@ def house_photos(hid):
         flash("House not found.", "error")
         return redirect(url_for("landlord.landlord_houses"))
 
-    # Load any existing photos (will be empty until Phase 2)
     rows = conn.execute("""
-        SELECT id, file_path, is_primary
+        SELECT id, filename, is_primary
           FROM house_images
          WHERE house_id=?
-         ORDER BY is_primary DESC, id ASC
+         ORDER BY is_primary DESC, sort_order ASC, id ASC
     """, (hid,)).fetchall()
-    conn.close()
 
-    photos = []
+    max_images = 24
+    current_count = len(rows)
+
+    images = []
     for r_ in rows:
-        photos.append({
+        images.append({
             "id": r_["id"],
             "is_primary": bool(r_["is_primary"]),
-            "url": url_for("static", filename=r_["file_path"]),
+            "file_path": f"uploads/houses/{r_['filename']}",
         })
+    conn.close()
 
-    return render_template("house_photos.html", house=house, photos=photos)
+    remaining = max(0, max_images - current_count)
+    return render_template(
+        "house_photos.html",
+        house=house,
+        images=images,
+        max_images=max_images,
+        remaining=remaining
+    )
 
 @landlord_bp.route("/landlord/houses/<int:hid>/photos/upload", methods=["POST"])
 def house_photos_upload(hid):
