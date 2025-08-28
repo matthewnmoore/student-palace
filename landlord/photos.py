@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import io
 import os
-import random
-import string
 from datetime import datetime as dt
 from typing import List, Tuple, Dict, Any
 
@@ -19,14 +17,13 @@ from . import landlord_bp
 # ---------------------------------
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 STATIC_ROOT = os.path.join(PROJECT_ROOT, "static")
-UPLOAD_DIR = os.path.join(STATIC_ROOT, "uploads", "houses")  # web-served under /static/uploads/houses
+UPLOAD_DIR = os.path.join(STATIC_ROOT, "uploads", "houses")  # served at /static/uploads/houses/
 
 MAX_FILES_PER_HOUSE = 5
 FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024  # 5 MB
-ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}  # we re-encode to JPEG
+ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}  # re-encode to JPEG
 MAX_BOUND = 1600  # longest edge after resize
 WATERMARK_TEXT = "Student Palace"
-
 
 # ---------------------------------
 # Helpers
@@ -39,45 +36,34 @@ def _ensure_upload_dir() -> None:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def _enforce_house_limit(conn, hid: int) -> Tuple[int, int, bool]:
-    row = conn.execute(
-        "SELECT COUNT(*) AS c FROM house_images WHERE house_id=?",
-        (hid,)
-    ).fetchone()
+    row = conn.execute("SELECT COUNT(*) AS c FROM house_images WHERE house_id=?", (hid,)).fetchone()
     current = int(row["c"]) if row else 0
     remaining = max(0, MAX_FILES_PER_HOUSE - current)
     return current, remaining, current < MAX_FILES_PER_HOUSE
 
 def _collect_files_from_request() -> List:
-    """
-    Accepts common field names:
-      - photos (multiple)
-      - photos[] (multiple)
-      - photo (single)
-      - file (single)
-    """
+    """Support common field names for <input type=file>: photos, photos[], photo, file."""
     fs = request.files
-    files: List = []
+    out: List = []
     for key in ("photos", "photos[]", "photo", "file"):
         if key in fs:
             items = fs.getlist(key)
             if not isinstance(items, (list, tuple)):
                 items = [items]
-            files.extend([x for x in items if getattr(x, "filename", "")])
-    return files
+            out.extend([x for x in items if getattr(x, "filename", "")])
+    return out
 
 def _read_limited(file_storage) -> bytes | None:
-    """Read up to limit+1 bytes to check size; return None if empty/failed."""
     data = file_storage.read(FILE_SIZE_LIMIT_BYTES + 1)
-    file_storage.stream.seek(0)  # rewind for Pillow
+    file_storage.stream.seek(0)
     return data if data else None
 
-def _open_image_safely(buf: bytes) -> Image.Image:
+def _open_image(buf: bytes) -> Image.Image:
     im = Image.open(io.BytesIO(buf))
     try:
         im = ImageOps.exif_transpose(im)
     except Exception:
         pass
-    # normalize to RGB (flatten alpha if present)
     if im.mode not in ("RGB", "L"):
         im = im.convert("RGBA")
         bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
@@ -89,89 +75,63 @@ def _open_image_safely(buf: bytes) -> Image.Image:
 
 def _resize_longest(im: Image.Image, bound: int = MAX_BOUND) -> Image.Image:
     w, h = im.size
-    longest = max(w, h)
-    if longest <= bound:
+    m = max(w, h)
+    if m <= bound:
         return im.copy()
-    scale = bound / float(longest)
+    scale = bound / float(m)
     return im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
 def _watermark(im: Image.Image) -> Image.Image:
     out = im.copy().convert("RGBA")
     overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
-
     w, h = out.size
     pad = max(12, w // 80)
     text = WATERMARK_TEXT
-
-    # Use draw.textbbox with default bitmap font (portable)
     bbox = draw.textbbox((0, 0), text)
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
-
     x = w - tw - pad
     y = h - th - pad
-
-    # soft shadow + semi-opaque white
     draw.text((x + 1, y + 1), text, fill=(0, 0, 0, 100))
     draw.text((x, y), text, fill=(255, 255, 255, 150))
-
     composed = Image.alpha_composite(out, overlay)
     return composed.convert("RGB")
 
-def _process_image(buf: bytes) -> Image.Image:
-    im = _open_image_safely(buf)
-    im = _resize_longest(im, MAX_BOUND)
-    im = _watermark(im)
-    return im
+def _process(buf: bytes) -> Image.Image:
+    return _watermark(_resize_longest(_open_image(buf), MAX_BOUND))
 
 def _save_jpeg(im: Image.Image, path: str) -> None:
     im.save(path, format="JPEG", quality=85, optimize=True, progressive=True)
 
 def _table_columns(conn, table: str) -> List[str]:
-    cols = []
-    for row in conn.execute(f"PRAGMA table_info({table})").fetchall():
-        cols.append(row["name"])
-    return cols
+    return [row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
 
 def _insert_house_image_row(conn, hid: int, filename: str, cols: List[str]) -> None:
     """
-    Insert using only the columns that actually exist in your DB.
-    Prefers (house_id, filename, is_primary, sort_order, created_at) if available.
-    Falls back gracefully if some columns are missing.
+    Insert row using only columns that exist. Prefers:
+    (house_id, filename, is_primary, sort_order, created_at)
     """
-    values: Dict[str, Any] = {
-        "house_id": hid,
-        "filename": filename,
-    }
+    vals: Dict[str, Any] = {"house_id": hid, "filename": filename}
 
-    # is_primary: set to 1 if none exists yet (if column present)
     if "is_primary" in cols:
         r = conn.execute(
-            "SELECT COUNT(*) AS c FROM house_images WHERE house_id=? AND is_primary=1",
-            (hid,)
+            "SELECT COUNT(*) AS c FROM house_images WHERE house_id=? AND is_primary=1", (hid,)
         ).fetchone()
-        values["is_primary"] = 1 if (r and int(r["c"]) == 0) else 0
+        vals["is_primary"] = 1 if (r and int(r["c"]) == 0) else 0
 
-    # sort_order: next max + 1
     if "sort_order" in cols:
         r2 = conn.execute(
-            "SELECT COALESCE(MAX(sort_order), 0) AS mx FROM house_images WHERE house_id=?",
-            (hid,)
+            "SELECT COALESCE(MAX(sort_order), 0) AS mx FROM house_images WHERE house_id=?", (hid,)
         ).fetchone()
-        values["sort_order"] = (int(r2["mx"]) if r2 else 0) + 1
+        vals["sort_order"] = (int(r2["mx"]) if r2 else 0) + 1
 
-    # created_at if exists
     if "created_at" in cols:
-        values["created_at"] = dt.utcnow().isoformat()
+        vals["created_at"] = dt.utcnow().isoformat()
 
-    # Build SQL dynamically
-    field_list = [k for k in ("house_id", "filename", "is_primary", "sort_order", "created_at") if k in values and k in cols]
-    placeholders = ",".join(["?"] * len(field_list))
-    sql = f"INSERT INTO house_images ({', '.join(field_list)}) VALUES ({placeholders})"
-    params = tuple(values[k] for k in field_list)
-    conn.execute(sql, params)
-
+    fields = [k for k in ("house_id", "filename", "is_primary", "sort_order", "created_at") if k in vals and k in cols]
+    sql = f"INSERT INTO house_images ({', '.join(fields)}) VALUES ({', '.join(['?']*len(fields))})"
+    conn.execute(sql, tuple(vals[k] for k in fields))
 
 # ---------------------------------
 # Views
@@ -193,21 +153,14 @@ def house_photos(hid):
     rows = conn.execute(
         """
         SELECT id, filename,
-               CASE
-                 WHEN ('is_primary' IN (SELECT name FROM pragma_table_info('house_images'))) THEN is_primary
-                 ELSE 0
+               CASE WHEN ('is_primary' IN (SELECT name FROM pragma_table_info('house_images'))) THEN is_primary
+                    ELSE 0
                END AS is_primary
           FROM house_images
          WHERE house_id=?
          ORDER BY
-           CASE
-             WHEN ('is_primary' IN (SELECT name FROM pragma_table_info('house_images'))) THEN is_primary
-             ELSE 0
-           END DESC,
-           CASE
-             WHEN ('sort_order' IN (SELECT name FROM pragma_table_info('house_images'))) THEN sort_order
-             ELSE id
-           END ASC,
+           CASE WHEN ('is_primary' IN (SELECT name FROM pragma_table_info('house_images'))) THEN is_primary ELSE 0 END DESC,
+           CASE WHEN ('sort_order' IN (SELECT name FROM pragma_table_info('house_images'))) THEN sort_order ELSE id END ASC,
            id ASC
         """,
         (hid,)
@@ -216,8 +169,7 @@ def house_photos(hid):
     images = [{
         "id": r["id"],
         "is_primary": bool(r["is_primary"]),
-        # IMPORTANT: files are under /static/uploads/houses/<filename>
-        "file_path": f"static/uploads/houses/{r['filename']}",
+        "filename": r["filename"],  # template will build URL with url_for('static', ...)
     } for r in rows]
 
     _, remaining, _ = _enforce_house_limit(conn, hid)
@@ -264,37 +216,31 @@ def house_photos_upload(hid):
         flash("Please choose a photo to upload.", "error")
         return redirect(url_for("landlord.house_photos", hid=hid))
 
-    # Only accept up to remaining slots
     files = files[:remaining]
-
     accepted = 0
-    skipped_msgs: List[str] = []
+    skipped: List[str] = []
     cols = _table_columns(conn, "house_images")
 
     for f in files:
-        # Content-type check
         mimetype = (f.mimetype or "").lower()
         if mimetype not in ALLOWED_MIMES:
-            skipped_msgs.append(f"“{f.filename}” is not a supported image type.")
+            skipped.append(f"“{f.filename}” is not a supported image type.")
             continue
 
-        # Size check
         data = _read_limited(f)
         if data is None:
-            skipped_msgs.append(f"Could not read “{f.filename}”.")
+            skipped.append(f"Could not read “{f.filename}”.")
             continue
         if len(data) > FILE_SIZE_LIMIT_BYTES:
-            skipped_msgs.append(f"“{f.filename}” is larger than 5 MB.")
+            skipped.append(f"“{f.filename}” is larger than 5 MB.")
             continue
 
-        # Pillow processing
         try:
-            processed = _process_image(data)
+            processed = _process(data)
         except Exception:
-            skipped_msgs.append(f"“{f.filename}” doesn’t look like a valid image.")
+            skipped.append(f"“{f.filename}” doesn’t look like a valid image.")
             continue
 
-        # Build filename and save
         ts = dt.utcnow().strftime("%Y%m%d%H%M%S")
         fname = f"house{hid}_{ts}_{_rand_token()}.jpg"
         abs_path = os.path.join(UPLOAD_DIR, fname)
@@ -302,23 +248,20 @@ def house_photos_upload(hid):
         try:
             _save_jpeg(processed, abs_path)
         except Exception:
-            skipped_msgs.append(f"Couldn’t save “{f.filename}”.")
+            skipped.append(f"Couldn’t save “{f.filename}”.")
             continue
 
-        # Insert DB row (with dynamic columns)
         try:
             _insert_house_image_row(conn, hid, fname, cols)
             accepted += 1
         except Exception as e:
-            # record and remove file to keep disk tidy
             try:
                 os.remove(abs_path)
             except Exception:
                 pass
             print("[ERROR] insert house_image failed:", repr(e))
-            skipped_msgs.append(f"Saved “{f.filename}”, but couldn’t record it. Skipped.")
+            skipped.append(f"Saved “{f.filename}”, but couldn’t record it. Skipped.")
 
-    # Commit only if any inserts happened
     try:
         if accepted:
             conn.commit()
@@ -332,7 +275,7 @@ def house_photos_upload(hid):
 
     if accepted:
         flash(f"Uploaded {accepted} photo{'s' if accepted != 1 else ''}.", "ok")
-    for m in skipped_msgs:
+    for m in skipped:
         flash(m, "error")
 
     return redirect(url_for("landlord.house_photos", hid=hid))
@@ -357,10 +300,7 @@ def house_photos_primary(hid, img_id):
         flash("Your database doesn’t support primary photos yet.", "error")
         return redirect(url_for("landlord.house_photos", hid=hid))
 
-    row = conn.execute(
-        "SELECT id FROM house_images WHERE id=? AND house_id=?",
-        (img_id, hid)
-    ).fetchone()
+    row = conn.execute("SELECT id FROM house_images WHERE id=? AND house_id=?", (img_id, hid)).fetchone()
     if not row:
         conn.close()
         flash("Photo not found.", "error")
@@ -394,17 +334,12 @@ def house_photos_delete(hid, img_id):
         flash("House not found.", "error")
         return redirect(url_for("landlord.landlord_houses"))
 
-    # Figure out column set once
     cols = _table_columns(conn, "house_images")
     had_primary = False
 
     try:
-        img = conn.execute(
-            "SELECT id, filename {} FROM house_images WHERE id=? AND house_id=?".format(
-                ", is_primary" if "is_primary" in cols else ""
-            ),
-            (img_id, hid)
-        ).fetchone()
+        sel = "id, filename" + (", is_primary" if "is_primary" in cols else "")
+        img = conn.execute(f"SELECT {sel} FROM house_images WHERE id=? AND house_id=?", (img_id, hid)).fetchone()
         if not img:
             conn.close()
             flash("Photo not found.", "error")
@@ -412,7 +347,7 @@ def house_photos_delete(hid, img_id):
 
         filename = img["filename"]
         if "is_primary" in cols:
-            had_primary = bool(int(img.get("is_primary", 0))) if hasattr(img, "get") else bool(img["is_primary"])
+            had_primary = bool(int(img["is_primary"]))
 
         conn.execute("DELETE FROM house_images WHERE id=? AND house_id=?", (img_id, hid))
         conn.commit()
@@ -424,11 +359,11 @@ def house_photos_delete(hid, img_id):
         except Exception:
             pass
 
-        # If we deleted the primary and the schema supports it, promote the next (lowest sort_order or id)
+        # promote next as primary if needed
         if had_primary and "is_primary" in cols:
-            conn2 = get_db()
+            c2 = get_db()
             try:
-                nxt = conn2.execute(
+                nxt = c2.execute(
                     """
                     SELECT id FROM house_images
                     WHERE house_id=?
@@ -440,12 +375,12 @@ def house_photos_delete(hid, img_id):
                     (hid,)
                 ).fetchone()
                 if nxt:
-                    conn2.execute("UPDATE house_images SET is_primary=1 WHERE id=?", (nxt["id"],))
-                    conn2.commit()
+                    c2.execute("UPDATE house_images SET is_primary=1 WHERE id=?", (nxt["id"],))
+                    c2.commit()
             except Exception:
-                conn2.rollback()
+                c2.rollback()
             finally:
-                conn2.close()
+                c2.close()
 
         flash("Photo deleted.", "ok")
     except Exception as e:
