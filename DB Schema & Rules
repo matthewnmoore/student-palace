@@ -1,0 +1,144 @@
+REFERENCE: Student Palace – House Images DB Schema & Rules
+=========================================================
+
+Table: house_images
+-------------------
+Columns (from PRAGMA table_info):
+- id (INTEGER, PK, AUTOINCREMENT)
+- house_id (INTEGER, NOT NULL)  
+  → Foreign key reference to houses.id
+
+- file_name (TEXT, NOT NULL)  
+  → Legacy column, MUST be set (duplicate of filename)
+
+- filename (TEXT, NOT NULL)  
+  → Newer column, MUST also be set (duplicate of file_name)
+
+- file_path (TEXT, NOT NULL)  
+  → Relative path under /static, e.g. "uploads/houses/abc.jpg"  
+  → DO NOT prefix with "/" (Flask’s url_for('static', …) will break)
+
+- width (INTEGER, NOT NULL)  
+  → Image pixel width, e.g. 1920
+
+- height (INTEGER, NOT NULL)  
+  → Image pixel height, e.g. 1080
+
+- bytes (INTEGER, NOT NULL)  
+  → File size in bytes, e.g. 245367
+
+- is_primary (INTEGER, NOT NULL, DEFAULT 0)  
+  → Exactly one image per house should have is_primary=1  
+  → Used for thumbnails / cover photo  
+  → If none exists, fall back to first by sort_order
+
+- sort_order (INTEGER, NOT NULL, DEFAULT 0)  
+  → Controls gallery order  
+  → Default 0, increment when inserting multiple images
+
+- created_at (TEXT, NOT NULL)  
+  → ISO 8601 string, e.g. "2025-08-28T16:14:33"
+
+Schema Meta
+-----------
+- Currently NO schema_meta table in DB  
+- Recommended if schema changes later:  
+  key = 'house_images_version', val = 'v1'
+
+Insert Rules
+------------
+When saving an uploaded image, populate ALL required fields:
+
+file_name      = "<uuid>.jpg"  
+filename       = "<uuid>.jpg"  
+file_path      = "uploads/houses/<uuid>.jpg"  
+width          = measured width  
+height         = measured height  
+bytes          = file size in bytes  
+is_primary     = 1 if first image for house, else 0  
+sort_order     = (next available number for this house)  
+created_at     = ISO timestamp at insert
+
+⚠️ If you omit ANY of these → SQLite will raise “NOT NULL constraint failed”.  
+⚠️ Especially critical: file_name, filename, file_path, width, height, bytes.
+
+Reading Rules
+-------------
+- Always use:
+    COALESCE(filename, file_name) AS fname
+  → Protects against environments where only one is populated.
+
+- Full path in HTML:
+    url_for("static", filename=file_path)
+
+- Ensure file_path does NOT start with "/"  
+  (Otherwise `url_for` doubles the slash → broken URLs)
+
+Known Pitfalls
+--------------
+❌ Environments diverged: some had file_name only, others had filename only  
+❌ file_path added later caused insert errors when code didn’t supply it  
+❌ width/height/bytes are required → cannot be NULL  
+❌ Confusion between filename vs file_name broke SELECT queries  
+❌ Storing file_path with leading "/" broke Flask static serving
+
+Best Practices
+--------------
+✅ Always fill BOTH file_name and filename with same value  
+✅ Ensure exactly ONE image per house has is_primary=1  
+✅ Use sort_order gaps (+10) for flexibility in reordering  
+✅ Store relative paths (uploads/houses/abc.jpg)  
+✅ Verify dimensions + bytes at upload before DB insert  
+✅ Wrap DB insert in try/except + rollback on failure  
+✅ Document any schema change in this file and bump version
+
+Future Ideas
+------------
+- Add schema_meta for version tracking  
+- Add is_deleted (soft delete) instead of removing rows  
+- Add caption/alt_text for accessibility and SEO  
+- Add landlord_id reference for faster ownership checks  
+- Add file_hash (e.g., SHA256) to prevent duplicate uploads
+
+SQL Snippets
+------------
+Create Table (current state):
+CREATE TABLE house_images (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    house_id INTEGER NOT NULL,
+    file_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    bytes INTEGER NOT NULL,
+    is_primary INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+Insert Example (Python DB-API style):
+conn.execute("""
+INSERT INTO house_images
+(house_id, file_name, filename, file_path, width, height, bytes,
+ is_primary, sort_order, created_at)
+VALUES (?,?,?,?,?,?,?,?,?,?)
+""", (
+    hid, "abc123.jpg", "abc123.jpg", "uploads/houses/abc123.jpg",
+    1920, 1080, 245367, 1, 0, dt.utcnow().isoformat()
+))
+
+Select Example (safe for legacy fields):
+SELECT id,
+       COALESCE(filename, file_name) AS fname,
+       file_path, width, height, bytes,
+       is_primary, sort_order, created_at
+FROM house_images
+WHERE house_id=?
+ORDER BY is_primary DESC, sort_order ASC, id ASC;
+
+Debugging
+---------
+- Check schema live: /debug/hi-schema
+- Validate NOT NULL rules before deploying inserts
+- Compare schema across dev/prod to avoid mismatches
