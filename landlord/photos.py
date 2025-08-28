@@ -18,11 +18,11 @@ from . import landlord_bp
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 STATIC_ROOT = os.path.join(PROJECT_ROOT, "static")
-UPLOAD_DIR = os.path.join(STATIC_ROOT, "uploads", "houses")  # web: /static/uploads/houses
+UPLOAD_DIR = os.path.join(STATIC_ROOT, "uploads", "houses")  # served at /static/uploads/houses
 
 MAX_FILES_PER_HOUSE = 5
 FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024  # 5 MB
-ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}  # we re-encode to JPEG
+ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}  # re-encode to JPEG
 MAX_BOUND = 1600  # longest edge after resize
 WATERMARK_TEXT = "Student Palace"
 
@@ -50,7 +50,6 @@ def _enforce_house_limit(conn, hid: int) -> Tuple[int, int, bool]:
 
 
 def _collect_files_from_request() -> List:
-    """Accepts common field names: photos (multiple), photos[] (multiple), photo/file (single)."""
     fs = request.files
     files: List = []
     for key in ("photos", "photos[]", "photo", "file"):
@@ -63,9 +62,8 @@ def _collect_files_from_request() -> List:
 
 
 def _read_limited(file_storage) -> bytes | None:
-    """Read up to limit+1 bytes to check size; return None if empty/failed."""
     data = file_storage.read(FILE_SIZE_LIMIT_BYTES + 1)
-    file_storage.stream.seek(0)  # rewind for Pillow
+    file_storage.stream.seek(0)
     return data if data else None
 
 
@@ -75,7 +73,6 @@ def _open_image_safely(buf: bytes) -> Image.Image:
         im = ImageOps.exif_transpose(im)
     except Exception:
         pass
-    # normalize to RGB (flatten alpha if present)
     if im.mode not in ("RGB", "L"):
         im = im.convert("RGBA")
         bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
@@ -107,8 +104,8 @@ def _watermark(im: Image.Image) -> Image.Image:
     th = bbox[3] - bbox[1]
     x = w - tw - pad
     y = h - th - pad
-    draw.text((x + 1, y + 1), text, fill=(0, 0, 0, 100))       # soft shadow
-    draw.text((x, y), text, fill=(255, 255, 255, 150))         # semi-opaque white
+    draw.text((x + 1, y + 1), text, fill=(0, 0, 0, 100))   # shadow
+    draw.text((x, y), text, fill=(255, 255, 255, 150))     # text
     composed = Image.alpha_composite(out, overlay)
     return composed.convert("RGB")
 
@@ -124,39 +121,34 @@ def _save_jpeg(im: Image.Image, path: str) -> None:
     im.save(path, format="JPEG", quality=85, optimize=True, progressive=True)
 
 
+def _table_info(conn, table: str) -> List[Dict[str, Any]]:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    out = []
+    for r in rows:
+        out.append({"name": r["name"], "notnull": int(r["notnull"])})
+    return out
+
+
 def _table_columns(conn, table: str) -> List[str]:
     return [row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
 
 
-def _filename_column(cols: List[str]) -> str:
-    """Return the actual filename column in the DB: prefer 'filename', else 'file_name'."""
-    if "filename" in cols:
-        return "filename"
-    if "file_name" in cols:
-        return "file_name"
-    # last resort – we will raise a friendly error upstream
-    return ""
-
-
-def _next_sort_order(conn, hid: int, cols: List[str]) -> int:
-    if "sort_order" not in cols:
-        return 0
-    row = conn.execute(
-        "SELECT COALESCE(MAX(sort_order), 0) AS mx FROM house_images WHERE house_id=?",
-        (hid,),
-    ).fetchone()
-    return int(row["mx"]) + 1 if row else 1
-
-
 def _insert_house_image_row(conn, hid: int, fname: str, cols: List[str]) -> None:
-    """Insert into house_images honoring whatever columns exist."""
-    fname_col = _filename_column(cols)
-    if not fname_col:
-        raise RuntimeError("house_images table must have either 'filename' or 'file_name' column")
+    """
+    Insert into house_images honoring existing columns.
+    If both `file_name` and `filename` exist, set BOTH to the same value to satisfy NOT NULL.
+    """
+    has_file_name = "file_name" in cols
+    has_filename = "filename" in cols
+    if not (has_file_name or has_filename):
+        raise RuntimeError("house_images must include a ‘file_name’ or ‘filename’ column")
 
-    values: Dict[str, Any] = {"house_id": hid, fname_col: fname}
+    values: Dict[str, Any] = {"house_id": hid}
+    if has_file_name:
+        values["file_name"] = fname
+    if has_filename:
+        values["filename"] = fname
 
-    # is_primary: set to 1 if none exists yet (if column present)
     if "is_primary" in cols:
         r = conn.execute(
             "SELECT COUNT(*) AS c FROM house_images WHERE house_id=? AND is_primary=1",
@@ -164,16 +156,17 @@ def _insert_house_image_row(conn, hid: int, fname: str, cols: List[str]) -> None
         ).fetchone()
         values["is_primary"] = 1 if (r and int(r["c"]) == 0) else 0
 
-    # sort_order: next max + 1
     if "sort_order" in cols:
-        values["sort_order"] = _next_sort_order(conn, hid, cols)
+        r2 = conn.execute(
+            "SELECT COALESCE(MAX(sort_order), 0) AS mx FROM house_images WHERE house_id=?",
+            (hid,),
+        ).fetchone()
+        values["sort_order"] = (int(r2["mx"]) if r2 else 0) + 1
 
-    # created_at if exists
     if "created_at" in cols:
         values["created_at"] = dt.utcnow().isoformat()
 
-    # Build SQL dynamically
-    field_order = [c for c in ("house_id", fname_col, "is_primary", "sort_order", "created_at") if c in values]
+    field_order = [c for c in ("house_id", "file_name", "filename", "is_primary", "sort_order", "created_at") if c in values]
     placeholders = ",".join(["?"] * len(field_order))
     sql = f"INSERT INTO house_images ({', '.join(field_order)}) VALUES ({placeholders})"
     params = tuple(values[c] for c in field_order)
@@ -181,17 +174,24 @@ def _insert_house_image_row(conn, hid: int, fname: str, cols: List[str]) -> None
 
 
 def _select_images(conn, hid: int, cols: List[str]) -> List[Dict[str, Any]]:
-    """Return rows with a normalized 'filename' key for the template."""
-    fname_col = _filename_column(cols)
-    if not fname_col:
-        # graceful: return empty; page will show "No photos yet."
+    # Build a filename expression that works on both schemas
+    fname_expr = None
+    if "filename" in cols and "file_name" in cols:
+        fname_expr = "COALESCE(filename, file_name)"
+    elif "filename" in cols:
+        fname_expr = "filename"
+    elif "file_name" in cols:
+        fname_expr = "file_name"
+    else:
         return []
-    # Build ORDER BY depending on available columns
+
     order_primary = "is_primary DESC," if "is_primary" in cols else ""
     order_sort = "sort_order ASC," if "sort_order" in cols else ""
+
     rows = conn.execute(
         f"""
-        SELECT id, {fname_col} AS filename,
+        SELECT id,
+               {fname_expr} AS filename,
                {'is_primary,' if 'is_primary' in cols else ''} 
                {'sort_order,' if 'sort_order' in cols else ''} 
                id AS id_alias
@@ -201,12 +201,12 @@ def _select_images(conn, hid: int, cols: List[str]) -> List[Dict[str, Any]]:
         """,
         (hid,),
     ).fetchall()
+
     out = []
     for r in rows:
         out.append({
             "id": r["id"],
             "is_primary": bool(r["is_primary"]) if "is_primary" in cols else False,
-            # IMPORTANT: files are under /static/uploads/houses/
             "file_path": f"static/uploads/houses/{r['filename']}",
         })
     return out
@@ -277,25 +277,17 @@ def house_photos_upload(hid):
         flash("Please choose a photo to upload.", "error")
         return redirect(url_for("landlord.house_photos", hid=hid))
 
-    # Only accept up to remaining slots
     files = files[:remaining]
     accepted = 0
     skipped_msgs: List[str] = []
     cols = _table_columns(conn, "house_images")
-    fname_col = _filename_column(cols)
-    if not fname_col:
-        conn.close()
-        flash("DB table ‘house_images’ must include a ‘filename’ or ‘file_name’ column.", "error")
-        return redirect(url_for("landlord.house_photos", hid=hid))
 
     for f in files:
-        # Content-type check
         mimetype = (f.mimetype or "").lower()
         if mimetype not in ALLOWED_MIMES:
             skipped_msgs.append(f"“{f.filename}” is not a supported image type.")
             continue
 
-        # Size check
         data = _read_limited(f)
         if data is None:
             skipped_msgs.append(f"Could not read “{f.filename}”.")
@@ -304,14 +296,12 @@ def house_photos_upload(hid):
             skipped_msgs.append(f"“{f.filename}” is larger than 5 MB.")
             continue
 
-        # Pillow processing
         try:
             processed = _process_image(data)
         except Exception:
             skipped_msgs.append(f"“{f.filename}” doesn’t look like a valid image.")
             continue
 
-        # Build filename and save
         ts = dt.utcnow().strftime("%Y%m%d%H%M%S")
         fname = f"house{hid}_{ts}_{_rand_token()}.jpg"
         abs_path = os.path.join(UPLOAD_DIR, fname)
@@ -321,12 +311,10 @@ def house_photos_upload(hid):
             skipped_msgs.append(f"Couldn’t save “{f.filename}”.")
             continue
 
-        # Insert DB row (with dynamic columns)
         try:
             _insert_house_image_row(conn, hid, fname, cols)
             accepted += 1
         except Exception as e:
-            # record and remove file to keep disk tidy
             try:
                 os.remove(abs_path)
             except Exception:
@@ -334,7 +322,6 @@ def house_photos_upload(hid):
             print("[ERROR] insert house_image failed:", repr(e))
             skipped_msgs.append(f"Saved “{f.filename}”, but couldn’t record it. Skipped.")
 
-    # Commit only if inserts happened
     try:
         if accepted:
             conn.commit()
@@ -412,8 +399,14 @@ def house_photos_delete(hid, img_id):
         return redirect(url_for("landlord.landlord_houses"))
 
     cols = _table_columns(conn, "house_images")
-    fname_col = _filename_column(cols)
-    if not fname_col:
+    # filename expression for SELECT
+    if "filename" in cols and "file_name" in cols:
+        fname_expr = "COALESCE(filename, file_name)"
+    elif "filename" in cols:
+        fname_expr = "filename"
+    elif "file_name" in cols:
+        fname_expr = "file_name"
+    else:
         conn.close()
         flash("DB table misconfigured (no filename column).", "error")
         return redirect(url_for("landlord.house_photos", hid=hid))
@@ -422,7 +415,7 @@ def house_photos_delete(hid, img_id):
     filename = None
     try:
         img = conn.execute(
-            f"SELECT id, {fname_col} AS filename"
+            f"SELECT id, {fname_expr} AS filename"
             + (", is_primary" if "is_primary" in cols else "")
             + " FROM house_images WHERE id=? AND house_id=?",
             (img_id, hid)
@@ -440,13 +433,11 @@ def house_photos_delete(hid, img_id):
         conn.commit()
         conn.close()
 
-        # remove file best-effort
         try:
             os.remove(os.path.join(UPLOAD_DIR, filename))
         except Exception:
             pass
 
-        # If we deleted the primary and the schema supports it, promote the next
         if had_primary and "is_primary" in cols:
             conn2 = get_db()
             try:
