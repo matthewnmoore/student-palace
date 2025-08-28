@@ -1,14 +1,15 @@
 from flask import Flask
 import datetime
-import os
 
 from config import SECRET_KEY
 from db import ensure_db
 from public import public_bp
 from auth import auth_bp
 from admin import admin_bp
-from landlord import landlord_bp
+# NEW: import the shared blueprint from the landlord package
+from landlord import bp as landlord_bp
 from errors import register_error_handlers
+
 
 def create_app():
     app = Flask(__name__)
@@ -32,12 +33,13 @@ def create_app():
     app.register_blueprint(public_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
-    app.register_blueprint(landlord_bp)
+    app.register_blueprint(landlord_bp)  # from landlord package
 
     # Error handlers
     register_error_handlers(app)
 
     return app
+
 
 # Gunicorn entrypoint
 app = create_app()
