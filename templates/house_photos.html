@@ -19,38 +19,26 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Upload card -->
-  <div class="card" style="margin-bottom:14px">
-    <div class="flex-between" style="gap:16px; flex-wrap:wrap; width:100%">
-      <div>
-        <h3 class="mt-0" style="margin-bottom:6px">Upload photos</h3>
-        <p class="help" style="margin:0">
-          Max 5 per house. Max size 5&nbsp;MB each. JPG/PNG/WebP/GIF accepted.
-        </p>
-      </div>
-
-      <form id="photo-form"
-            method="post"
-            action="{{ url_for('landlord.house_photos_upload', hid=house.id) }}"
-            enctype="multipart/form-data"
-            class="flex-between"
-            style="gap:10px; align-items:center">
-        <input id="file-input"
-               type="file"
-               name="photos[]"
-               accept="image/*"
-               multiple
-               {% if remaining <= 0 %}disabled{% endif %}
-               style="padding:8px; border:1px solid var(--border); border-radius:10px; background:#fff">
-        <button id="upload-btn" class="btn" type="submit" {% if remaining <= 0 %}disabled{% endif %}>
-          Upload{% if remaining > 0 %} ({{ remaining }} left){% endif %}
-        </button>
-      </form>
-    </div>
+  <div class="card">
+    <h3 class="mt-0">Upload photos</h3>
+    <p class="help">
+      Max 5 per house. Max size 5&nbsp;MB each. JPG/PNG/WebP/GIF accepted.
+    </p>
+    <form
+      action="{{ url_for('landlord.house_photos_upload', hid=house.id) }}"
+      method="post"
+      enctype="multipart/form-data"
+      style="display:flex; gap:10px; align-items:center; flex-wrap:wrap"
+    >
+      <!-- multiple files -->
+      <input type="file" name="photos[]" accept="image/*" multiple required>
+      <button class="btn" type="submit">
+        Upload{% if remaining>0 %} ({{ remaining }} left){% endif %}
+      </button>
+    </form>
   </div>
 
-  <!-- Gallery -->
-  <div class="card">
+  <div class="card" style="margin-top:14px;">
     <div class="flex-between" style="margin-bottom:10px; align-items:flex-end;">
       <h3 class="mt-0">Existing photos</h3>
       <div class="muted small">
@@ -63,50 +51,29 @@
     </div>
 
     {% if images and images|length %}
-      <div class="photo-grid">
+      <ul style="list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px;">
         {% for img in images %}
-          <div class="photo-item">
-            <div class="thumb-wrap">
-              <img src="{{ url_for('static', filename='uploads/houses/' ~ img.filename) }}"
-                   alt="Photo {{ loop.index }} for {{ house.title }}">
+          <li style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff;">
+            <!-- IMPORTANT: files are under /static/uploads/houses/... -->
+            <img src="/{{ img.file_path }}" alt="" style="width:100%; height:140px; object-fit:cover;">
+            <div style="padding:8px; display:flex; gap:8px; justify-content:space-between; align-items:center;">
               {% if img.is_primary %}
-                <div class="primary-badge" title="Primary">✓ Primary</div>
-              {% endif %}
-            </div>
-
-            <div class="meta">
-              <div class="meta-left muted small"></div>
-              <div class="meta-actions">
-                {% if not img.is_primary %}
-                  <form method="post" action="{{ url_for('landlord.house_photos_primary', hid=house.id, img_id=img.id) }}" style="display:inline">
-                    <button class="btn btn-outline" type="submit">Make primary</button>
-                  </form>
-                {% else %}
-                  <button class="btn" type="button" disabled>Primary</button>
-                {% endif %}
-                <form method="post" action="{{ url_for('landlord.house_photos_delete', hid=house.id, img_id=img.id) }}" style="display:inline" onsubmit="return confirm('Delete this photo?');">
-                  <button class="btn btn-admin" type="submit">Delete</button>
+                <span class="muted small">Primary</span>
+              {% else %}
+                <form method="post" action="{{ url_for('landlord.house_photos_primary', hid=house.id, img_id=img.id) }}">
+                  <button class="btn btn-outline" type="submit">Make primary</button>
                 </form>
-              </div>
+              {% endif %}
+              <form method="post" action="{{ url_for('landlord.house_photos_delete', hid=house.id, img_id=img.id) }}" onsubmit="return confirm('Delete this photo?');">
+                <button class="btn btn-admin" type="submit">Delete</button>
+              </form>
             </div>
-          </div>
+          </li>
         {% endfor %}
-      </div>
+      </ul>
     {% else %}
       <p class="muted">No photos yet.</p>
     {% endif %}
   </div>
 </section>
-
-<style>
-  .photo-grid { --min: 220px; display:grid; grid-template-columns:repeat(auto-fill,minmax(var(--min),1fr)); gap:14px; }
-  .photo-item { border:1px solid var(--border); border-radius:14px; overflow:hidden; background:#fff; display:flex; flex-direction:column; }
-  .thumb-wrap { position:relative; background:#f8f8f8; aspect-ratio:4/3; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-  .thumb-wrap img { width:100%; height:100%; object-fit:cover; display:block; }
-  .primary-badge { position:absolute; left:8px; top:8px; background:#16a34a; color:#fff; font-size:12px; font-weight:700; padding:6px 8px; border-radius:999px; box-shadow:0 1px 0 rgba(0,0,0,.08); }
-  .meta { padding:10px; display:flex; align-items:center; gap:10px; }
-  .meta-left { flex:1; }
-  .meta-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
-  @media (max-width: 560px) { .photo-grid { --min: 160px; } }
-</style>
 {% endblock %}
