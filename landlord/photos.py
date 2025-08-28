@@ -18,11 +18,12 @@ from . import landlord_bp
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 STATIC_ROOT = os.path.join(PROJECT_ROOT, "static")
-UPLOAD_DIR = os.path.join(STATIC_ROOT, "uploads", "houses")  # served at /static/uploads/houses
+# Files are saved under STATIC/uploads/houses and served at /static/uploads/houses
+UPLOAD_DIR = os.path.join(STATIC_ROOT, "uploads", "houses")
 
 MAX_FILES_PER_HOUSE = 5
 FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024  # 5 MB
-ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}  # re-encode to JPEG
+ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}  # we re-encode to JPEG
 MAX_BOUND = 1600  # longest edge after resize
 WATERMARK_TEXT = "Student Palace"
 
@@ -121,14 +122,6 @@ def _save_jpeg(im: Image.Image, path: str) -> None:
     im.save(path, format="JPEG", quality=85, optimize=True, progressive=True)
 
 
-def _table_info(conn, table: str) -> List[Dict[str, Any]]:
-    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
-    out = []
-    for r in rows:
-        out.append({"name": r["name"], "notnull": int(r["notnull"])})
-    return out
-
-
 def _table_columns(conn, table: str) -> List[str]:
     return [row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
 
@@ -136,14 +129,23 @@ def _table_columns(conn, table: str) -> List[str]:
 def _insert_house_image_row(conn, hid: int, fname: str, cols: List[str]) -> None:
     """
     Insert into house_images honoring existing columns.
-    If both `file_name` and `filename` exist, set BOTH to the same value to satisfy NOT NULL.
+    - If `file_path` exists (and is NOT NULL in your DB), set it to 'uploads/houses/<fname>'.
+    - If `filename` or `file_name` exist, set them too (same base name).
     """
+    has_file_path = "file_path" in cols
     has_file_name = "file_name" in cols
-    has_filename = "filename" in cols
-    if not (has_file_name or has_filename):
-        raise RuntimeError("house_images must include a ‘file_name’ or ‘filename’ column")
+    has_filename  = "filename"  in cols
+    if not (has_file_path or has_file_name or has_filename):
+        raise RuntimeError("house_images must include one of: file_path, file_name, filename")
 
     values: Dict[str, Any] = {"house_id": hid}
+
+    # What we store in DB:
+    # - file_path should be path *relative to /static*: 'uploads/houses/<fname>'
+    rel_path = f"uploads/houses/{fname}"
+
+    if has_file_path:
+        values["file_path"] = rel_path
     if has_file_name:
         values["file_name"] = fname
     if has_filename:
@@ -166,7 +168,7 @@ def _insert_house_image_row(conn, hid: int, fname: str, cols: List[str]) -> None
     if "created_at" in cols:
         values["created_at"] = dt.utcnow().isoformat()
 
-    field_order = [c for c in ("house_id", "file_name", "filename", "is_primary", "sort_order", "created_at") if c in values]
+    field_order = [c for c in ("house_id", "file_path", "file_name", "filename", "is_primary", "sort_order", "created_at") if c in values]
     placeholders = ",".join(["?"] * len(field_order))
     sql = f"INSERT INTO house_images ({', '.join(field_order)}) VALUES ({placeholders})"
     params = tuple(values[c] for c in field_order)
@@ -174,14 +176,20 @@ def _insert_house_image_row(conn, hid: int, fname: str, cols: List[str]) -> None
 
 
 def _select_images(conn, hid: int, cols: List[str]) -> List[Dict[str, Any]]:
-    # Build a filename expression that works on both schemas
-    fname_expr = None
-    if "filename" in cols and "file_name" in cols:
+    # Choose a filename expression that works with any schema
+    # (prefer file_path if present, otherwise filename/file_name)
+    if "file_path" in cols:
+        fname_expr = "file_path"  # e.g., 'uploads/houses/<fname>'
+        is_path = True
+    elif "filename" in cols and "file_name" in cols:
         fname_expr = "COALESCE(filename, file_name)"
+        is_path = False
     elif "filename" in cols:
         fname_expr = "filename"
+        is_path = False
     elif "file_name" in cols:
         fname_expr = "file_name"
+        is_path = False
     else:
         return []
 
@@ -191,10 +199,7 @@ def _select_images(conn, hid: int, cols: List[str]) -> List[Dict[str, Any]]:
     rows = conn.execute(
         f"""
         SELECT id,
-               {fname_expr} AS filename,
-               {'is_primary,' if 'is_primary' in cols else ''} 
-               {'sort_order,' if 'sort_order' in cols else ''} 
-               id AS id_alias
+               {fname_expr} AS fname
           FROM house_images
          WHERE house_id=?
          ORDER BY {order_primary} {order_sort} id ASC
@@ -204,10 +209,18 @@ def _select_images(conn, hid: int, cols: List[str]) -> List[Dict[str, Any]]:
 
     out = []
     for r in rows:
+        raw = r["fname"]
+        # Convert DB value to a browser path the template expects.
+        # - If it already is a relative path like 'uploads/houses/x.jpg', prefix 'static/'.
+        # - If it's just a file name 'x.jpg', build 'static/uploads/houses/x.jpg'.
+        if is_path:
+            web_path = f"static/{raw.lstrip('/')}"  # ensure it starts with 'static/'
+        else:
+            web_path = f"static/uploads/houses/{raw}"
         out.append({
             "id": r["id"],
-            "is_primary": bool(r["is_primary"]) if "is_primary" in cols else False,
-            "file_path": f"static/uploads/houses/{r['filename']}",
+            "is_primary": False,  # optional; not used in your template right now
+            "file_path": web_path,  # template uses "/{{ img.file_path }}"
         })
     return out
 
@@ -315,6 +328,7 @@ def house_photos_upload(hid):
             _insert_house_image_row(conn, hid, fname, cols)
             accepted += 1
         except Exception as e:
+            # Undo saved file if DB write fails
             try:
                 os.remove(abs_path)
             except Exception:
@@ -399,23 +413,30 @@ def house_photos_delete(hid, img_id):
         return redirect(url_for("landlord.landlord_houses"))
 
     cols = _table_columns(conn, "house_images")
-    # filename expression for SELECT
-    if "filename" in cols and "file_name" in cols:
+
+    # Expression to get stored file reference from DB
+    if "file_path" in cols:
+        fname_expr = "file_path"   # e.g., 'uploads/houses/x.jpg'
+        is_path = True
+    elif "filename" in cols and "file_name" in cols:
         fname_expr = "COALESCE(filename, file_name)"
+        is_path = False
     elif "filename" in cols:
         fname_expr = "filename"
+        is_path = False
     elif "file_name" in cols:
         fname_expr = "file_name"
+        is_path = False
     else:
         conn.close()
         flash("DB table misconfigured (no filename column).", "error")
         return redirect(url_for("landlord.house_photos", hid=hid))
 
     had_primary = False
-    filename = None
+    stored = None
     try:
         img = conn.execute(
-            f"SELECT id, {fname_expr} AS filename"
+            f"SELECT id, {fname_expr} AS f"
             + (", is_primary" if "is_primary" in cols else "")
             + " FROM house_images WHERE id=? AND house_id=?",
             (img_id, hid)
@@ -425,7 +446,7 @@ def house_photos_delete(hid, img_id):
             flash("Photo not found.", "error")
             return redirect(url_for("landlord.house_photos", hid=hid))
 
-        filename = img["filename"]
+        stored = img["f"]
         if "is_primary" in cols:
             had_primary = bool(int(img["is_primary"]))
 
@@ -433,8 +454,14 @@ def house_photos_delete(hid, img_id):
         conn.commit()
         conn.close()
 
+        # Map DB value to absolute path on disk
+        if is_path:
+            rel = stored.lstrip("/")  # 'uploads/houses/x.jpg'
+        else:
+            rel = f"uploads/houses/{stored}"
+        abs_path = os.path.join(STATIC_ROOT, rel)
         try:
-            os.remove(os.path.join(UPLOAD_DIR, filename))
+            os.remove(abs_path)
         except Exception:
             pass
 
