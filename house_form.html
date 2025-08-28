@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add house' if mode=='new' else 'Edit house' }} – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1>{{ 'Add a house' if mode=='new' else 'Edit house' }}</h1>
+
+  <form method="post" class="card">
+    <div class="grid grid-2">
+      <label class="field">
+        <span class="label">Title</span>
+        <input type="text" name="title" value="{{ (form.title or '') if form else '' }}" required>
+      </label>
+
+      <label class="field">
+        <span class="label">City</span>
+        <select name="city" required>
+          <option value="">Select a city</option>
+          {% for c in cities %}
+            <option value="{{ c }}" {% if form and form.city==c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+        <p class="help">Only admin-listed cities are available.</p>
+      </label>
+
+      <label class="field" style="grid-column:1 / -1">
+        <span class="label">Address</span>
+        <input type="text" name="address" value="{{ (form.address or '') if form else '' }}" required>
+      </label>
+
+      <label class="field">
+        <span class="label">Letting type</span>
+        <select name="letting_type" required>
+          <option value="whole" {% if form and form.letting_type=='whole' %}selected{% endif %}>Whole property</option>
+          <option value="share" {% if form and form.letting_type=='share' %}selected{% endif %}>House share (rooms)</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="label">Bedrooms (total)</span>
+        <input type="number" name="bedrooms_total" min="1" value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
+      </label>
+
+      <label class="field">
+        <span class="label">I want a house that is</span>
+        <select name="gender_preference" required>
+          {% set g = (form.gender_preference or '') if form else '' %}
+          <option value="" {% if not g %}selected{% endif %}>Please choose one</option>
+          <option value="Male" {% if g=='Male' %}selected{% endif %}>Male</option>
+          <option value="Female" {% if g=='Female' %}selected{% endif %}>Female</option>
+          <option value="Either" {% if g=='Either' %}selected{% endif %}>Anything</option>
+          <option value="Mixed" {% if g=='Mixed' %}selected{% endif %}>Mixed</option>
+        </select>
+      </label>
+
+      <label class="field" style="align-self:end">
+        <input type="checkbox" name="bills_included" {% if form and form.bills_included in ['1',1,'on',True] %}checked{% endif %}>
+        <span class="label-inline">Bills included</span>
+      </label>
+
+      <!-- NEW: Listing type (Owner/Agent) -->
+      <label class="field" style="grid-column:1 / -1">
+        <span class="label">This house is listed as</span>
+        {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
+        <select name="listing_type" required>
+          <option value="owner" {% if lt=='owner' %}selected{% endif %}>Owner</option>
+          <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
+        </select>
+        <p class="help">Defaults to your profile preference; you can change per house.</p>
+      </label>
+    </div>
+
+    <h3 style="margin-top:14px">Bathrooms</h3>
+    <div class="grid">
+      <label class="field">
+        <span class="label">Shared bathrooms (number)</span>
+        <input type="number" name="shared_bathrooms" min="0" value="{{ (form.shared_bathrooms or 0) if form else 0 }}">
+      </label>
+    </div>
+
+    <h3 style="margin-top:14px">House info (not searchable)</h3>
+    <div class="grid grid-3">
+      <label class="field checkbox">
+        <input type="checkbox" name="off_street_parking" {% if form and form.off_street_parking in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Off-street parking available</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="local_parking" {% if form and form.local_parking in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Local parking available</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="cctv" {% if form and form.cctv in ['1',1,'on',True] %}checked{% endif %}>
+        <span>CCTV</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="video_door_entry" {% if form and form.video_door_entry in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Video door entry</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="bike_storage" {% if form and form.bike_storage in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Bike storage</span>
+      </label>
+      <label class="field">
+        <span class="label">Cleaning service</span>
+        <select name="cleaning_service">
+          {% set cs = (form.cleaning_service or 'none') if form else 'none' %}
+          {% for opt in ['none','weekly','fortnightly','monthly'] %}
+            <option value="{{ opt }}" {% if cs==opt %}selected{% endif %}>
+              {{ 'None' if opt=='none' else opt|capitalize }}
+            </option>
+          {% endfor %}
+        </select>
+        <p class="help">If “None”, we won’t show cleaning info on the property page.</p>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="wifi" {% if (not form) or form.wifi in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Wi-Fi</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="wired_internet" {% if form and form.wired_internet in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Wired internet</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="common_area_tv" {% if form and form.common_area_tv in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Common area TV</span>
+      </label>
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" type="submit">{{ 'Create house' if mode=='new' else 'Save changes' }}</button>
+      <a class="btn" href="{{ url_for('landlord.landlord_houses') }}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="220" viewBox="0 0 900 220" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Student Palace logo</title>
+  <desc id="desc">A crown-house icon with the Student Palace wordmark</desc>
+
+  <!-- Brand colours -->
+  <defs>
+    <style>
+      .sp-purple{ fill:#5E2B97; }
+      .sp-coral{ fill:#FF6F61; }
+      .sp-text{ font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-weight:700; }
+    </style>
+  </defs>
+
+  <!-- Icon block (tight, 160×160 area) -->
+  <g transform="translate(0,30)">
+    <!-- Rounded square background -->
+    <rect x="0" y="0" width="160" height="160" rx="24" class="sp-purple"/>
+    <!-- House base (white) -->
+    <path d="M40 112 V74 L80 46 L120 74 V112 H96 V90 H64 V112 Z" fill="#FFFFFF"/>
+    <!-- Door -->
+    <rect x="74" y="96" width="12" height="24" rx="2" class="sp-purple"/>
+    <!-- Crown (coral) sitting on the roof ridge -->
+    <path class="sp-coral" d="M60 40 L70 54 L80 40 L90 54 L100 40 L100 58 H60 Z"/>
+  </g>
+
+  <!-- Wordmark (tight to the left of icon, no extra whitespace) -->
+  <!-- “Student” in purple, “Palace” in coral -->
+  <text x="190" y="132" class="sp-text" font-size="84" letter-spacing="0">
+    <tspan class="sp-purple">Student </tspan><tspan class="sp-coral">Palace</tspan>
+  </text>
+</svg>
