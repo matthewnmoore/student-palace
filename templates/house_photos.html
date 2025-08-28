@@ -23,7 +23,7 @@
       enctype="multipart/form-data"
       style="display:flex; gap:10px; align-items:center; flex-wrap:wrap"
     >
-      <!-- Use photos[] and multiple -->
+      <!-- Name matches backend expectation; multiple files allowed -->
       <input type="file" name="photos[]" accept="image/*" multiple required>
       <button class="btn" type="submit">Upload{% if remaining>0 %} ({{ remaining }} left){% endif %}</button>
     </form>
@@ -35,8 +35,8 @@
       <ul style="list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px;">
         {% for img in images %}
           <li style="border:1px solid var(--border); border-radius:10px; overflow:hidden;">
-            <!-- IMPORTANT: files live under /uploads/..., not /static -->
-            <img src="/{{ img.file_path }}" alt="" style="width:100%; height:140px; object-fit:cover;">
+            <!-- Files are under /static, so use url_for('static', ...) -->
+            <img src="{{ url_for('static', filename=img.file_path) }}" alt="" style="width:100%; height:140px; object-fit:cover;">
             <div style="padding:8px; display:flex; gap:8px; justify-content:space-between; align-items:center;">
               {% if img.is_primary %}
                 <span class="muted small">Primary</span>
