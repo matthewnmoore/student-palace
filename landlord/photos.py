@@ -5,9 +5,10 @@ import os
 import random
 import string
 from datetime import datetime as dt
+from typing import List, Tuple
 
 from flask import request, render_template, redirect, url_for, flash
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 from utils import current_landlord_id, require_landlord, owned_house_or_none
 from db import get_db
@@ -18,16 +19,18 @@ from . import landlord_bp
 # Config
 # -------------------------------
 
-# Absolute path to /uploads/houses (create if missing)
+# We save under: static/uploads/houses  (served by Flask static files)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-UPLOAD_DIR = os.path.join(PROJECT_ROOT, "uploads", "houses")
+STATIC_ROOT = os.path.join(PROJECT_ROOT, "static")
+UPLOAD_SUBPATH = os.path.join("uploads", "houses")
+UPLOAD_DIR = os.path.join(STATIC_ROOT, UPLOAD_SUBPATH)
 
 # Limits & processing
 MAX_FILES_PER_HOUSE = 5
-FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024  # 5 MB
-ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp"}
+FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024  # 5 MB per file
+ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_BOUND = 1600  # longest edge after resize
-WATERMARK_TEXT = "Student Palace"  # simple, unobtrusive text watermark
+WATERMARK_TEXT = "Student Palace"  # subtle text watermark (bottom-right)
 
 
 # -------------------------------
@@ -42,7 +45,7 @@ def _ensure_upload_dir() -> None:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-def _next_sort_order(conn, hid: int) -> int:
+def _next_sort_start(conn, hid: int) -> int:
     row = conn.execute(
         "SELECT COALESCE(MAX(sort_order), 0) AS mx FROM house_images WHERE house_id=?",
         (hid,),
@@ -50,7 +53,7 @@ def _next_sort_order(conn, hid: int) -> int:
     return int(row["mx"]) + 1
 
 
-def _enforce_house_limit(conn, hid: int) -> tuple[int, int, bool]:
+def _house_counts(conn, hid: int) -> Tuple[int, int, bool]:
     """Return (current_count, remaining, can_add)."""
     row = conn.execute(
         "SELECT COUNT(*) AS c FROM house_images WHERE house_id=?", (hid,)
@@ -61,15 +64,20 @@ def _enforce_house_limit(conn, hid: int) -> tuple[int, int, bool]:
 
 
 def _open_image_safely(buf: bytes) -> Image.Image:
-    """Open image with Pillow and transpose according to EXIF orientation."""
+    """Open with Pillow, auto-orient using EXIF, return RGB image."""
     image = Image.open(io.BytesIO(buf))
-    # Pillow >= 6.0: ImageOps.exif_transpose (avoid import to keep deps minimal)
     try:
-        from PIL import ImageOps
         image = ImageOps.exif_transpose(image)
     except Exception:
-        # fallback: if no EXIF or anything goes wrong, continue with original
         pass
+    # Convert to RGB for consistent JPEG saving (flatten alpha if needed)
+    if image.mode in ("RGBA", "LA", "P"):
+        image = image.convert("RGBA")
+        bg = Image.new("RGBA", image.size, (255, 255, 255, 255))
+        bg.alpha_composite(image)
+        image = bg.convert("RGB")
+    else:
+        image = image.convert("RGB")
     return image
 
 
@@ -85,32 +93,28 @@ def _resize(image: Image.Image) -> Image.Image:
 
 def _watermark(image: Image.Image) -> Image.Image:
     """Apply a small semi-transparent text watermark bottom-right."""
-    # ensure RGBA for compositing
     base = image.convert("RGBA")
     overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
 
-    # heuristics for size/padding based on image width
     w, h = base.size
-    pad = max(12, w // 80)         # e.g. 1600px -> 20px padding
-    # approximate font size using default bitmap font metrics: draw.textbbox will scale with stroke width
-    # we won't rely on truetype to avoid bundling a font; just use default and a subtle stroke
+    pad = max(12, w // 80)
     text = WATERMARK_TEXT
+
+    # Measure text with default bitmap font (keeps deps minimal)
     bbox = draw.textbbox((0, 0), text)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
 
-    # bottom-right position
     x = w - text_w - pad
     y = h - text_h - pad
 
-    # draw a faint shadow to improve contrast
+    # Shadow + main text
     draw.text((x + 1, y + 1), text, fill=(0, 0, 0, 90))
-    # then the main text, semi-opaque white
     draw.text((x, y), text, fill=(255, 255, 255, 140))
 
     out = Image.alpha_composite(base, overlay)
-    return out.convert("RGB")  # save as JPEG
+    return out.convert("RGB")
 
 
 def _process_image(buf: bytes) -> Image.Image:
@@ -122,6 +126,27 @@ def _process_image(buf: bytes) -> Image.Image:
 
 def _save_processed_jpeg(image: Image.Image, dest_path: str) -> None:
     image.save(dest_path, format="JPEG", quality=85, optimize=True, progressive=True)
+
+
+def _has_primary(conn, hid: int) -> bool:
+    row = conn.execute(
+        "SELECT COUNT(*) AS c FROM house_images WHERE house_id=? AND is_primary=1",
+        (hid,),
+    ).fetchone()
+    return bool(row and int(row["c"]) > 0)
+
+
+def _collect_files_from_request() -> List:
+    """
+    Support multiple common field names and multi-file inputs.
+    Prefers 'photos[]', but supports 'photos', 'photo', 'file' as fallbacks.
+    """
+    files = []
+    for key in ("photos[]", "photos", "photo", "file"):
+        if key in request.files:
+            files.extend(request.files.getlist(key))
+    # Keep only items that have a filename
+    return [f for f in files if getattr(f, "filename", "")]
 
 
 # -------------------------------
@@ -151,16 +176,16 @@ def house_photos(hid):
     """, (hid,)).fetchall()
 
     max_images = MAX_FILES_PER_HOUSE
-    current_count = len(rows)
     images = [{
         "id": r_["id"],
         "is_primary": bool(r_["is_primary"]),
-        "file_path": f"uploads/houses/{r_['filename']}",
+        # IMPORTANT: these live under /static/..., so use url_for('static', filename=...)
+        "file_path": f"{UPLOAD_SUBPATH}/{r_['filename']}",
     } for r_ in rows]
 
+    remaining = max(0, max_images - len(images))
     conn.close()
 
-    remaining = max(0, max_images - current_count)
     return render_template(
         "house_photos.html",
         house=house,
@@ -172,7 +197,10 @@ def house_photos(hid):
 
 @landlord_bp.route("/landlord/houses/<int:hid>/photos/upload", methods=["POST"])
 def house_photos_upload(hid):
-    """Handle upload: validate, resize, watermark, save, DB insert."""
+    """
+    Handle uploads: accept multiple files (photos[]), enforce size/type,
+    resize + watermark, save to static/uploads/houses, and insert DB rows.
+    """
     r = require_landlord()
     if r:
         return r
@@ -185,14 +213,20 @@ def house_photos_upload(hid):
         flash("House not found.", "error")
         return redirect(url_for("landlord.landlord_houses"))
 
-    # Enforce per-house image limit
-    _, remaining, can_add = _enforce_house_limit(conn, hid)
+    current, remaining, can_add = _house_counts(conn, hid)
     if not can_add:
         conn.close()
         flash(f"You’ve reached the photo limit for this house ({MAX_FILES_PER_HOUSE}).", "error")
         return redirect(url_for("landlord.house_photos", hid=hid))
 
-    # Ensure upload directory exists
+    # Collect files
+    files = _collect_files_from_request()
+    if not files:
+        conn.close()
+        flash("Please choose a photo to upload.", "error")
+        return redirect(url_for("landlord.house_photos", hid=hid))
+
+    # Ensure upload dir exists
     try:
         _ensure_upload_dir()
     except Exception:
@@ -200,71 +234,90 @@ def house_photos_upload(hid):
         flash("Server storage isn’t available right now. Please try again later.", "error")
         return redirect(url_for("landlord.house_photos", hid=hid))
 
-    # Get file
-    file = request.files.get("photo")
-    if not file or file.filename == "":
-        conn.close()
-        flash("Please choose a photo to upload.", "error")
-        return redirect(url_for("landlord.house_photos", hid=hid))
+    # Process up to remaining files
+    files = files[:remaining]
+    next_sort = _next_sort_start(conn, hid)
+    already_has_primary = _has_primary(conn, hid)
 
-    # MIME check
-    mimetype = (file.mimetype or "").lower()
-    if mimetype not in ALLOWED_MIMES:
-        conn.close()
-        flash("Unsupported image type. Please upload a JPG, PNG, or WebP.", "error")
-        return redirect(url_for("landlord.house_photos", hid=hid))
+    accepted = 0
+    rejected: List[str] = []
 
-    # Size limit (read into memory up to limit+1)
-    data = file.read(FILE_SIZE_LIMIT_BYTES + 1)
-    if not data:
-        conn.close()
-        flash("Could not read the uploaded file.", "error")
-        return redirect(url_for("landlord.house_photos", hid=hid))
-    if len(data) > FILE_SIZE_LIMIT_BYTES:
-        conn.close()
-        flash("That file is too large. Max size is 5 MB.", "error")
-        return redirect(url_for("landlord.house_photos", hid=hid))
-
-    # Process with Pillow: auto-orient, resize, watermark
     try:
-        processed = _process_image(data)
-    except Exception:
-        conn.close()
-        flash("That doesn’t look like a valid image file.", "error")
-        return redirect(url_for("landlord.house_photos", hid=hid))
+        for f in files:
+            # MIME/type check (best-effort; we’ll still try to open with Pillow below)
+            mimetype = (f.mimetype or "").lower()
+            if mimetype not in ALLOWED_MIMES:
+                rejected.append(f"“{f.filename}” isn’t a supported image type.")
+                continue
 
-    # Build unique filename (we always save as JPEG after processing)
-    ts = dt.utcnow().strftime("%Y%m%d%H%M%S")
-    fname = f"house{hid}_{ts}_{_rand_token()}.jpg"
-    abs_path = os.path.join(UPLOAD_DIR, fname)
+            # Size cap
+            data = f.read(FILE_SIZE_LIMIT_BYTES + 1)
+            if not data:
+                rejected.append(f"Couldn’t read “{f.filename}”.")
+                continue
+            if len(data) > FILE_SIZE_LIMIT_BYTES:
+                rejected.append(f"“{f.filename}” is larger than 5 MB.")
+                continue
 
-    # Save to disk
-    try:
-        _save_processed_jpeg(processed, abs_path)
-    except Exception:
-        conn.close()
-        flash("We couldn’t save the image. Please try again.", "error")
-        return redirect(url_for("landlord.house_photos", hid=hid))
+            # Pillow processing
+            try:
+                processed = _process_image(data)
+            except Exception:
+                rejected.append(f"“{f.filename}” doesn’t look like a valid image.")
+                continue
 
-    # Insert DB row
-    try:
-        sort_order = _next_sort_order(conn, hid)
-        conn.execute("""
-            INSERT INTO house_images (house_id, filename, is_primary, sort_order, created_at)
-            VALUES (?, ?, 0, ?, ?)
-        """, (hid, fname, sort_order, dt.utcnow().isoformat()))
+            # Unique jpg filename
+            ts = dt.utcnow().strftime("%Y%m%d%H%M%S")
+            fname = f"house{hid}_{ts}_{_rand_token()}.jpg"
+            abs_path = os.path.join(UPLOAD_DIR, fname)
+
+            try:
+                _save_processed_jpeg(processed, abs_path)
+            except Exception:
+                rejected.append(f"Couldn’t save “{f.filename}”.")
+                continue
+
+            # Insert DB row
+            try:
+                is_primary = 0
+                if not already_has_primary and accepted == 0:
+                    # Make the first successful insert primary if none exists yet
+                    is_primary = 1
+                    already_has_primary = True
+
+                conn.execute(
+                    """
+                    INSERT INTO house_images (house_id, filename, is_primary, sort_order, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (hid, fname, is_primary, next_sort, dt.utcnow().isoformat())
+                )
+                next_sort += 1
+                accepted += 1
+            except Exception:
+                # best-effort cleanup
+                try:
+                    os.remove(abs_path)
+                except Exception:
+                    pass
+                rejected.append(f"Saved “{f.filename}”, but couldn’t record it. Skipped.")
+                continue
+
         conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print("[ERROR] house_photos_upload:", e)
+        flash("Something went wrong while uploading. Please try again.", "error")
         conn.close()
-    except Exception:
-        # best-effort cleanup on DB failure
-        try:
-            os.remove(abs_path)
-        except Exception:
-            pass
-        flash("Saved the file, but couldn’t record it. Please try again.", "error")
         return redirect(url_for("landlord.house_photos", hid=hid))
 
-    flash("Photo uploaded.", "ok")
+    conn.close()
+
+    if accepted:
+        flash(f"Uploaded {accepted} photo{'s' if accepted != 1 else ''}.", "ok")
+    for msg in rejected:
+        flash(msg, "error")
+
     return redirect(url_for("landlord.house_photos", hid=hid))
 
 
@@ -284,7 +337,6 @@ def house_photos_primary(hid, img_id):
         return redirect(url_for("landlord.landlord_houses"))
 
     try:
-        # Ensure the photo belongs to the house
         row = conn.execute(
             "SELECT id FROM house_images WHERE id=? AND house_id=?", (img_id, hid)
         ).fetchone()
@@ -322,7 +374,8 @@ def house_photos_delete(hid, img_id):
 
     try:
         row = conn.execute(
-            "SELECT filename FROM house_images WHERE id=? AND house_id=?", (img_id, hid)
+            "SELECT filename, is_primary FROM house_images WHERE id=? AND house_id=?",
+            (img_id, hid)
         ).fetchone()
         if not row:
             conn.close()
@@ -330,11 +383,29 @@ def house_photos_delete(hid, img_id):
             return redirect(url_for("landlord.house_photos", hid=hid))
 
         filename = row["filename"]
+        was_primary = int(row["is_primary"]) == 1
+
         conn.execute("DELETE FROM house_images WHERE id=? AND house_id=?", (img_id, hid))
         conn.commit()
+
+        # If primary was deleted, promote the lowest sort_order
+        if was_primary:
+            nxt = conn.execute(
+                """
+                SELECT id FROM house_images
+                 WHERE house_id=?
+                 ORDER BY sort_order ASC, id ASC
+                 LIMIT 1
+                """,
+                (hid,)
+            ).fetchone()
+            if nxt:
+                conn.execute("UPDATE house_images SET is_primary=1 WHERE id=?", (nxt["id"],))
+                conn.commit()
+
         conn.close()
 
-        # remove file best-effort
+        # best-effort file removal
         try:
             os.remove(os.path.join(UPLOAD_DIR, filename))
         except Exception:
