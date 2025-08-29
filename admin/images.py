@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from urllib.parse import urlencode
 from flask import render_template, request, redirect, url_for, flash
 from models import get_db
 from image_helpers import file_abs_path
@@ -76,13 +77,30 @@ def admin_images():
                     "created_at": r_["created_at"],
                 })
 
+        # Build pagination URLs in Python (Jinja can't do **kwargs in url_for)
+        args = request.args.to_dict(flat=True)
+
+        prev_url = None
+        if page > 1:
+            prev_params = dict(args)
+            prev_params["page"] = page - 1
+            prev_url = url_for("admin.admin_images") + "?" + urlencode(prev_params)
+
+        next_url = None
+        if len(items) == limit:
+            next_params = dict(args)
+            next_params["page"] = page + 1
+            next_url = url_for("admin.admin_images") + "?" + urlencode(next_params)
+
         return render_template(
             "admin_images.html",
             items=items,
             page=page,
             limit=limit,
             total=total,
-            broken_only=broken_only
+            broken_only=broken_only,
+            prev_url=prev_url,
+            next_url=next_url,
         )
     finally:
         conn.close()
