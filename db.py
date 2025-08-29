@@ -150,7 +150,7 @@ def ensure_db():
     );
     """)
 
-    # --- NEW: House images (for landlord photo uploads) ---
+    # --- House images (for landlord photo uploads) ---
     if not table_exists(conn, "house_images"):
         c.execute("""
         CREATE TABLE house_images (
@@ -168,7 +168,6 @@ def ensure_db():
             FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE
         );
         """)
-        # Useful indexes
         c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_house ON house_images(house_id);")
         c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_primary ON house_images(house_id, is_primary DESC, sort_order ASC, id ASC);")
 
@@ -189,6 +188,7 @@ def ensure_db():
 
     # landlord_profiles.is_verified
     _safe_add_column(conn, "landlord_profiles", "ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0")
+
     # landlord_profiles.role
     if not table_has_column(conn, "landlord_profiles", "role"):
         conn.execute("ALTER TABLE landlord_profiles ADD COLUMN role TEXT NOT NULL DEFAULT 'owner'")
@@ -226,7 +226,7 @@ def ensure_db():
         _safe_add_column(conn, "house_images", "ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0")
         _safe_add_column(conn, "house_images", "ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         _safe_add_column(conn, "house_images", "ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
-        # Basic backfill to keep filename/file_name in sync if one exists
+        # Keep filename/file_name in sync if only one was present
         try:
             conn.execute("""
                 UPDATE house_images
@@ -244,3 +244,7 @@ def ensure_db():
             print("[MIGRATE] backfill filenames:", e)
 
     conn.close()
+
+
+# Run migrations at import so other modules can rely on schema existing
+ensure_db()
