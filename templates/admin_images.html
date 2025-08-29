@@ -71,11 +71,19 @@
           Showing page {{ page }} (limit {{ limit }}). Total in DB: {{ total }}.
         </div>
         <div class="inline-actions">
-          {% if prev_url %}
-            <a class="btn btn-outline" href="{{ prev_url }}">&larr; Prev</a>
+          {% if page > 1 %}
+            <a class="btn btn-outline"
+               href="{{ url_for('admin.admin_images',
+                                page=page-1,
+                                limit=limit,
+                                broken=(1 if broken_only else None)) }}">&larr; Prev</a>
           {% endif %}
-          {% if next_url %}
-            <a class="btn btn-outline" href="{{ next_url }}">Next &rarr;</a>
+          {% if items|length == limit %}
+            <a class="btn btn-outline"
+               href="{{ url_for('admin.admin_images',
+                                page=page+1,
+                                limit=limit,
+                                broken=(1 if broken_only else None)) }}">Next &rarr;</a>
           {% endif %}
         </div>
       </div>
