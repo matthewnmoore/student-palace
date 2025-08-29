@@ -5,14 +5,7 @@ import os
 from flask import render_template, request, redirect, url_for, flash
 from models import get_db
 from image_helpers import file_abs_path
-from . import bp, _is_admin
-
-
-def _require_admin_redirect():
-    """Return a redirect to admin login if not admin, else None."""
-    if not _is_admin():
-        return redirect(url_for("admin.admin_login"))
-    return None
+from . import bp, require_admin
 
 
 @bp.route("/images")
@@ -25,7 +18,7 @@ def admin_images():
       - page=N       -> pagination (1-based)
       - limit=M      -> page size (default 50, max 200)
     """
-    r = _require_admin_redirect()
+    r = require_admin()
     if r:
         return r
 
@@ -101,7 +94,7 @@ def admin_images_delete(img_id: int):
     Delete a single image row by ID. If the file exists on disk,
     attempt to remove it after DB commit (best effort).
     """
-    r = _require_admin_redirect()
+    r = require_admin()
     if r:
         return r
 
@@ -147,7 +140,7 @@ def admin_images_cleanup_broken():
     Bulk delete: removes all rows whose files are missing on disk.
     DB-first; file removal is skipped (they're already missing).
     """
-    r = _require_admin_redirect()
+    r = require_admin()
     if r:
         return r
 
