@@ -142,3 +142,52 @@ Debugging
 - Check schema live: /debug/hi-schema
 - Validate NOT NULL rules before deploying inserts
 - Compare schema across dev/prod to avoid mismatches
+
+
+
+
+REFERENCE: Student Palace – Photo Upload & Logo Watermark
+=========================================================
+
+Processing Rules
+----------------
+- All uploaded images are:
+  → Opened safely (auto EXIF rotation applied)
+  → Converted to RGB (to avoid PNG/alpha bugs)
+  → Resized so the longest side = 1600px max
+  → Saved as JPEG at ~85 quality (progressive, optimized)
+  → Branded with "Student Palace" watermark
+
+Watermark Details
+-----------------
+- Text: "Student Palace"
+- Font: scalable (TTF if available, fallback to PIL default)
+- Size: ~image width / 16 (scales with photo size)
+- Position: bottom-right corner
+- Style: semi-transparent white text with a soft black shadow
+- Ensures readability on both light and dark images
+
+DB Consistency
+--------------
+- width, height, bytes → measured *after* resize/watermark
+- file_name + filename → same UUID-based name (".jpg")
+- file_path → "uploads/houses/<uuid>.jpg" (no leading slash)
+
+Limits
+------
+- Max 5 photos per house
+- Max 5 MB per photo (pre-resize)
+- Allowed formats: JPEG, PNG, WebP, GIF
+
+Best Practices
+--------------
+✅ Never bypass process_image → ensures watermark + resize  
+✅ Store only relative paths → Flask’s static serving works  
+✅ Use select_images() → protects against filename vs file_name mismatch  
+✅ Always commit/rollback → prevents half-saved files  
+
+Debugging
+---------
+- Check processed output: download file directly from static/uploads/houses  
+- Watermark should always be visible bottom-right at ~6–8% image width  
+- /debug/hi-schema still validates DB side
