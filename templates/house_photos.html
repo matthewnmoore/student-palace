@@ -23,7 +23,7 @@
     <h3 class="mt-0">Upload photos</h3>
     <p class="help" id="limit-note">
       Max {{ max_images }} per house. Max size 5&nbsp;MB each. JPG/PNG/WebP/GIF accepted.<br>
-      You can select <em>multiple</em> files at once.
+      You can select <em>multiple</em> files at once or drag &amp; drop them below.
       {% set already = (images|length if images else 0) %}
       {% set remaining = max_images - already %}
       <br>Remaining slots: <strong id="remaining">{{ remaining }}</strong>
@@ -31,11 +31,23 @@
 
     <form id="upload-form"
           action="{{ url_for('landlord.house_photos', hid=house.id) }}"
-          method="post" enctype="multipart/form-data"
-          style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
-      <input id="file-input" type="file" name="photos" accept="image/*" multiple required>
-      <button id="upload-btn" class="btn" type="submit">Upload</button>
-      <span id="selection-status" class="small" style="color:var(--muted)"></span>
+          method="post" enctype="multipart/form-data">
+      <!-- Hidden real input (we programmatically fill this) -->
+      <input id="file-input" type="file" name="photos" accept="image/*" multiple required hidden>
+
+      <!-- Drop zone / picker -->
+      <div id="drop-zone"
+           style="border:2px dashed var(--border); border-radius:12px; padding:20px; text-align:center; cursor:pointer; background:#fff;">
+        <div style="font-weight:600; margin-bottom:6px">Drag &amp; drop images here</div>
+        <div class="small" style="color:var(--muted)">…or click to choose from your device</div>
+      </div>
+
+      <!-- Actions + status -->
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+        <button id="choose-btn" class="btn btn-outline" type="button">Choose files</button>
+        <button id="upload-btn" class="btn" type="submit">Upload</button>
+        <span id="selection-status" class="small" style="color:var(--muted)"></span>
+      </div>
     </form>
   </div>
 
@@ -86,61 +98,88 @@
   const MAX_MB_PER_FILE = 5;
   const BYTES_LIMIT = MAX_MB_PER_FILE * 1024 * 1024;
   const remainingSlots = {{ max_images - (images|length if images else 0) }};
+
   const input = document.getElementById('file-input');
+  const drop = document.getElementById('drop-zone');
+  const chooseBtn = document.getElementById('choose-btn');
   const status = document.getElementById('selection-status');
   const uploadBtn = document.getElementById('upload-btn');
 
-  function humanMB(bytes){
-    return (bytes/1024/1024).toFixed(2);
-  }
+  function humanMB(bytes){ return (bytes/1024/1024).toFixed(2); }
 
   function summarize(files){
     if (!files.length){ status.textContent = ''; return; }
     const total = Array.from(files).reduce((n,f)=> n + (f.size||0), 0);
-    status.textContent = `${files.length} file${files.length>1?'s':''} selected • ${humanMB(total)} MB total`;
+    status.textContent = `${files.length} file${files.length>1?'s':''} • ${humanMB(total)} MB total`;
   }
 
-  input.addEventListener('change', ()=>{
-    let files = Array.from(input.files || []);
-    if (!files.length){
-      summarize(files);
-      return;
+  function filterAndTrim(files){
+    let arr = Array.from(files || []);
+    if (!arr.length) return arr;
+
+    // Remove non-images
+    const notImage = arr.filter(f => !(f && f.type && f.type.startsWith('image/')));
+    if (notImage.length){
+      alert('Some non-image files were removed.');
+      arr = arr.filter(f => f.type && f.type.startsWith('image/'));
     }
 
-    // Type/size filter
-    const tooBig = files.filter(f => f.size > BYTES_LIMIT);
-    const notImage = files.filter(f => !(f && f.type && f.type.startsWith('image/')));
+    // Remove > 5 MB
+    const tooBig = arr.filter(f => f.size > BYTES_LIMIT);
     if (tooBig.length){
       alert(`Some files exceed ${MAX_MB_PER_FILE} MB and were removed.`);
-      files = files.filter(f => f.size <= BYTES_LIMIT);
-    }
-    if (notImage.length){
-      alert(`Some non-image files were removed.`);
-      files = files.filter(f => f.type && f.type.startsWith('image/'));
+      arr = arr.filter(f => f.size <= BYTES_LIMIT);
     }
 
-    // Remaining slots limit
+    // Enforce remaining slots
     if (remainingSlots <= 0){
       alert("You have no remaining slots for this house.");
-      input.value = '';
-      summarize([]);
-      return;
+      return [];
     }
-    if (files.length > remainingSlots){
+    if (arr.length > remainingSlots){
       alert(`You can add up to ${remainingSlots} more image${remainingSlots>1?'s':''}. Extra files were ignored.`);
-      files = files.slice(0, remainingSlots);
+      arr = arr.slice(0, remainingSlots);
     }
+    return arr;
+  }
 
-    // Re-apply trimmed list back to input via DataTransfer
+  function setInputFiles(files){
     const bag = new DataTransfer();
     files.forEach(f => bag.items.add(f));
     input.files = bag.files;
-
     summarize(files);
+  }
+
+  // Click-to-choose
+  chooseBtn.addEventListener('click', () => input.click());
+  drop.addEventListener('click', () => input.click());
+
+  // Native picker change
+  input.addEventListener('change', () => {
+    const filtered = filterAndTrim(input.files);
+    setInputFiles(filtered); // re-apply after trimming
   });
 
-  // If nothing selected, still allow submit (server will flash a message),
-  // but UX-wise it’s nicer to keep enabled once something is picked.
+  // Drag & drop handlers
+  ['dragenter','dragover'].forEach(evt =>
+    drop.addEventListener(evt, e => {
+      e.preventDefault(); e.stopPropagation();
+      drop.style.background = '#f8f6ff';
+      drop.style.borderColor = 'var(--brand)';
+    })
+  );
+  ['dragleave','drop'].forEach(evt =>
+    drop.addEventListener(evt, e => {
+      e.preventDefault(); e.stopPropagation();
+      drop.style.background = '#fff';
+      drop.style.borderColor = 'var(--border)';
+    })
+  );
+  drop.addEventListener('drop', e => {
+    const files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [];
+    const filtered = filterAndTrim(files);
+    setInputFiles(filtered);
+  });
 })();
 </script>
 {% endblock %}
