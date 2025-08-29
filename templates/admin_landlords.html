@@ -10,7 +10,7 @@
              style="flex:1 1 280px;background:#fff;border:1px solid var(--line);color:var(--text);
                     border-radius:10px;padding:10px 12px">
       <button class="btn" type="submit">Search</button>
-      <a class="btn" href="{{ url_for('admin_landlords') }}">Clear</a>
+      <a class="btn" href="{{ url_for('admin.admin_landlords') }}">Clear</a>
     </form>
   </div>
 
@@ -52,7 +52,7 @@
             <td style="padding:10px">{{ r.profile_views }}</td>
             <td style="padding:10px">{{ r.created_at }}</td>
             <td style="padding:10px">
-              <a class="btn" href="{{ url_for('admin_landlord_detail', lid=r.id) }}">Open</a>
+              <a class="btn" href="{{ url_for('admin.admin_landlord_detail', lid=r.id) }}">Open</a>
             </td>
           </tr>
           {% endfor %}
@@ -64,8 +64,8 @@
   </div>
 
   <p style="margin-top:12px">
-    <a class="btn" href="{{ url_for('admin_cities') }}">Manage cities</a>
-    <a class="btn" href="{{ url_for('admin_logout') }}">Log out</a>
+    <a class="btn" href="{{ url_for('admin.admin_cities') }}">Manage cities</a>
+    <a class="btn" href="{{ url_for('admin.admin_logout') }}">Log out</a>
   </p>
 </section>
 {% endblock %}
