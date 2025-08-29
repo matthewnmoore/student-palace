@@ -1,0 +1,2 @@
+# Ensures the 'static/uploads' directory exists in the repo.
+# Required so Render can mount a persistent disk into subfolders at boot.
