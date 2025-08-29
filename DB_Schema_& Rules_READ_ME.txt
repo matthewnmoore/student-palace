@@ -1,3 +1,31 @@
+=================================================================
+Student Palace – Internal Reference File
+=================================================================
+FILE: DB_Schema_& Rules_READ_ME.txt
+PURPOSE:
+    - Permanent reference for database schema, photo upload rules,
+      image processing (resize + watermark), and known pitfalls.
+    - This file is NOT code, but critical documentation.
+    - It should live in the repo at all times.
+    - DO NOT delete, rename, or overwrite without explicit backup.
+
+USAGE:
+    - Read-only reference for developers and admins.
+    - Copy/paste snippets as needed (SQL, schema checks, etc).
+    - Keep updated ONLY when schema or image processing logic changes.
+
+HISTORY:
+    - Created during initial build of landlord photo upload feature.
+    - Updated as of: <<INSERT DATE HERE>>
+=================================================================
+
+
+
+
+
+
+
+
 REFERENCE: Student Palace – House Images DB Schema & Rules
 =========================================================
 
