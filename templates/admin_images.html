@@ -71,15 +71,11 @@
           Showing page {{ page }} (limit {{ limit }}). Total in DB: {{ total }}.
         </div>
         <div class="inline-actions">
-          {% set q = dict(request.args) %}
-          {% set prevp = page-1 %}
-          {% set nextp = page+1 %}
-          {% if page > 1 %}
-            {% set q = q.update({'page': prevp}) %}
-            <a class="btn btn-outline" href="{{ url_for('admin.admin_images', **request.args.to_dict(), page=page-1) }}">&larr; Prev</a>
+          {% if prev_url %}
+            <a class="btn btn-outline" href="{{ prev_url }}">&larr; Prev</a>
           {% endif %}
-          {% if items|length == limit %}
-            <a class="btn btn-outline" href="{{ url_for('admin.admin_images', **request.args.to_dict(), page=page+1) }}">Next &rarr;</a>
+          {% if next_url %}
+            <a class="btn btn-outline" href="{{ next_url }}">Next &rarr;</a>
           {% endif %}
         </div>
       </div>
