@@ -10,6 +10,7 @@ from datetime import timedelta
 # -----------------------------------------------------------------------------
 SECRET_KEY  = os.environ.get("SECRET_KEY", "change-me-in-prod")
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+ADMIN_DEBUG = os.environ.get("ADMIN_DEBUG", "0") == "1"  # needed by errors.py
 
 # -----------------------------------------------------------------------------
 # File paths (repo-local; no /opt/uploads anywhere)
