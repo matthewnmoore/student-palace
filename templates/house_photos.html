@@ -20,13 +20,16 @@
   {% endwith %}
 
   <div class="card">
-    <h3 class="mt-0">Upload a photo</h3>
-    <p class="help">Max {{ max_images }} per house. Max size 5&nbsp;MB. JPG/PNG/WebP/GIF accepted.</p>
+    <h3 class="mt-0">Upload photos</h3>
+    <p class="help">
+      Max {{ max_images }} per house. Max size 5&nbsp;MB each. JPG/PNG/WebP/GIF accepted.<br>
+      You can select <em>multiple</em> files at once.
+    </p>
 
     <form action="{{ url_for('landlord.house_photos', hid=house.id) }}"
           method="post" enctype="multipart/form-data"
           style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
-      <input type="file" name="photo" accept="image/*" required>
+      <input type="file" name="photos" accept="image/*" multiple required>
       <button class="btn" type="submit">Upload</button>
     </form>
   </div>
@@ -38,7 +41,7 @@
         {% if images and images|length %}
           {{ images|length }} / {{ max_images }} uploaded
         {% else %}
-          No photos yet — add one above.
+          No photos yet — add some above.
         {% endif %}
       </div>
     </div>
