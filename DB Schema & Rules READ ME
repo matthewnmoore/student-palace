@@ -191,3 +191,21 @@ Debugging
 - Check processed output: download file directly from static/uploads/houses  
 - Watermark should always be visible bottom-right at ~6–8% image width  
 - /debug/hi-schema still validates DB side
+
+
+
+
+
+
+
+
+
+
+
+-- Verify stored sizes match actual files
+SELECT id, filename, width, height, bytes
+FROM house_images
+WHERE house_id=123;
+
+-- Then cross-check against:
+!ls -lh static/uploads/houses/house123_*.jpg
