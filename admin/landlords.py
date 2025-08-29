@@ -6,6 +6,25 @@ from werkzeug.security import generate_password_hash
 from models import get_db
 from . import bp, _is_admin
 
+def _ensure_landlord_profiles_table(conn) -> None:
+    """
+    Create landlord_profiles if it doesn't exist.
+    Safe to call on every request.
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS landlord_profiles (
+            landlord_id   INTEGER PRIMARY KEY,
+            display_name  TEXT,
+            public_slug   TEXT UNIQUE,
+            phone         TEXT,
+            website       TEXT,
+            bio           TEXT,
+            profile_views INTEGER NOT NULL DEFAULT 0,
+            is_verified   INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE
+        );
+    """)
+
 # List landlords
 @bp.route("/landlords", methods=["GET"])
 def admin_landlords():
@@ -15,6 +34,8 @@ def admin_landlords():
     q = (request.args.get("q") or "").strip().lower()
     conn = get_db()
     try:
+        _ensure_landlord_profiles_table(conn)
+
         if q:
             rows = conn.execute("""
                 SELECT l.id,
@@ -24,10 +45,10 @@ def admin_landlords():
                        COALESCE(p.public_slug,'')  AS public_slug,
                        COALESCE(p.profile_views,0) AS profile_views,
                        COALESCE(p.is_verified,0)   AS is_verified
-                FROM landlords l
-                LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
-                WHERE LOWER(l.email) LIKE ? OR LOWER(COALESCE(p.display_name,'')) LIKE ?
-                ORDER BY l.created_at DESC
+                  FROM landlords l
+             LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
+                 WHERE LOWER(l.email) LIKE ? OR LOWER(COALESCE(p.display_name,'')) LIKE ?
+              ORDER BY l.created_at DESC
             """, (f"%{q}%", f"%{q}%")).fetchall()
         else:
             rows = conn.execute("""
@@ -38,9 +59,9 @@ def admin_landlords():
                        COALESCE(p.public_slug,'')  AS public_slug,
                        COALESCE(p.profile_views,0) AS profile_views,
                        COALESCE(p.is_verified,0)   AS is_verified
-                FROM landlords l
-                LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
-                ORDER BY l.created_at DESC
+                  FROM landlords l
+             LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
+              ORDER BY l.created_at DESC
             """).fetchall()
         return render_template("admin_landlords.html", landlords=rows, q=q)
     finally:
@@ -54,6 +75,8 @@ def admin_landlord_detail(lid: int):
 
     conn = get_db()
     try:
+        _ensure_landlord_profiles_table(conn)
+
         if request.method == "POST":
             action = request.form.get("action") or ""
 
@@ -62,7 +85,8 @@ def admin_landlord_detail(lid: int):
                 if new_email:
                     try:
                         conn.execute(
-                            "UPDATE landlords SET email=? WHERE id=?", (new_email, lid)
+                            "UPDATE landlords SET email=? WHERE id=?",
+                            (new_email, lid)
                         )
                         conn.commit()
                         flash("Email updated.", "ok")
@@ -77,12 +101,14 @@ def admin_landlord_detail(lid: int):
                     flash(f"Generated temporary password: {new_pw}", "ok")
                 ph = generate_password_hash(new_pw)
                 conn.execute(
-                    "UPDATE landlords SET password_hash=? WHERE id=?", (ph, lid)
+                    "UPDATE landlords SET password_hash=? WHERE id=?",
+                    (ph, lid)
                 )
                 conn.commit()
                 flash("Password reset.", "ok")
 
             elif action == "set_verified":
+                # Ensure profile row exists, then set flag from checkbox
                 conn.execute(
                     "INSERT OR IGNORE INTO landlord_profiles(landlord_id) VALUES(?)",
                     (lid,)
