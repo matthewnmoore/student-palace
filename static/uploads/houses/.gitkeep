@@ -1,0 +1,3 @@
+# Ensures the 'static/uploads/houses' directory exists in the repo.
+# Your image disk is mounted here: /opt/render/project/src/static/uploads/houses
+# Files saved here (e.g., house123_*.jpg) will persist across deploys.
