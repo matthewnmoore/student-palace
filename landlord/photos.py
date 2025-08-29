@@ -235,3 +235,55 @@ def room_counts(conn, hid):
     max_rooms = int(row["bedrooms_total"]) if row else 0
     cnt = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
     return max_rooms, int(cnt)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@bp.route("/landlord/houses/<int:hid>/photos/debug")
+def house_photos_debug(hid: int):
+    # auth + ownership
+    r = require_landlord()
+    if r: return r
+    lid = current_landlord_id()
+    conn = get_db()
+    house = owned_house_or_none(conn, hid, lid)
+    if not house:
+        conn.close()
+        return {"error":"house not found"}, 404
+
+    rows = conn.execute("""
+      SELECT id,
+             COALESCE(filename, file_name) AS filename,
+             file_path, width, height, bytes, is_primary, sort_order, created_at
+        FROM house_images
+       WHERE house_id=?
+       ORDER BY is_primary DESC, sort_order ASC, id ASC
+    """, (hid,)).fetchall()
+    conn.close()
+
+    from image_helpers import file_abs_path
+    import os
+    out = []
+    for r in rows:
+        fname = r["filename"]
+        out.append({
+            "id": r["id"],
+            "filename": fname,
+            "file_path": r["file_path"],
+            "exists_on_disk": os.path.exists(file_abs_path(fname)),
+            "is_primary": int(r["is_primary"]) == 1,
+            "size_wxh": f'{r["width"]}x{r["height"]}',
+            "bytes": r["bytes"],
+        })
+    return {"house_id": hid, "items": out}, 200, {"Content-Type":"application/json"}
