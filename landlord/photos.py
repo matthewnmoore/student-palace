@@ -1,9 +1,8 @@
 # landlord/photos.py
 from __future__ import annotations
 
+import time, logging
 from flask import render_template, request, redirect, url_for, flash
-from datetime import datetime as dt
-
 from db import get_db
 from utils import current_landlord_id, require_landlord, owned_house_or_none
 from . import bp
@@ -13,6 +12,8 @@ from image_helpers import (
     MAX_FILES_PER_HOUSE,
     assert_house_images_schema,
 )
+
+logger = logging.getLogger("student_palace.uploads")
 
 @bp.route("/landlord/houses/<int:hid>/photos", methods=["GET", "POST"])
 def house_photos(hid: int):
@@ -47,6 +48,8 @@ def house_photos(hid: int):
         )
 
     if request.method == "POST":
+        batch_start = time.perf_counter()
+
         # MULTI: files come from input name="photos" multiple
         files = request.files.getlist("photos")
         # Some browsers include an empty item; filter those
@@ -77,12 +80,13 @@ def house_photos(hid: int):
         successes = 0
         errors = []
         for f in to_process:
-            ok, msg = accept_upload(conn, hid, f, enforce_limit=False)  # we enforced batch limit above
+            ok, msg = accept_upload(conn, hid, f, enforce_limit=False)  # batch limit enforced above
             if ok:
                 successes += 1
             else:
                 errors.append(f"{getattr(f, 'filename', 'file')}: {msg}")
 
+        # commit/rollback once per batch
         try:
             if successes:
                 conn.commit()
@@ -92,6 +96,13 @@ def house_photos(hid: int):
             flash("Could not finalize the upload.", "error")
             conn.close()
             return redirect(url_for("landlord.house_photos", hid=hid))
+
+        # Batch timing log
+        elapsed = time.perf_counter() - batch_start
+        logger.info(
+            f"[UPLOAD-BATCH] house={hid} tried={len(files)} processed={len(to_process)} "
+            f"success={successes} errors={len(errors)} elapsed={elapsed:.2f}s"
+        )
 
         # Build a friendly summary
         skipped_due_to_limit = len(files) - len(to_process)
@@ -191,3 +202,36 @@ def house_photos_delete(hid: int, img_id: int):
         flash("Could not delete photo.", "error")
 
     return redirect(url_for("landlord.house_photos", hid=hid))
+
+
+# (these helpers were present in your current file; leaving untouched)
+from utils import clean_bool
+from db import get_db as _get_db  # alias to avoid shadowing
+
+def room_form_values(request):
+    name = (request.form.get("name") or "").strip()
+    ensuite = clean_bool("ensuite")
+    bed_size = (request.form.get("bed_size") or "").strip()
+    tv = clean_bool("tv")
+    desk_chair = clean_bool("desk_chair")
+    wardrobe = clean_bool("wardrobe")
+    chest_drawers = clean_bool("chest_drawers")
+    lockable_door = clean_bool("lockable_door")
+    wired_internet = clean_bool("wired_internet")
+    room_size = (request.form.get("room_size") or "").strip()
+    errors = []
+    if not name:
+        errors.append("Room name is required.")
+    if bed_size not in ("Single","Small double","Double","King"):
+        errors.append("Please choose a valid bed size.")
+    return ({
+        "name": name, "ensuite": ensuite, "bed_size": bed_size, "tv": tv,
+        "desk_chair": desk_chair, "wardrobe": wardrobe, "chest_drawers": chest_drawers,
+        "lockable_door": lockable_door, "wired_internet": wired_internet, "room_size": room_size
+    }, errors)
+
+def room_counts(conn, hid):
+    row = conn.execute("SELECT bedrooms_total FROM houses WHERE id=?", (hid,)).fetchone()
+    max_rooms = int(row["bedrooms_total"]) if row else 0
+    cnt = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
+    return max_rooms, int(cnt)
