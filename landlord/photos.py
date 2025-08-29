@@ -2,30 +2,25 @@
 from __future__ import annotations
 
 from flask import render_template, request, redirect, url_for, flash
+from datetime import datetime as dt
+
 from db import get_db
 from utils import current_landlord_id, require_landlord, owned_house_or_none
-
-# Shared landlord blueprint (declared in landlord/__init__.py)
 from . import bp
 
-# Image helpers (your vetted module)
 from image_helpers import (
-    accept_upload,
-    select_images,
-    set_primary,
-    delete_image,
-    assert_house_images_schema,
+    accept_upload, select_images, set_primary, delete_image,
     MAX_FILES_PER_HOUSE,
+    assert_house_images_schema,
 )
-
 
 @bp.route("/landlord/houses/<int:hid>/photos", methods=["GET", "POST"])
 def house_photos(hid: int):
     """
-    GET  -> Show existing photos + single-file upload form.
-    POST -> Accept ONE file upload (keeps first step simple & safe).
+    GET  -> show existing photos + upload form
+    POST -> accept MULTIPLE file uploads (safe batch)
     """
-    # Auth + ownership
+    # login/ownership checks
     r = require_landlord()
     if r:
         return r
@@ -38,7 +33,7 @@ def house_photos(hid: int):
         flash("House not found.", "error")
         return redirect(url_for("landlord.landlord_houses"))
 
-    # Guard: ensure DB schema matches our documented requirements
+    # guard: ensure DB schema is what we expect before doing anything
     try:
         assert_house_images_schema(conn)
     except Exception as e:
@@ -51,13 +46,16 @@ def house_photos(hid: int):
             max_images=MAX_FILES_PER_HOUSE,
         )
 
-    # POST: single-file upload
     if request.method == "POST":
-        f = request.files.get("photo")
-        if not f or not getattr(f, "filename", ""):
+        # MULTI: files come from input name="photos" multiple
+        files = request.files.getlist("photos")
+        # Some browsers include an empty item; filter those
+        files = [f for f in files if getattr(f, "filename", "").strip()]
+
+        if not files:
             images = select_images(conn, hid)
             conn.close()
-            flash("Please choose a photo to upload.", "error")
+            flash("Please choose at least one photo to upload.", "error")
             return render_template(
                 "house_photos.html",
                 house=house,
@@ -65,19 +63,56 @@ def house_photos(hid: int):
                 max_images=MAX_FILES_PER_HOUSE,
             )
 
-        ok, msg = accept_upload(conn, hid, f, enforce_limit=True)
-        try:
+        # Enforce house limit at the batch level
+        existing = len(select_images(conn, hid))
+        remaining = max(0, MAX_FILES_PER_HOUSE - existing)
+        if remaining <= 0:
+            conn.close()
+            flash(f"House already has {MAX_FILES_PER_HOUSE} photos.", "error")
+            return redirect(url_for("landlord.house_photos", hid=hid))
+
+        # Only try up to remaining slots
+        to_process = files[:remaining]
+
+        successes = 0
+        errors = []
+        for f in to_process:
+            ok, msg = accept_upload(conn, hid, f, enforce_limit=False)  # we enforced batch limit above
             if ok:
+                successes += 1
+            else:
+                errors.append(f"{getattr(f, 'filename', 'file')}: {msg}")
+
+        try:
+            if successes:
                 conn.commit()
-                flash("Photo uploaded.", "ok")
             else:
                 conn.rollback()
-                flash(msg, "error")
         except Exception:
             flash("Could not finalize the upload.", "error")
-        finally:
             conn.close()
+            return redirect(url_for("landlord.house_photos", hid=hid))
 
+        # Build a friendly summary
+        skipped_due_to_limit = len(files) - len(to_process)
+        parts = []
+        if successes:
+            parts.append(f"Uploaded {successes} file{'s' if successes != 1 else ''}.")
+        if errors:
+            parts.append(f"Skipped {len(errors)} due to errors.")
+        if skipped_due_to_limit > 0:
+            parts.append(f"{skipped_due_to_limit} not processed (house limit {MAX_FILES_PER_HOUSE}).")
+
+        if successes:
+            flash(" ".join(parts), "ok")
+        else:
+            # No success at all: show details as error
+            detail = " ".join(parts) if parts else "Upload failed."
+            flash(detail, "error")
+            for e in errors:
+                flash(e, "error")
+
+        conn.close()
         return redirect(url_for("landlord.house_photos", hid=hid))
 
     # GET: list images
@@ -90,15 +125,12 @@ def house_photos(hid: int):
         max_images=MAX_FILES_PER_HOUSE,
     )
 
-
 @bp.route("/landlord/houses/<int:hid>/photos/<int:img_id>/primary", methods=["POST"])
 def house_photos_primary(hid: int, img_id: int):
-    # Auth + ownership
     r = require_landlord()
     if r:
         return r
     lid = current_landlord_id()
-
     conn = get_db()
     house = owned_house_or_none(conn, hid, lid)
     if not house:
@@ -119,15 +151,12 @@ def house_photos_primary(hid: int, img_id: int):
 
     return redirect(url_for("landlord.house_photos", hid=hid))
 
-
 @bp.route("/landlord/houses/<int:hid>/photos/<int:img_id>/delete", methods=["POST"])
 def house_photos_delete(hid: int, img_id: int):
-    # Auth + ownership
     r = require_landlord()
     if r:
         return r
     lid = current_landlord_id()
-
     conn = get_db()
     house = owned_house_or_none(conn, hid, lid)
     if not house:
@@ -144,13 +173,12 @@ def house_photos_delete(hid: int, img_id: int):
             flash("Photo not found.", "error")
             return redirect(url_for("landlord.house_photos", hid=hid))
 
-        # Commit DB deletion first
-        conn.commit()
+        conn.commit()  # DB first
         conn.close()
 
-        # Best-effort: remove the file from disk
-        import os
+        # after DB success, try to remove the file (best effort)
         from image_helpers import file_abs_path
+        import os
         try:
             os.remove(file_abs_path(fname))
         except Exception:
