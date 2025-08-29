@@ -223,13 +223,6 @@ Debugging
 
 
 
-
-
-
-
-
-
-
 -- Verify stored sizes match actual files
 SELECT id, filename, width, height, bytes
 FROM house_images
@@ -237,3 +230,59 @@ WHERE house_id=123;
 
 -- Then cross-check against:
 !ls -lh static/uploads/houses/house123_*.jpg
+
+
+
+
+
+
+=========================================================
+REFERENCE: Domain & DNS – student-palace.co.uk (Render)
+=========================================================
+
+Authoritative target (Render):
+- Root (apex) A record:   @  ->  216.24.57.1
+- WWW host CNAME:         www ->  student-palace.onrender.com
+
+Why two records:
+- Apex/root cannot be a CNAME at most DNS hosts; use the A record to Render.
+- The www host can be a CNAME and should point to Render’s hostname.
+
+Propagation & what to expect:
+- DNS changes can take up to ~24 hours (rarely 48) to fully propagate worldwide.
+- During propagation you may see MIXED answers when checking from different locations:
+  * Old Easyspace IP: 62.233.121.5  (stale cache; old redirect)
+  * Correct Render A (root): 216.24.57.1
+  * Correct Render LB IPs for www (behind the CNAME): 216.24.57.251 or 216.24.57.7 (varies)
+- Cloudflare “Error 1001: DNS resolution error” can appear temporarily while CNAMEs settle.
+
+How to verify (simple checklist):
+1) Check the root (apex) record:
+   - Query student-palace.co.uk (A)
+   - EXPECT: 216.24.57.1 ONLY (no 62.233.121.5 anywhere)
+2) Check the www host:
+   - Query www.student-palace.co.uk (CNAME/A)
+   - EXPECT: CNAME to student-palace.onrender.com, resolving to 216.24.57.251 / 216.24.57.7 (Render)
+3) Browser tests:
+   - Visit https://www.student-palace.co.uk → should load the live site with a valid padlock (SSL).
+   - Visit https://student-palace.co.uk → should also work; if desired, configure Render to redirect root → www.
+
+Render dashboard “Verify” buttons:
+- Use them after you’ve created the DNS records. If verification fails immediately, wait and retry after propagation (1–24h).
+- Once verified, Render auto-provisions the TLS certificate. If the cert still says “pending,” give it more time.
+
+TTL guidance (at the DNS host):
+- Use the lowest available TTL when making changes (e.g., 300–3600 seconds). If the lowest offered is 1 hour, that’s fine.
+
+If things still look wrong after 24 hours:
+- Re-check records:
+  * A @  ->  216.24.57.1 (exact match)
+  * CNAME www -> student-palace.onrender.com (spelling matters; no trailing dot issues on most UIs)
+- Remove any legacy/extra records that conflict (old A/CNAME/URL-forwarding at either apex or www).
+- Flush local DNS cache if needed (OS/browser), but global propagation is the main factor.
+
+Notes / sanity checks:
+- “URL/Web Redirect” services at the registrar should be DISABLED; we want pure DNS to Render.
+- Mixed answers on whatsmydns.net during the first hours are normal. Final state = only Render answers.
+- After propagation & cert issuance, both apex and www should serve over HTTPS without warnings.
+
