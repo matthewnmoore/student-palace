@@ -20,3 +20,10 @@ def require_admin():
     if not _is_admin():
         return redirect(url_for("admin.admin_login"))
     return None
+
+# ---- Import routes so their decorators register on bp ----
+# These must come last to avoid circular imports
+from . import auth as _auth        # noqa: F401,E402
+from . import cities as _cities    # noqa: F401,E402
+from . import landlords as _landlords  # noqa: F401,E402
+from . import images as _images    # noqa: F401,E402
