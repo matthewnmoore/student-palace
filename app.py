@@ -6,8 +6,8 @@ from config import SECRET_KEY
 from db import ensure_db
 from public import public_bp
 from auth import auth_bp
-from admin import bp as admin_bp          # <-- fixed: import the shared admin blueprint as admin_bp
-from landlord import bp as landlord_bp     # existing landlord blueprint import
+from admin import bp as admin_bp          # fixed: import the shared admin blueprint as admin_bp
+from landlord import bp as landlord_bp    # landlord blueprint
 from errors import register_error_handlers
 
 
@@ -15,7 +15,7 @@ def create_app():
     app = Flask(__name__)
     app.config["SECRET_KEY"] = SECRET_KEY
 
-    # Called once at boot (safe if DB already exists/migrated)
+    # Ensure DB is created / migrated once at boot
     ensure_db()
 
     # Version string (cache busting + footer badge)
@@ -29,13 +29,13 @@ def create_app():
             "now": _dt.datetime.utcnow,
         }
 
-    # Blueprints
+    # Register blueprints
     app.register_blueprint(public_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(landlord_bp)
 
-    # Error handlers
+    # Register error handlers
     register_error_handlers(app)
 
     return app
@@ -45,5 +45,5 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    # Local dev
+    # Local development only
     app.run(host="0.0.0.0", port=5000, debug=True)
