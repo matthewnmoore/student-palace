@@ -42,8 +42,8 @@
                   <a class="btn" href="{{ url_for('landlord.house_edit', hid=h.id) }}">Edit</a>
                   <a class="btn" href="{{ url_for('landlord.house_photos', hid=h.id) }}">Photos</a>
                   <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=h.id) }}">Manage rooms</a>
-                  {# Add your public route when ready
-                  <a class="btn btn-outline" href="{{ url_for('public.property', hid=h.id) }}" target="_blank">View public</a>
+                  {# When you have a public property page, uncomment:
+                  <a class="btn btn-outline" href="{{ url_for('public.property', hid=h.id) }}" target="_blank" rel="noopener">View public</a>
                   #}
                   <form method="post" action="{{ url_for('landlord.house_delete', hid=h.id) }}" onsubmit="return confirm('Delete this house and its rooms?');" style="display:inline">
                     <button class="btn btn-admin" type="submit">Delete</button>
