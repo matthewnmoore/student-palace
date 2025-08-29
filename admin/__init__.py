@@ -12,5 +12,11 @@ def _is_admin() -> bool:
     return bool(session.get("is_admin"))
 
 def _admin_token() -> str:
-    return (current_app.config.get("ADMIN_TOKEN")
-            or os.environ.get("ADMIN_TOKEN", ""))
+    return (
+        current_app.config.get("ADMIN_TOKEN")
+        or os.environ.get("ADMIN_TOKEN", "")
+    )
+
+# ---- Import submodules to register their routes ----
+# These imports must come after `bp` is defined
+from . import auth, cities, landlords
