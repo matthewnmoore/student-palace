@@ -21,16 +21,21 @@
 
   <div class="card">
     <h3 class="mt-0">Upload photos</h3>
-    <p class="help">
+    <p class="help" id="limit-note">
       Max {{ max_images }} per house. Max size 5&nbsp;MB each. JPG/PNG/WebP/GIF accepted.<br>
       You can select <em>multiple</em> files at once.
+      {% set already = (images|length if images else 0) %}
+      {% set remaining = max_images - already %}
+      <br>Remaining slots: <strong id="remaining">{{ remaining }}</strong>
     </p>
 
-    <form action="{{ url_for('landlord.house_photos', hid=house.id) }}"
+    <form id="upload-form"
+          action="{{ url_for('landlord.house_photos', hid=house.id) }}"
           method="post" enctype="multipart/form-data"
           style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
-      <input type="file" name="photos" accept="image/*" multiple required>
-      <button class="btn" type="submit">Upload</button>
+      <input id="file-input" type="file" name="photos" accept="image/*" multiple required>
+      <button id="upload-btn" class="btn" type="submit">Upload</button>
+      <span id="selection-status" class="small" style="color:var(--muted)"></span>
     </form>
   </div>
 
@@ -75,4 +80,67 @@
     {% endif %}
   </div>
 </section>
+
+<script>
+(function(){
+  const MAX_MB_PER_FILE = 5;
+  const BYTES_LIMIT = MAX_MB_PER_FILE * 1024 * 1024;
+  const remainingSlots = {{ max_images - (images|length if images else 0) }};
+  const input = document.getElementById('file-input');
+  const status = document.getElementById('selection-status');
+  const uploadBtn = document.getElementById('upload-btn');
+
+  function humanMB(bytes){
+    return (bytes/1024/1024).toFixed(2);
+  }
+
+  function summarize(files){
+    if (!files.length){ status.textContent = ''; return; }
+    const total = Array.from(files).reduce((n,f)=> n + (f.size||0), 0);
+    status.textContent = `${files.length} file${files.length>1?'s':''} selected • ${humanMB(total)} MB total`;
+  }
+
+  input.addEventListener('change', ()=>{
+    let files = Array.from(input.files || []);
+    if (!files.length){
+      summarize(files);
+      return;
+    }
+
+    // Type/size filter
+    const tooBig = files.filter(f => f.size > BYTES_LIMIT);
+    const notImage = files.filter(f => !(f && f.type && f.type.startsWith('image/')));
+    if (tooBig.length){
+      alert(`Some files exceed ${MAX_MB_PER_FILE} MB and were removed.`);
+      files = files.filter(f => f.size <= BYTES_LIMIT);
+    }
+    if (notImage.length){
+      alert(`Some non-image files were removed.`);
+      files = files.filter(f => f.type && f.type.startsWith('image/'));
+    }
+
+    // Remaining slots limit
+    if (remainingSlots <= 0){
+      alert("You have no remaining slots for this house.");
+      input.value = '';
+      summarize([]);
+      return;
+    }
+    if (files.length > remainingSlots){
+      alert(`You can add up to ${remainingSlots} more image${remainingSlots>1?'s':''}. Extra files were ignored.`);
+      files = files.slice(0, remainingSlots);
+    }
+
+    // Re-apply trimmed list back to input via DataTransfer
+    const bag = new DataTransfer();
+    files.forEach(f => bag.items.add(f));
+    input.files = bag.files;
+
+    summarize(files);
+  });
+
+  // If nothing selected, still allow submit (server will flash a message),
+  // but UX-wise it’s nicer to keep enabled once something is picked.
+})();
+</script>
 {% endblock %}
