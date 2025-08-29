@@ -1,6 +1,10 @@
 import sqlite3
 from datetime import datetime as dt
-from config import DB_PATH
+import os
+
+# Default DB path (override with env var DB_PATH if you like)
+DB_PATH = os.environ.get("DB_PATH", "student_palace.db")
+
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -11,6 +15,7 @@ def get_db():
         pass
     return conn
 
+
 def table_has_column(conn, table, column):
     try:
         cur = conn.execute(f"PRAGMA table_info({table})")
@@ -18,6 +23,7 @@ def table_has_column(conn, table, column):
         return column in cols
     except Exception:
         return False
+
 
 def ensure_db():
     conn = get_db()
