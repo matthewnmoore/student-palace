@@ -1,4 +1,3 @@
-
 # image_helpers.py
 from __future__ import annotations
 
@@ -6,7 +5,7 @@ import io, os
 from datetime import datetime as dt
 from typing import Dict, List, Tuple, Optional
 
-from PIL import Image, ImageDraw, ImageOps  # requires Pillow in requirements.txt
+from PIL import Image, ImageDraw, ImageOps, ImageFont  # requires Pillow in requirements.txt
 
 # ------------ Config ------------
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -16,8 +15,19 @@ UPLOAD_DIR = os.path.join(STATIC_ROOT, "uploads", "houses")  # served at /static
 MAX_FILES_PER_HOUSE = 5
 FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024  # 5 MB
 ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+
+# Resize bound for longest edge
 MAX_BOUND = 1600
+
+# Watermark settings
 WATERMARK_TEXT = "Student Palace"
+WATERMARK_REL_SIZE = 1 / 16.0       # text height ≈ image_width * this (increase to make larger)
+WATERMARK_ALPHA = 190               # 0..255 (text)
+WATERMARK_SHADOW_ALPHA = 120        # 0..255 (shadow)
+WATERMARK_MARGIN_RATIO = 0.03       # margin as fraction of width (e.g., 3%)
+
+# Optional: put a font in your repo and point here for consistent rendering, e.g. static/fonts/Inter-SemiBold.ttf
+WATERMARK_FONT_PATH = None  # os.path.join(STATIC_ROOT, "fonts", "Inter-SemiBold.ttf")
 
 # ------------ FS helpers ------------
 
@@ -65,23 +75,69 @@ def resize_longest(im: Image.Image, bound: int = MAX_BOUND) -> Image.Image:
     scale = bound / float(longest)
     return im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
+def _get_font(img_width: int):
+    """
+    Return a PIL ImageFont instance sized relative to image width.
+    Tries a few common TTFs; falls back to default bitmap (small).
+    """
+    target_px = max(14, int(img_width * WATERMARK_REL_SIZE))
+    candidates = []
+    if WATERMARK_FONT_PATH:
+        candidates.append(WATERMARK_FONT_PATH)
+
+    # Common system fonts
+    candidates.extend([
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/Library/Fonts/Arial Bold.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "C:\\Windows\\Fonts\\arialbd.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+    ])
+
+    for path in candidates:
+        try:
+            if os.path.exists(path):
+                return ImageFont.truetype(path, target_px)
+        except Exception:
+            pass
+
+    # Fallback (bitmap font; won’t scale but avoids crash)
+    return ImageFont.load_default()
+
 def watermark(im: Image.Image, text: str = WATERMARK_TEXT) -> Image.Image:
-    out = im.copy().convert("RGBA")
+    """
+    Draw a bottom-right watermark that scales with image width and has a soft shadow.
+    """
+    out = im.convert("RGBA")
     overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
+
     w, h = out.size
-    pad = max(12, w // 80)
-    bbox = draw.textbbox((0, 0), text)
+    font = _get_font(w)
+
+    # Measure text
+    bbox = draw.textbbox((0, 0), text, font=font)
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
-    x = w - tw - pad
-    y = h - th - pad
-    draw.text((x + 1, y + 1), text, fill=(0, 0, 0, 100))
-    draw.text((x, y), text, fill=(255, 255, 255, 150))
+
+    # Margin from edges
+    margin = max(8, int(w * WATERMARK_MARGIN_RATIO))
+    x = w - tw - margin
+    y = h - th - margin
+
+    # Shadow (soft offset)
+    shadow_offset = max(1, int(w * 0.004))  # ~0.4% of width
+    draw.text((x + shadow_offset, y + shadow_offset), text,
+              font=font, fill=(0, 0, 0, WATERMARK_SHADOW_ALPHA))
+    # Foreground
+    draw.text((x, y), text, font=font, fill=(255, 255, 255, WATERMARK_ALPHA))
+
     composed = Image.alpha_composite(out, overlay)
     return composed.convert("RGB")
 
 def process_image(buf: bytes) -> Image.Image:
+    # Resize then watermark (order matters so text stays crisp)
     return watermark(resize_longest(open_image_safely(buf), MAX_BOUND))
 
 def save_jpeg(im: Image.Image, abs_path: str) -> Tuple[int, int, int]:
