@@ -1,11 +1,20 @@
+# db.py
+from __future__ import annotations
+
+import os
 import sqlite3
 from datetime import datetime as dt
-import os
 
-# Default DB path (override with env var DB_PATH if you like)
+# -----------------------------------------------------------------------------
+# DB location
+# -----------------------------------------------------------------------------
+# Default DB path; you can override with an environment variable in Render.
 DB_PATH = os.environ.get("DB_PATH", "student_palace.db")
 
 
+# -----------------------------------------------------------------------------
+# Connection helper
+# -----------------------------------------------------------------------------
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -16,18 +25,48 @@ def get_db():
     return conn
 
 
-def table_has_column(conn, table, column):
+# -----------------------------------------------------------------------------
+# Small helpers
+# -----------------------------------------------------------------------------
+def table_exists(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        (name,),
+    ).fetchone()
+    return bool(row)
+
+
+def table_has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
     try:
         cur = conn.execute(f"PRAGMA table_info({table})")
-        cols = [r["name"] for r in cur.fetchall()]
-        return column in cols
+        return any(r["name"] == column for r in cur.fetchall())
     except Exception:
         return False
 
 
+def _safe_add_column(conn: sqlite3.Connection, table: str, ddl: str) -> None:
+    """
+    Add a column with ALTER TABLE if it's missing.
+    Example ddl: "ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+    """
+    try:
+        after = ddl.strip().split("ADD COLUMN", 1)[1].strip()
+        col_name = after.split()[0]
+        if not table_has_column(conn, table, col_name):
+            conn.execute(f"ALTER TABLE {table} {ddl}")
+            conn.commit()
+    except Exception as e:
+        print(f"[MIGRATE] Skipped '{ddl}' on {table}: {e}")
+
+
+# -----------------------------------------------------------------------------
+# Schema bootstrap + non-destructive migrations
+# -----------------------------------------------------------------------------
 def ensure_db():
     conn = get_db()
     c = conn.cursor()
+
+    # --- Core tables ---
 
     # Cities
     c.execute("""
@@ -111,11 +150,33 @@ def ensure_db():
     );
     """)
 
+    # --- NEW: House images (for landlord photo uploads) ---
+    if not table_exists(conn, "house_images"):
+        c.execute("""
+        CREATE TABLE house_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            house_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            width INTEGER NOT NULL,
+            height INTEGER NOT NULL,
+            bytes INTEGER NOT NULL,
+            is_primary INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE
+        );
+        """)
+        # Useful indexes
+        c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_house ON house_images(house_id);")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_primary ON house_images(house_id, is_primary DESC, sort_order ASC, id ASC);")
+
     conn.commit()
 
-    # --- Migrations (non-destructive) ---
+    # --- Non-destructive migrations / keep older DBs compatible ---
 
-    # landlords.created_at
+    # landlords.created_at backfill
     if not table_has_column(conn, "landlords", "created_at"):
         conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         conn.commit()
@@ -127,13 +188,10 @@ def ensure_db():
         conn.commit()
 
     # landlord_profiles.is_verified
-    if not table_has_column(conn, "landlord_profiles", "is_verified"):
-        conn.execute("ALTER TABLE landlord_profiles ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0;")
-        conn.commit()
-
-    # landlord_profiles.role  ('owner' | 'agent') default 'owner'
+    _safe_add_column(conn, "landlord_profiles", "ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0")
+    # landlord_profiles.role
     if not table_has_column(conn, "landlord_profiles", "role"):
-        conn.execute("ALTER TABLE landlord_profiles ADD COLUMN role TEXT NOT NULL DEFAULT 'owner';")
+        conn.execute("ALTER TABLE landlord_profiles ADD COLUMN role TEXT NOT NULL DEFAULT 'owner'")
         conn.commit()
         conn.execute("""
             UPDATE landlord_profiles
@@ -144,9 +202,9 @@ def ensure_db():
         """)
         conn.commit()
 
-    # houses.listing_type ('owner' | 'agent') default 'owner'
+    # houses.listing_type
     if not table_has_column(conn, "houses", "listing_type"):
-        conn.execute("ALTER TABLE houses ADD COLUMN listing_type TEXT NOT NULL DEFAULT 'owner';")
+        conn.execute("ALTER TABLE houses ADD COLUMN listing_type TEXT NOT NULL DEFAULT 'owner'")
         conn.commit()
         conn.execute("""
             UPDATE houses
@@ -156,5 +214,33 @@ def ensure_db():
                END
         """)
         conn.commit()
+
+    # If an older DB already had house_images with missing columns, add them:
+    if table_exists(conn, "house_images"):
+        _safe_add_column(conn, "house_images", "ADD COLUMN file_name TEXT NOT NULL DEFAULT ''")
+        _safe_add_column(conn, "house_images", "ADD COLUMN filename TEXT NOT NULL DEFAULT ''")
+        _safe_add_column(conn, "house_images", "ADD COLUMN file_path TEXT NOT NULL DEFAULT ''")
+        _safe_add_column(conn, "house_images", "ADD COLUMN width INTEGER NOT NULL DEFAULT 0")
+        _safe_add_column(conn, "house_images", "ADD COLUMN height INTEGER NOT NULL DEFAULT 0")
+        _safe_add_column(conn, "house_images", "ADD COLUMN bytes INTEGER NOT NULL DEFAULT 0")
+        _safe_add_column(conn, "house_images", "ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0")
+        _safe_add_column(conn, "house_images", "ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
+        _safe_add_column(conn, "house_images", "ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
+        # Basic backfill to keep filename/file_name in sync if one exists
+        try:
+            conn.execute("""
+                UPDATE house_images
+                   SET file_name = CASE
+                        WHEN (file_name IS NULL OR file_name='') AND COALESCE(filename,'')!='' THEN filename
+                        ELSE file_name
+                   END,
+                       filename = CASE
+                        WHEN (filename IS NULL OR filename='') AND COALESCE(file_name,'')!='' THEN file_name
+                        ELSE filename
+                   END
+            """)
+            conn.commit()
+        except Exception as e:
+            print("[MIGRATE] backfill filenames:", e)
 
     conn.close()
