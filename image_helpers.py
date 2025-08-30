@@ -5,7 +5,7 @@ import io, os, time, logging
 from datetime import datetime as dt
 from typing import Dict, List, Tuple, Optional
 
-from PIL import Image, ImageDraw, ImageOps  # requires Pillow in requirements.txt
+from PIL import Image, ImageDraw, ImageOps, ImageFont  # ← note ImageFont
 
 # ------------ Logging ------------
 logger = logging.getLogger("student_palace.uploads")
@@ -19,7 +19,7 @@ MAX_FILES_PER_HOUSE = 5
 FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024  # 5 MB
 ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_BOUND = 1600
-WATERMARK_TEXT = "Student Palace"
+WATERMARK_TEXT = os.environ.get("WATERMARK_TEXT", "Student Palace")
 
 # ------------ FS helpers ------------
 
@@ -67,20 +67,42 @@ def resize_longest(im: Image.Image, bound: int = MAX_BOUND) -> Image.Image:
     scale = bound / float(longest)
     return im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
+def _load_font_for_width(img_width: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    # ~6–8% of image width
+    font_size = max(14, img_width // 16)
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "DejaVuSans-Bold.ttf",
+        "DejaVuSans.ttf",
+    ]
+    for p in candidates:
+        try:
+            return ImageFont.truetype(p, font_size)
+        except Exception:
+            pass
+    return ImageFont.load_default()
+
 def watermark(im: Image.Image, text: str = WATERMARK_TEXT) -> Image.Image:
     out = im.copy().convert("RGBA")
     overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     w, h = out.size
-    pad = max(12, w // 80)
-    bbox = draw.textbbox((0, 0), text)
+    font = _load_font_for_width(w)
+
+    # measure with font
+    bbox = draw.textbbox((0, 0), text, font=font)
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
-    x = w - tw - pad
-    y = h - th - pad
+
+    pad = max(12, w // 80)
+    x = max(pad, w - tw - pad)
+    y = max(pad, h - th - pad)
+
     # soft shadow + white text
-    draw.text((x + 1, y + 1), text, fill=(0, 0, 0, 100))
-    draw.text((x, y), text, fill=(255, 255, 255, 150))
+    draw.text((x + 1, y + 1), text, font=font, fill=(0, 0, 0, 120))
+    draw.text((x, y), text, font=font, fill=(255, 255, 255, 170))
+
     composed = Image.alpha_composite(out, overlay)
     return composed.convert("RGB")
 
