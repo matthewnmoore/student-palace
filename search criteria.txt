@@ -42,7 +42,7 @@ etc. etc.
 select gender
 =============
 
-Attributes set by landlord
+Attributes set by landlord "This house identifies as"
 "Male Only"
 "Female Only"
 "Anyone/Mixed"
