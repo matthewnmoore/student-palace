@@ -1,47 +1,57 @@
 {% extends "base.html" %}
-{% block title %}Admin · Dashboard{% endblock %}
+{% block title %}Admin · Home{% endblock %}
 {% block content %}
 <section class="wrap">
   <div class="flex-between" style="margin-bottom:12px">
-    <h1 class="mt-0">Dashboard</h1>
+    <h1 class="mt-0">Admin</h1>
     <div class="inline-actions">
-      <a class="btn" href="{{ url_for('admin.admin_index') }}">Back to Admin</a>
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Log out</a>
+      <a class="btn" href="{{ url_for('admin.admin_backup') }}">Download backup</a>
+      <a class="btn btn-outline" href="{{ url_for('admin.dashboard') }}">Dashboard</a>
     </div>
   </div>
 
-  <div class="grid grid-3">
-    <div class="card">
-      <h3 class="mt-0">Landlords</h3>
-      <div class="metric">{{ stats.landlords_total }}</div>
-      <div class="muted small">Last 24h: {{ stats.landlords_24h }}</div>
-    </div>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
 
-    <div class="card">
-      <h3 class="mt-0">Properties</h3>
-      <div class="metric">{{ stats.houses_total }}</div>
-      <div class="muted small">Last 24h: {{ stats.houses_24h }}</div>
-    </div>
-
-    <div class="card">
-      <h3 class="mt-0">Rooms</h3>
-      <div class="metric">{{ stats.rooms_total }}</div>
-      <div class="muted small">Last 24h: {{ stats.rooms_24h }}</div>
-    </div>
+  <!-- Stats (current / last 24h). Safe if 'stats' is missing. -->
+  <div class="card" style="margin-bottom:16px">
+    <h3 class="mt-0">Statistics (current / last 24h)</h3>
+    <ul style="margin:0; padding-left:18px; line-height:1.8;">
+      <li>
+        Landlords:
+        {{ (stats.landlords_total if stats is defined and stats.landlords_total is defined else 0) }}
+        <small>(+{{ (stats.landlords_24h if stats is defined and stats.landlords_24h is defined else 0) }})</small>
+      </li>
+      <li>
+        Properties:
+        {{ (stats.houses_total if stats is defined and stats.houses_total is defined else 0) }}
+        <small>(+{{ (stats.houses_24h if stats is defined and stats.houses_24h is defined else 0) }})</small>
+      </li>
+      <li>
+        Rooms:
+        {{ (stats.rooms_total if stats is defined and stats.rooms_total is defined else 0) }}
+        <small>(+{{ (stats.rooms_24h if stats is defined and stats.rooms_24h is defined else 0) }})</small>
+      </li>
+    </ul>
+    <p class="small muted" style="margin-top:8px;">
+      Tip: for more details, open the <a href="{{ url_for('admin.dashboard') }}">Dashboard</a>.
+    </p>
   </div>
 
-  <p class="muted small" style="margin-top:12px;">Window start: {{ stats.since_iso }}</p>
+  <div class="card">
+    <h3 class="mt-0">Sections</h3>
+    <ul style="margin:0; padding-left:18px; line-height:1.8;">
+      <li><a href="{{ url_for('admin.admin_cities') }}">Manage cities</a></li>
+      <li><a href="{{ url_for('admin.admin_landlords') }}">Manage landlords</a></li>
+      <li><a href="{{ url_for('admin.admin_images') }}">All images (broken &amp; valid)</a></li>
+      <li><a href="{{ url_for('admin.dashboard') }}">Dashboard (stats)</a></li>
+    </ul>
+  </div>
 </section>
-
-<style>
-.metric{
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-.grid-3{
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
-  gap:12px;
-}
-</style>
 {% endblock %}
