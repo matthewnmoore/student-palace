@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import importlib
 from flask import Blueprint, session, current_app, redirect, url_for
 
 # One shared blueprint so endpoint names stay 'admin.*'
@@ -22,15 +23,16 @@ def require_admin():
     return None
 
 # ---- Import routes so their decorators register on bp ----
-# These must come last to avoid circular imports
-from . import auth as _auth        # noqa: F401,E402
-from . import cities as _cities    # noqa: F401,E402
+# These come first (existing modules in your project)
+from . import auth as _auth            # noqa: F401,E402
+from . import cities as _cities        # noqa: F401,E402
 from . import landlords as _landlords  # noqa: F401,E402
-from . import images as _images    # noqa: F401,E402
+from . import images as _images        # noqa: F401,E402
 
-# ✅ import backup AFTER bp exists (avoids circular import)
-import importlib
-importlib.import_module("admin.backup")
-
-# ✅ import stats AFTER bp exists
-importlib.import_module("admin.stats")
+# ---- New modules (backup + stats) imported safely to avoid circulars ----
+for mod in ("admin.backup", "admin.stats"):
+    try:
+        importlib.import_module(mod)
+    except Exception as e:
+        # Don’t crash boot if a file is missing during first deploy; just log.
+        print(f"[admin] Optional module '{mod}' not loaded: {e}")
