@@ -7,27 +7,35 @@ select city
 ===========
 
 
+Gender
+======
 
+question - drop down list
+'Male'
+'Female'
+'Prefer not to say'
+
+if 'prefer not to say is selcted' reply of course that is fine but it is more difficult for us to refine your search
 
 select group size
 =================
 
 Question - number selection
 
-Query - if 1 is selected ask 'is this just for you or do you want to see availability for couples?' provide drop down 'just for me OR for both of us'
+Query - if '1' is selected ask 'is this just for you or do you want to see availability for couples?' provide drop down 'just for me' OR 'for both of us'
 
-Query if 2 is selected ask 'do you want 2 bedrooms or are you looking for 1 bedroom room for a couple?' provide drop down '2 rooms OR 1 for both of us'
+Query if '2' is selected ask 'do you want 2 bedrooms or are you looking for 1 bedroom room for a couple?' provide drop down '2 room's OR 1 'for both of us'
 
 search results:
 
-if 1 is selected with option 'just for me' then show all properties with 1 bedroom available
-if 1 is selected with option 'for both of us' show all properties with 1 bedroom available suitable for couples
+if '1' is selected with option 'just for me' then show all properties with 1 bedroom available
+if '1' is selected with option 'for both of us' show all properties with 1 bedroom available suitable for couples
 
-if 2 is selected with option '2 rooms' then show all properties with 2 rooms available
+if '2' is selected with option '2 rooms' then show all properties with 2 rooms available
 if 2 is selected with option '1 for both of us' show all properties with 1 bedroom available suitable for couples
 
-if 3 is selected show all properties with 3 rooms available
-if 4 is selected show all properties with 4 rooms available
+if '3' is selected show all properties with 3 rooms available
+if '4' is selected show all properties with 4 rooms available
 etc. etc.
 
 
@@ -35,21 +43,20 @@ select gender
 =============
 
 Attributes set by landlord
-Male
-Female
-Anything
-Mixed
+"Male Only"
+"Female Only"
+"Anyone/Mixed"
 
 Question - drop down list
 
-Just Male
-Just Female
-Anything, I am not fussy
+'Just Male'
+'Just Female'
+'Anything, I am not fussy'
 
 search results:
 
 if Male is selected show all properties with Male attributes
 if Female is selected show all properties with Female attributes
-if Anything, I am not fussy is selected show all properties with 
+if Anything, I am not fussy is selected show all properties with landlord query 'anyone/mixed' if query I am male has been selected show all rooms available suite
 
 
