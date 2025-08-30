@@ -7,24 +7,35 @@ from datetime import datetime as dt
 from pathlib import Path
 
 # -----------------------------------------------------------------------------
-# DB PATH (env var wins; defaults to the mounted disk location)
+# DB PATH (MUST be on persistent disk). Env var wins; default to /var/data.
 # -----------------------------------------------------------------------------
-DEFAULT_DB_PATH = "/opt/render/project/src/uploads/student_palace.db"
+DEFAULT_DB_PATH = "/var/data/student_palace.db"
 DB_PATH = os.environ.get("DB_PATH", DEFAULT_DB_PATH)
 
-# Make sure the folder exists (safe for first run)
+# Ensure the folder exists (safe on first run)
 Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
+
+print(f"[db] Using DB_PATH: {DB_PATH}")
+try:
+    p = Path(DB_PATH)
+    if p.exists():
+        print(f"[db] DB exists: size={p.stat().st_size} bytes")
+    else:
+        print("[db] DB does not exist yet; will be created on first connection.")
+except Exception as e:
+    print(f"[db] Could not stat DB_PATH: {e}")
 
 # -----------------------------------------------------------------------------
 # Connection helper (durability + safety)
 # -----------------------------------------------------------------------------
 def get_db():
-    # autocommit mode; use BEGIN when you need explicit transactions
+    # autocommit mode; use BEGIN if you need explicit transactions
     conn = sqlite3.connect(DB_PATH, timeout=15, isolation_level=None)
     conn.row_factory = sqlite3.Row
     try:
+        # Safety & durability
         conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute("PRAGMA journal_mode = WAL")   # crash-safe
+        conn.execute("PRAGMA journal_mode = WAL")   # crash-safe journaling
         conn.execute("PRAGMA synchronous = FULL")   # maximum durability
         conn.execute("PRAGMA busy_timeout = 15000") # 15s lock wait
         # Nice-to-haves:
@@ -171,7 +182,7 @@ def ensure_db():
 
     conn.commit()
 
-    # --- Non-destructive migrations (add-only) ---
+    # --- Non-destructive migrations (add-only)
     if not table_has_column(conn, "landlords", "created_at"):
         conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         conn.commit()
@@ -235,3 +246,6 @@ def ensure_db():
             print("[MIGRATE] backfill filenames:", e)
 
     conn.close()
+
+# Run migrations at import so other modules can rely on schema existing
+ensure_db()
