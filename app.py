@@ -1,17 +1,19 @@
 # app.py
-from flask import Flask
+from __future__ import annotations
+
 import datetime
+from flask import Flask, jsonify
 
 from config import SECRET_KEY
 from db import ensure_db
 from public import public_bp
 from auth import auth_bp
-from admin import bp as admin_bp          # fixed: import the shared admin blueprint as admin_bp
+from admin import bp as admin_bp          # shared admin blueprint
 from landlord import bp as landlord_bp    # landlord blueprint
 from errors import register_error_handlers
 
 
-def create_app():
+def create_app() -> Flask:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = SECRET_KEY
 
@@ -44,25 +46,11 @@ def create_app():
 # Gunicorn entrypoint
 app = create_app()
 
-if __name__ == "__main__":
-    # Local development only
-    app.run(host="0.0.0.0", port=5000, debug=True)
 
-
-
-
-
-
-
-
-
-
-
-# --- DEBUG: quick DB inspection route ---
-# Paste this into app.py after you create `app = Flask(__name__)`.
-# Remove later if you like.
-from flask import jsonify
-
+# -------------------------
+# DEBUG ROUTES (temporary)
+# -------------------------
+# Shows which DB file is active, quick table counts, and a tiny sample of houses
 @app.route("/debug/db")
 def debug_db():
     import os, time
@@ -108,10 +96,9 @@ def debug_db():
     except Exception:
         stat = {"error": "could not stat DB_PATH"}
 
-    # Also show the path SQLite reports (should match DB_PATH)
+    # Path SQLite reports (should match DB_PATH)
     sqlite_db_file = None
     try:
-        # PRAGMA database_list rows: (seq, name, file)
         sqlite_db_file = pragma_list[0][2] if pragma_list else None
     except Exception:
         pass
@@ -126,23 +113,83 @@ def debug_db():
     })
 
 
-
-
-
+# Lists every *.db file under the project root with size and mtime
 @app.route("/debug/db-candidates")
 def debug_db_candidates():
-    import os
+    import time
     from pathlib import Path
-    base = Path(__file__).resolve().parent
-    candidates = [
-        base / "student_palace.db",
-        base / "uploads" / "student_palace.db",
-    ]
-    out = []
-    for p in candidates:
+
+    base = Path("/opt/render/project/src")
+    candidates = []
+    for p in base.rglob("*.db"):
         try:
-            st = os.stat(p)
-            out.append({"path": str(p), "exists": True, "size_bytes": st.st_size})
-        except FileNotFoundError:
-            out.append({"path": str(p), "exists": False, "size_bytes": 0})
-    return {"candidates": out}
+            st = p.stat()
+            candidates.append({
+                "path": str(p),
+                "size_bytes": st.st_size,
+                "mtime_iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(st.st_mtime)),
+            })
+        except Exception as e:
+            candidates.append({"path": str(p), "error": str(e)})
+
+    # Sort largest first
+    candidates.sort(key=lambda r: r.get("size_bytes", 0), reverse=True)
+    return {"db_candidates": candidates}
+
+
+# Deep scan: for each *.db, try opening and counting rows in key tables
+@app.route("/debug/db-scan")
+def debug_db_scan():
+    import sqlite3, time
+    from pathlib import Path
+
+    base = Path("/opt/render/project/src")
+    results = []
+    for p in base.rglob("*.db"):
+        info = {"path": str(p)}
+        try:
+            st = p.stat()
+            info.update({
+                "size_bytes": st.st_size,
+                "mtime_iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(st.st_mtime)),
+            })
+        except Exception as e:
+            info["stat_error"] = str(e)
+
+        # Try opening and counting rows
+        try:
+            conn = sqlite3.connect(str(p))
+            conn.row_factory = sqlite3.Row
+            counts = {}
+            for t in ["landlords", "landlord_profiles", "cities", "houses", "rooms", "house_images"]:
+                try:
+                    counts[t] = conn.execute(f"SELECT COUNT(*) AS c FROM {t}").fetchone()["c"]
+                except Exception:
+                    counts[t] = "n/a"
+            info["counts"] = counts
+
+            # small sample of houses if present
+            sample = []
+            try:
+                rows = conn.execute(
+                    "SELECT id, title, city, created_at FROM houses ORDER BY id DESC LIMIT 3"
+                ).fetchall()
+                sample = [dict(r) for r in rows]
+            except Exception:
+                pass
+            info["houses_sample"] = sample
+
+            conn.close()
+        except Exception as e:
+            info["open_error"] = str(e)
+
+        results.append(info)
+
+    # Sort biggest first to spot the likely “real” DB
+    results.sort(key=lambda r: r.get("size_bytes", 0), reverse=True)
+    return {"db_scan": results}
+
+
+if __name__ == "__main__":
+    # Local development only
+    app.run(host="0.0.0.0", port=5000, debug=True)
