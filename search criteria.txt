@@ -15,7 +15,7 @@ question - drop down list
 'Female'
 'Prefer not to say'
 
-if 'prefer not to say is selcted' reply of course that is fine but it is more difficult for us to refine your search
+if 'prefer not to say is selcted' reply #of course that is fine but it is more difficult for us to refine your search#
 
 select group size
 =================
@@ -55,9 +55,11 @@ Question - drop down list
 
 search results:
 
-if 'Male' is selected show all properties with Male attributes
-if 'Female' is selected show all properties with Female attributes
+if 'Male' is selected show all properties with "Male Only"
+if 'Female' is selected show all properties with "Female Only"
 if 'Anything, I am not fussy' and 'Male' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Male Only"
 if 'Anything, I am not fussy' and 'Female' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Female Only"
+if 'Anything I am not fussy' is selected and 'Prefer not to say' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Male Only" and "Female Only" and display #I am showing you all rooms available but some of these rooms may identify as Male or Female and may not be suitable for you#
+
 
 
