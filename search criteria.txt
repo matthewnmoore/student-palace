@@ -6,16 +6,11 @@ thinking about how students are going to search:
 select city
 ===========
 
+Attributes set by admin
 
-Gender
-======
+Question drop down list #Cities available#
+List provided by admin
 
-question - drop down list #I am#
-'Male'
-'Female'
-'Prefer not to say'
-
-if 'prefer not to say is selcted' reply #of course that is fine but it is more difficult for us to refine your search#
 
 select group size
 =================
@@ -42,7 +37,7 @@ etc. etc.
 select gender
 =============
 
-Attributes set by landlord "This house identifies as"
+Attributes set by landlord drop down list "This house identifies as"
 "Male Only"
 "Female Only"
 "Anyone/Mixed"
@@ -52,6 +47,7 @@ Question - drop down list #I want a house that is#
 'Just Male'
 'Just Female'
 'Anything, I am not fussy'
+if 'prefer not to say is selcted' reply #of course that is fine but it is more difficult for us to refine your search#
 
 search results:
 
@@ -60,6 +56,35 @@ if 'Female' is selected show all properties with "Female Only"
 if 'Anything, I am not fussy' and 'Male' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Male Only"
 if 'Anything, I am not fussy' and 'Female' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Female Only"
 if 'Anything I am not fussy' is selected and 'Prefer not to say' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Male Only" and "Female Only" and display #I am showing you all rooms available but some of these rooms may identify as Male or Female and may not be suitable for you#
+
+
+
+ensuite
+=======
+
+Attributes set by Landlord "Ensuite"
+"yes"
+"No"
+
+Question - tick box #Ensuite#
+
+'Yes'
+
+Search results
+
+if 'yes' is selected show all properties with landlord query "Yes"
+
+
+Bills Included
+==============
+
+Attributes Set by Landlord "Are the bills included in the price"
+
+"All Bills"
+"Some Bills"
+"No"
+
+search results
 
 
 
