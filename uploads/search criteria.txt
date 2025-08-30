@@ -1,0 +1,40 @@
+WRITTEN BY MATTHEW
+
+
+thinking about how students are going to search:
+
+select city
+===========
+
+
+
+
+select group size
+=================
+
+Query - if 1 is selected ask 'is this just for you or do you want to see availability for couples?' provide drop down 'just for me OR for both of us'
+
+Query if 2 is selected ask 'do you want 2 bedrooms or are you looking for 1 bedroom room for a couple?' provide drop down '2 rooms OR 1 for both of us'
+
+search results:
+
+if 1 is selected with option 'just for me' then show all properties with 1 bedroom available
+if 1 is selected with option 'for both of us' show all properties with 1 bedroom available suitable for couples
+
+if 2 is selected with option '2 rooms' then show all properties with 2 rooms available
+if 2 is selected with option '1 for both of us' show all properties with 1 bedroom available suitable for couples
+
+if 3 is selected show all properties with 3 rooms available
+if 4 is selected show all properties with 4 rooms available
+etc. etc.
+
+
+select gender
+=============
+
+Just Male
+Just Female
+Anything, I am not fussy
+
+
+
