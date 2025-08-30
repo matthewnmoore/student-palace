@@ -12,6 +12,8 @@ select city
 select group size
 =================
 
+Question - number selection
+
 Query - if 1 is selected ask 'is this just for you or do you want to see availability for couples?' provide drop down 'just for me OR for both of us'
 
 Query if 2 is selected ask 'do you want 2 bedrooms or are you looking for 1 bedroom room for a couple?' provide drop down '2 rooms OR 1 for both of us'
@@ -32,9 +34,16 @@ etc. etc.
 select gender
 =============
 
+Question - drop down list
+
 Just Male
 Just Female
 Anything, I am not fussy
+
+
+
+search results:
+
 
 
 
