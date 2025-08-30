@@ -34,16 +34,22 @@ etc. etc.
 select gender
 =============
 
+Attributes set by landlord
+Male
+Female
+Anything
+Mixed
+
 Question - drop down list
 
 Just Male
 Just Female
 Anything, I am not fussy
 
-
-
 search results:
 
-
+if Male is selected show all properties with Male attributes
+if Female is selected show all properties with Female attributes
+if Anything, I am not fussy is selected show all properties with 
 
 
