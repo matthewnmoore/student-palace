@@ -23,6 +23,85 @@ HISTORY:
 
 
 
+REFERENCE: Database – Persistence, Safety & Ops (Render)
+========================================================
+
+Status: Authoritative as of <>
+
+Absolute rule
+	•	The production database file is never recreated or dropped by application code.
+	•	All schema changes are non-destructive (add-only).
+
+DB location (Render)
+	•	Env var (must be set): DB_PATH=/opt/render/project/src/uploads/student_palace.db
+	•	This lives on the persistent disk and survives deploys/rollbacks.
+
+Connection/SQLite runtime settings
+
+Applied on every connection:
+	•	PRAGMA foreign_keys = ON
+	•	PRAGMA journal_mode = WAL  (crash-safe write-ahead logging)
+	•	PRAGMA synchronous = FULL  (maximum durability)
+	•	PRAGMA busy_timeout = 15000  (15s)
+	•	(Nice-to-have) PRAGMA temp_store = MEMORY, PRAGMA mmap_size = 268435456
+
+Schema creation & migrations (non-destructive)
+	•	On boot, the app calls ensure_db() which:
+	•	Creates core tables if missing.
+	•	Never drops or truncates anything.
+	•	Uses add-only ALTER TABLE … ADD COLUMN guards (via _safe_add_column).
+	•	For house_images, keeps file_name and filename in sync when one was missing.
+
+Backups (on-disk snapshots)
+	•	Protected endpoint: POST /debug/db-backup?token=<ADMIN_TOKEN>
+	•	Env var required: ADMIN_TOKEN=
+	•	Creates /opt/render/project/src/uploads/backups/student_palace.YYYYMMDD-HHMMSS.sqlite
+	•	Keeps last 20 snapshots; older ones pruned automatically.
+	•	Suggested cadence: before deploys, schema changes, or data imports.
+
+Quick examples:
+	•	curl -X POST “https://www.student-palace.co.uk/debug/db-backup?token=REDACTED”
+	•	To download a backup from Render shell: ls -lh uploads/backups/
+
+(Optional) We can add a “restore from backup” admin task later; for now restore is a manual copy: stop app → copy snapshot to uploads/student_palace.db → start app.
+
+Debug/verification routes (temporary; remove when not needed)
+	•	GET /debug/db
+Shows: active DB path (env + SQLite), file size/mtime, table counts, latest 5 houses.
+	•	GET /debug/db-candidates
+Lists every *.db under /opt/render/project/src with size/mtime.
+	•	GET /debug/db-scan
+Opens each *.db, reports row counts for key tables, tiny sample of houses.
+
+Post-deploy verification checklist
+	1.	Hit /debug/db and confirm:
+	•	db_path_env == /opt/render/project/src/uploads/student_palace.db
+	•	db_path_sqlite matches the same file
+	•	Table counts look correct (non-zero in prod once data exists)
+	2.	Optional: Trigger /debug/db-backup and confirm snapshot created.
+
+Operational “Do / Don’t”
+
+Do
+	•	Always set/keep DB_PATH pointing at /opt/render/project/src/uploads/student_palace.db.
+	•	Take a backup (/debug/db-backup) before risky changes.
+	•	Treat migrations as add-only; add columns/indices—don’t drop/rename in place.
+
+Don’t
+	•	Don’t commit a student_palace.db file into the repo for production.
+	•	Don’t point DB_PATH at a repo-tracked path (e.g., project root).
+	•	Don’t remove WAL files manually; SQLite manages them.
+
+Troubleshooting quick checks
+	•	Wrong DB in use? /debug/db paths don’t match → fix Render env DB_PATH, redeploy.
+	•	“Missing data” after deploy? Check /debug/db-candidates and /debug/db-scan to locate the largest/most recent DB; ensure DB_PATH targets that file.
+	•	Locked DB errors under load? WAL + busy_timeout=15000 are already set; investigate long-running writes.
+
+
+
+
+
+
 
 
 
