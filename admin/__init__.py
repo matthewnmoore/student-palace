@@ -23,16 +23,16 @@ def require_admin():
     return None
 
 # ---- Import routes so their decorators register on bp ----
-# These come first (existing modules in your project)
+# Existing modules in your project:
 from . import auth as _auth            # noqa: F401,E402
 from . import cities as _cities        # noqa: F401,E402
 from . import landlords as _landlords  # noqa: F401,E402
 from . import images as _images        # noqa: F401,E402
 
-# ---- New modules (backup + stats) imported safely to avoid circulars ----
-for mod in ("admin.backup", "admin.stats"):
+# New modules:
+# NOTE: your file is backups.py (plural), so import that.
+for mod in ("admin.backups", "admin.stats"):
     try:
         importlib.import_module(mod)
     except Exception as e:
-        # Don’t crash boot if a file is missing during first deploy; just log.
         print(f"[admin] Optional module '{mod}' not loaded: {e}")
