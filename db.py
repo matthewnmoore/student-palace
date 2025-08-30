@@ -4,13 +4,47 @@ from __future__ import annotations
 import os
 import sqlite3
 from datetime import datetime as dt
+from pathlib import Path
 
 # -----------------------------------------------------------------------------
-# DB location
+# Resolve DB path (env var wins; then pick an existing/non-empty file)
 # -----------------------------------------------------------------------------
-# Default DB path; you can override with an environment variable in Render.
-DB_PATH = os.environ.get("DB_PATH", "student_palace.db")
+PROJECT_ROOT = Path(__file__).resolve().parent
 
+def _choose_db_path() -> str:
+    # 1) Respect explicit env var
+    env_path = os.environ.get("DB_PATH")
+    if env_path:
+        p = Path(env_path)
+        print(f"[db] DB_PATH from env: {p} (exists={p.exists()} size={p.stat().st_size if p.exists() else '—'})")
+        return str(p)
+
+    # 2) Prefer uploads/student_palace.db if it exists (most likely your data)
+    uploads_db = PROJECT_ROOT / "uploads" / "student_palace.db"
+    root_db    = PROJECT_ROOT / "student_palace.db"
+
+    candidates = []
+    if uploads_db.exists():
+        candidates.append(uploads_db)
+    if root_db.exists():
+        candidates.append(root_db)
+
+    if candidates:
+        # pick the larger (heuristic for "has data")
+        best = max(candidates, key=lambda p: p.stat().st_size)
+        print(f"[db] DB_PATH auto-selected: {best} (size={best.stat().st_size})")
+        return str(best)
+
+    # 3) Fall back to uploads path (will be created if missing)
+    fallback = uploads_db
+    print(f"[db] DB_PATH fallback (new): {fallback}")
+    return str(fallback)
+
+DB_PATH = _choose_db_path()
+
+# Ensure containing folder exists (for new DBs only)
+db_dir = Path(DB_PATH).parent
+db_dir.mkdir(parents=True, exist_ok=True)
 
 # -----------------------------------------------------------------------------
 # Connection helper
@@ -24,7 +58,6 @@ def get_db():
         pass
     return conn
 
-
 # -----------------------------------------------------------------------------
 # Small helpers
 # -----------------------------------------------------------------------------
@@ -35,14 +68,12 @@ def table_exists(conn: sqlite3.Connection, name: str) -> bool:
     ).fetchone()
     return bool(row)
 
-
 def table_has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
     try:
         cur = conn.execute(f"PRAGMA table_info({table})")
         return any(r["name"] == column for r in cur.fetchall())
     except Exception:
         return False
-
 
 def _safe_add_column(conn: sqlite3.Connection, table: str, ddl: str) -> None:
     """
@@ -58,7 +89,6 @@ def _safe_add_column(conn: sqlite3.Connection, table: str, ddl: str) -> None:
     except Exception as e:
         print(f"[MIGRATE] Skipped '{ddl}' on {table}: {e}")
 
-
 # -----------------------------------------------------------------------------
 # Schema bootstrap + non-destructive migrations
 # -----------------------------------------------------------------------------
@@ -67,8 +97,6 @@ def ensure_db():
     c = conn.cursor()
 
     # --- Core tables ---
-
-    # Cities
     c.execute("""
     CREATE TABLE IF NOT EXISTS cities(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +105,6 @@ def ensure_db():
     );
     """)
 
-    # Landlords
     c.execute("""
     CREATE TABLE IF NOT EXISTS landlords(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,7 +114,6 @@ def ensure_db():
     );
     """)
 
-    # Landlord profiles (1–1)
     c.execute("""
     CREATE TABLE IF NOT EXISTS landlord_profiles(
       landlord_id INTEGER PRIMARY KEY,
@@ -97,12 +123,10 @@ def ensure_db():
       bio TEXT,
       public_slug TEXT UNIQUE,
       profile_views INTEGER NOT NULL DEFAULT 0,
-      -- is_verified/role added by migrations below if missing
       FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE
     );
     """)
 
-    # Houses
     c.execute("""
     CREATE TABLE IF NOT EXISTS houses(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,12 +149,10 @@ def ensure_db():
       wired_internet INTEGER NOT NULL DEFAULT 0,
       common_area_tv INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
-      -- listing_type added by migration below if missing
       FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE
     );
     """)
 
-    # Rooms
     c.execute("""
     CREATE TABLE IF NOT EXISTS rooms(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,7 +172,7 @@ def ensure_db():
     );
     """)
 
-    # --- House images (for landlord photo uploads) ---
+    # --- House images ---
     if not table_exists(conn, "house_images"):
         c.execute("""
         CREATE TABLE house_images (
@@ -173,9 +195,7 @@ def ensure_db():
 
     conn.commit()
 
-    # --- Non-destructive migrations / keep older DBs compatible ---
-
-    # landlords.created_at backfill
+    # --- Non-destructive migrations ---
     if not table_has_column(conn, "landlords", "created_at"):
         conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         conn.commit()
@@ -186,10 +206,8 @@ def ensure_db():
         )
         conn.commit()
 
-    # landlord_profiles.is_verified
     _safe_add_column(conn, "landlord_profiles", "ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0")
 
-    # landlord_profiles.role
     if not table_has_column(conn, "landlord_profiles", "role"):
         conn.execute("ALTER TABLE landlord_profiles ADD COLUMN role TEXT NOT NULL DEFAULT 'owner'")
         conn.commit()
@@ -202,7 +220,6 @@ def ensure_db():
         """)
         conn.commit()
 
-    # houses.listing_type
     if not table_has_column(conn, "houses", "listing_type"):
         conn.execute("ALTER TABLE houses ADD COLUMN listing_type TEXT NOT NULL DEFAULT 'owner'")
         conn.commit()
@@ -215,7 +232,6 @@ def ensure_db():
         """)
         conn.commit()
 
-    # If an older DB already had house_images with missing columns, add them:
     if table_exists(conn, "house_images"):
         _safe_add_column(conn, "house_images", "ADD COLUMN file_name TEXT NOT NULL DEFAULT ''")
         _safe_add_column(conn, "house_images", "ADD COLUMN filename TEXT NOT NULL DEFAULT ''")
@@ -226,7 +242,7 @@ def ensure_db():
         _safe_add_column(conn, "house_images", "ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0")
         _safe_add_column(conn, "house_images", "ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         _safe_add_column(conn, "house_images", "ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
-        # Keep filename/file_name in sync if only one was present
+
         try:
             conn.execute("""
                 UPDATE house_images
@@ -244,7 +260,6 @@ def ensure_db():
             print("[MIGRATE] backfill filenames:", e)
 
     conn.close()
-
 
 # Run migrations at import so other modules can rely on schema existing
 ensure_db()
