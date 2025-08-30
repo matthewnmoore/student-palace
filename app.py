@@ -52,6 +52,12 @@ if __name__ == "__main__":
 
 
 
+
+
+
+
+
+
 # --- DEBUG: quick DB inspection route ---
 # Paste this into app.py after you create `app = Flask(__name__)`.
 # Remove later if you like.
@@ -118,3 +124,25 @@ def debug_db():
         "table_counts": counts,
         "latest_houses_sample": latest_houses,
     })
+
+
+
+
+
+@app.route("/debug/db-candidates")
+def debug_db_candidates():
+    import os
+    from pathlib import Path
+    base = Path(__file__).resolve().parent
+    candidates = [
+        base / "student_palace.db",
+        base / "uploads" / "student_palace.db",
+    ]
+    out = []
+    for p in candidates:
+        try:
+            st = os.stat(p)
+            out.append({"path": str(p), "exists": True, "size_bytes": st.st_size})
+        except FileNotFoundError:
+            out.append({"path": str(p), "exists": False, "size_bytes": 0})
+    return {"candidates": out}
