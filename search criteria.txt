@@ -10,7 +10,7 @@ select city
 Gender
 ======
 
-question - drop down list
+question - drop down list #I am#
 'Male'
 'Female'
 'Prefer not to say'
@@ -20,7 +20,7 @@ if 'prefer not to say is selcted' reply #of course that is fine but it is more d
 select group size
 =================
 
-Question - number selection
+Question - number selection #Group size#
 
 Query - if '1' is selected ask 'is this just for you or do you want to see availability for couples?' provide drop down 'just for me' OR 'for both of us'
 
