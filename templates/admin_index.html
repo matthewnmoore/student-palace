@@ -6,6 +6,8 @@
     <h1 class="mt-0">Admin</h1>
     <div class="inline-actions">
       <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Log out</a>
+      <!-- ✅ NEW: Manual backup (streams a ZIP, no file stored server-side) -->
+      <a class="btn" href="{{ url_for('admin.admin_backup') }}">Download backup</a>
     </div>
   </div>
 
