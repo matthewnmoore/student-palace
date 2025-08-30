@@ -8,8 +8,14 @@ select city
 
 Attributes set by admin
 
+Property city is set by landlord
+
 Question drop down list #Cities available#
 List provided by admin
+
+Search results:
+
+Sow all properties with matching city attribute set by landlord
 
 
 select group size
@@ -46,16 +52,20 @@ Question - drop down list #I want a house that is#
 
 'Just Male'
 'Just Female'
-'Anything, I am not fussy'
-if 'prefer not to say is selcted' reply #of course that is fine but it is more difficult for us to refine your search#
+'Anything, I am not fussy' if selected new question - 
+      Question - #Can I politlely ask if you are male or female to help me refine your search#
+      'Male'
+      'Female'
+      'I'd rather not say'
+
 
 search results:
 
-if 'Male' is selected show all properties with "Male Only"
-if 'Female' is selected show all properties with "Female Only"
+if 'Just Male' is selected show all properties with "Male Only"
+if 'Just Female' is selected show all properties with "Female Only"
 if 'Anything, I am not fussy' and 'Male' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Male Only"
 if 'Anything, I am not fussy' and 'Female' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Female Only"
-if 'Anything I am not fussy' is selected and 'Prefer not to say' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Male Only" and "Female Only" and display #I am showing you all rooms available but some of these rooms may identify as Male or Female and may not be suitable for you#
+if 'Anything I am not fussy' is selected and 'Prefer not to say' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Male Only" and "Female Only"
 
 
 
@@ -66,11 +76,11 @@ Attributes set by Landlord "Ensuite"
 "yes"
 "No"
 
-Question - tick box #Ensuite#
+Question - #Ensuite#
 
-'Yes'
+'Yes' or 'No'
 
-Search results
+Search results:
 
 if 'yes' is selected show all properties with landlord query "Yes"
 
@@ -84,7 +94,14 @@ Attributes Set by Landlord "Are the bills included in the price"
 "Some Bills"
 "No"
 
-search results
+Question - tick box #Bills included in the price#
+
+yes/no
+
+Search results:
+
+if 'yes' show all properties with "All Bills" and all properties with "some bills" and display #some bills are included in the price# Display "all bills above "some bills"
+if 'no' show all properties with "all bills" and all properties with "some bills" and all properties with "no bills"
 
 
 
