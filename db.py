@@ -7,9 +7,9 @@ from datetime import datetime as dt
 from pathlib import Path
 
 # -----------------------------------------------------------------------------
-# DB PATH (MUST be on persistent disk). Env var wins; default to /var/data.
+# DB PATH (MUST be on persistent disk).
 # -----------------------------------------------------------------------------
-DEFAULT_DB_PATH = "/var/data/student_palace.db"
+DEFAULT_DB_PATH = "/opt/render/project/src/static/uploads/houses/student_palace.db"
 DB_PATH = os.environ.get("DB_PATH", DEFAULT_DB_PATH)
 
 # Ensure the folder exists (safe on first run)
@@ -29,18 +29,15 @@ except Exception as e:
 # Connection helper (durability + safety)
 # -----------------------------------------------------------------------------
 def get_db():
-    # autocommit mode; use BEGIN if you need explicit transactions
     conn = sqlite3.connect(DB_PATH, timeout=15, isolation_level=None)
     conn.row_factory = sqlite3.Row
     try:
-        # Safety & durability
         conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute("PRAGMA journal_mode = WAL")   # crash-safe journaling
-        conn.execute("PRAGMA synchronous = FULL")   # maximum durability
-        conn.execute("PRAGMA busy_timeout = 15000") # 15s lock wait
-        # Nice-to-haves:
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous = FULL")
+        conn.execute("PRAGMA busy_timeout = 15000")
         conn.execute("PRAGMA temp_store = MEMORY")
-        conn.execute("PRAGMA mmap_size = 268435456")  # 256MB
+        conn.execute("PRAGMA mmap_size = 268435456")
     except Exception:
         pass
     return conn
@@ -63,10 +60,6 @@ def table_has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
         return False
 
 def _safe_add_column(conn: sqlite3.Connection, table: str, ddl: str) -> None:
-    """
-    Add a column with ALTER TABLE if it's missing.
-    Example ddl: "ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
-    """
     try:
         after = ddl.strip().split("ADD COLUMN", 1)[1].strip()
         col_name = after.split()[0]
@@ -182,7 +175,7 @@ def ensure_db():
 
     conn.commit()
 
-    # --- Non-destructive migrations (add-only)
+    # --- Non-destructive migrations ---
     if not table_has_column(conn, "landlords", "created_at"):
         conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         conn.commit()
@@ -247,5 +240,5 @@ def ensure_db():
 
     conn.close()
 
-# Run migrations at import so other modules can rely on schema existing
+# Run migrations at import
 ensure_db()
