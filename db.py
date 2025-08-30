@@ -7,59 +7,35 @@ from datetime import datetime as dt
 from pathlib import Path
 
 # -----------------------------------------------------------------------------
-# Resolve DB path (env var wins; then pick an existing/non-empty file)
+# DB PATH (env var wins; defaults to the mounted disk location)
 # -----------------------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parent
+DEFAULT_DB_PATH = "/opt/render/project/src/uploads/student_palace.db"
+DB_PATH = os.environ.get("DB_PATH", DEFAULT_DB_PATH)
 
-def _choose_db_path() -> str:
-    # 1) Respect explicit env var
-    env_path = os.environ.get("DB_PATH")
-    if env_path:
-        p = Path(env_path)
-        print(f"[db] DB_PATH from env: {p} (exists={p.exists()} size={p.stat().st_size if p.exists() else '—'})")
-        return str(p)
-
-    # 2) Prefer uploads/student_palace.db if it exists (most likely your data)
-    uploads_db = PROJECT_ROOT / "uploads" / "student_palace.db"
-    root_db    = PROJECT_ROOT / "student_palace.db"
-
-    candidates = []
-    if uploads_db.exists():
-        candidates.append(uploads_db)
-    if root_db.exists():
-        candidates.append(root_db)
-
-    if candidates:
-        # pick the larger (heuristic for "has data")
-        best = max(candidates, key=lambda p: p.stat().st_size)
-        print(f"[db] DB_PATH auto-selected: {best} (size={best.stat().st_size})")
-        return str(best)
-
-    # 3) Fall back to uploads path (will be created if missing)
-    fallback = uploads_db
-    print(f"[db] DB_PATH fallback (new): {fallback}")
-    return str(fallback)
-
-DB_PATH = _choose_db_path()
-
-# Ensure containing folder exists (for new DBs only)
-db_dir = Path(DB_PATH).parent
-db_dir.mkdir(parents=True, exist_ok=True)
+# Make sure the folder exists (safe for first run)
+Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 
 # -----------------------------------------------------------------------------
-# Connection helper
+# Connection helper (durability + safety)
 # -----------------------------------------------------------------------------
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    # autocommit mode; use BEGIN when you need explicit transactions
+    conn = sqlite3.connect(DB_PATH, timeout=15, isolation_level=None)
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")   # crash-safe
+        conn.execute("PRAGMA synchronous = FULL")   # maximum durability
+        conn.execute("PRAGMA busy_timeout = 15000") # 15s lock wait
+        # Nice-to-haves:
+        conn.execute("PRAGMA temp_store = MEMORY")
+        conn.execute("PRAGMA mmap_size = 268435456")  # 256MB
     except Exception:
         pass
     return conn
 
 # -----------------------------------------------------------------------------
-# Small helpers
+# Helpers
 # -----------------------------------------------------------------------------
 def table_exists(conn: sqlite3.Connection, name: str) -> bool:
     row = conn.execute(
@@ -90,7 +66,7 @@ def _safe_add_column(conn: sqlite3.Connection, table: str, ddl: str) -> None:
         print(f"[MIGRATE] Skipped '{ddl}' on {table}: {e}")
 
 # -----------------------------------------------------------------------------
-# Schema bootstrap + non-destructive migrations
+# Schema bootstrap + non-destructive migrations (never drop/delete)
 # -----------------------------------------------------------------------------
 def ensure_db():
     conn = get_db()
@@ -195,7 +171,7 @@ def ensure_db():
 
     conn.commit()
 
-    # --- Non-destructive migrations ---
+    # --- Non-destructive migrations (add-only) ---
     if not table_has_column(conn, "landlords", "created_at"):
         conn.execute("ALTER TABLE landlords ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         conn.commit()
@@ -242,7 +218,6 @@ def ensure_db():
         _safe_add_column(conn, "house_images", "ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0")
         _safe_add_column(conn, "house_images", "ADD COLUMN created_at TEXT NOT NULL DEFAULT ''")
         _safe_add_column(conn, "house_images", "ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
-
         try:
             conn.execute("""
                 UPDATE house_images
@@ -260,6 +235,3 @@ def ensure_db():
             print("[MIGRATE] backfill filenames:", e)
 
     conn.close()
-
-# Run migrations at import so other modules can rely on schema existing
-ensure_db()
