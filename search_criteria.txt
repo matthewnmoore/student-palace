@@ -18,6 +18,17 @@ Search results:
 Sow all properties with matching city attribute set by landlord
 
 
+Select Year
+===========
+
+Question #What year#
+
+Drop down list set by admin
+
+available from on property page set by landlord is it avaialble and when changed to no ask the question "when is it let until"
+
+
+
 select group size
 =================
 
