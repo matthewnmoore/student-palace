@@ -6,7 +6,6 @@
     <h1 class="mt-0">Admin</h1>
     <div class="inline-actions">
       <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Log out</a>
-      <!-- ✅ NEW: Manual backup (streams a ZIP, no file stored server-side) -->
       <a class="btn" href="{{ url_for('admin.admin_backup') }}">Download backup</a>
     </div>
   </div>
@@ -18,6 +17,16 @@
       {% endfor %}
     {% endif %}
   {% endwith %}
+
+  <!-- ✅ NEW: Stats Card -->
+  <div class="card" style="margin-bottom:16px">
+    <h3 class="mt-0">Statistics (current / last 24h)</h3>
+    <ul style="margin:0; padding-left:18px; line-height:1.8;">
+      <li>Landlords: {{ stats.landlords_total }} <small>(+{{ stats.landlords_24h }})</small></li>
+      <li>Properties: {{ stats.houses_total }} <small>(+{{ stats.houses_24h }})</small></li>
+      <li>Rooms: {{ stats.rooms_total }} <small>(+{{ stats.rooms_24h }})</small></li>
+    </ul>
+  </div>
 
   <div class="card">
     <h3 class="mt-0">Sections</h3>
