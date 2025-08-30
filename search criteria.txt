@@ -55,8 +55,8 @@ Question - drop down list
 
 search results:
 
-if Male is selected show all properties with Male attributes
-if Female is selected show all properties with Female attributes
+if 'Male' is selected show all properties with Male attributes
+if 'Female' is selected show all properties with Female attributes
 if 'Anything, I am not fussy' and 'Male' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Male Only"
 if 'Anything, I am not fussy' and 'Female' is selected show all properties with landlord query 'anyone/mixed' and all properties with landlord query "Female Only"
 
