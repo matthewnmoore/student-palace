@@ -1,4 +1,3 @@
-# landlord/house_repo.py
 from __future__ import annotations
 
 from typing import Dict, Any, Sequence
@@ -44,6 +43,7 @@ _COMMON_COLS: Sequence[str] = (
     "cinema_room",
     "cleaning_service",
     "listing_type",
+    "epc_rating",            # NEW (optional A–G, empty string if not set)
 )
 
 
@@ -55,7 +55,7 @@ def _values_from_payload(payload: Dict[str, Any], cols: Sequence[str]) -> list:
 def insert_house(conn, landlord_id: int, payload: Dict[str, Any]) -> int:
     """
     Insert a house row for a given landlord.
-    Expects payload to already be validated/normalized (see house_form.parse_house_form).
+    Expects payload to already be validated/normalized (see houses._parse_or_delegate or house_form.parse_house_form).
     Returns the new house id.
     """
     cols = ["landlord_id", *list(_COMMON_COLS), "created_at"]
