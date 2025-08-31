@@ -11,6 +11,33 @@ from . import bp
 from . import house_form, house_repo
 
 
+def _normalize_postcode(pc: str) -> str:
+    pc = (pc or "").strip().upper()
+    if pc and " " not in pc and len(pc) > 3:
+        pc = pc[:-3] + " " + pc[-3:]
+    return pc
+
+
+def _compose_address_from_parts(form) -> str:
+    """Backend safety net: compose address from form parts if hidden 'address' is empty."""
+    f = lambda k: (form.get(k) or "").strip()
+    flat_number   = f("flat_number")
+    house_name    = f("house_name")
+    house_number  = f("house_number")
+    street_name   = f("street_name")
+    address_extra = f("address_extra")
+    town          = f("town")   # mirrored from city client-side; we won't rely on that though
+    city          = f("city")
+    postcode      = _normalize_postcode(f("postcode"))
+
+    line1 = " ".join(x for x in [flat_number, (house_name or house_number), street_name] if x)
+    line2 = address_extra
+    line3 = ", ".join(x for x in [town or city] if x)
+    parts = [line1, line2, line3, postcode]
+    composed = ", ".join([p for p in parts if p and p.replace(",", "").strip()])
+    return composed.strip()
+
+
 def _parse_or_delegate(form, mode: str, default_listing_type: str):
     """
     Use house_form.parse_house_form if available.
@@ -28,6 +55,10 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
     address = fget("address")
     letting_type = fget("letting_type")
     gender_pref = fget("gender_preference")
+
+    # If hidden 'address' is empty, compose it server-side from the new fields
+    if not address:
+        address = _compose_address_from_parts(form)
 
     # Bills dropdown (form field name 'bills_included') -> houses.bills_option (+ legacy flag)
     bills_option = (form.get("bills_included") or "no").strip().lower()
