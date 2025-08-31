@@ -120,7 +120,10 @@ Room availabe flow chart
 =========================
 
 #is room available# default as yes when setting up the room
-#is the room let/unavailable# tick box if changed to yes then ask #when is it let/unavailable until#
+#is the room let/unavailable# tick box if changed to yes then ask #when is it let/unavailable until# and provide UK date entry and ask #shall i make it a available on automate next day from date entered# tickbox
+when the date is reached that was automatically created mark the room as available
+if the tick box was left empty then do nothing, tickbox default is no
+
 
 
 
