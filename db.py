@@ -1,4 +1,3 @@
-# db.py
 from __future__ import annotations
 
 import os
@@ -235,6 +234,10 @@ def ensure_db():
     _safe_add_column(conn, "houses", "ADD COLUMN roof_terrace INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN games_room INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN cinema_room INTEGER NOT NULL DEFAULT 0")
+
+    # --- NEW: EPC rating (A–G, optional) ---
+    # We store as TEXT with empty-string default for compatibility; app validates values.
+    _safe_add_column(conn, "houses", "ADD COLUMN epc_rating TEXT NOT NULL DEFAULT ''")
 
     # --- house_images add-only sync ---
     if table_exists(conn, "house_images"):
