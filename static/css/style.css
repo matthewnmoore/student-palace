@@ -11,6 +11,9 @@
   --radius:8px;
   --shadow:0 2px 8px rgba(0,0,0,0.08);
   --wrap:1100px;
+
+  /* Accent border thickness */
+  --accent-border:3px;
 }
 
 /* ===== Base ===== */
@@ -75,6 +78,18 @@ input[type="text"],input[type="email"],input[type="password"],input[type="number
 /* Center the hero intro text */
 .hero-centered{text-align:center}
 
+/* Accent helpers */
+.card--accent-l{ border-left: var(--accent-border) solid var(--brand); }
+.card--accent-r{ border-right: var(--accent-border) solid var(--brand); }
+.card--accent-lr{
+  border-left: var(--accent-border) solid var(--brand);
+  border-right: var(--accent-border) solid var(--brand);
+}
+
+/* Normalize old inline 6px styles to match new thickness */
+.card[style*="border-left:6px"]{ border-left: var(--accent-border) solid var(--brand) !important; }
+.card[style*="border-right:6px"]{ border-right: var(--accent-border) solid var(--brand) !important; }
+
 /* ===== Tables ===== */
 .table{width:100%; border-collapse:collapse}
 .table th,.table td{padding:10px; border:1px solid var(--border); text-align:left}
@@ -134,25 +149,4 @@ input[type="text"],input[type="email"],input[type="password"],input[type="number
 @media (max-width:720px){
   .flex-between{flex-direction:column; align-items:flex-start; gap:8px}
   .logo-img{height:64px}
-}
-
-/* ===== Accent edges for cards ===== */
-.card--accent-edges{
-  position:relative;
-}
-.card--accent-edges::before,
-.card--accent-edges::after{
-  content:"";
-  position:absolute;
-  top:0; bottom:0;
-  width:6px;
-  background:var(--brand);
-  border-radius: var(--radius);
-}
-.card--accent-edges::before{ left:-1px; }
-.card--accent-edges::after{  right:-1px; }
-
-@media (max-width:720px){
-  .card--accent-edges::before,
-  .card--accent-edges::after{ width:5px; }
 }
