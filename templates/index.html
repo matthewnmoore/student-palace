@@ -4,7 +4,7 @@
 <section class="wrap">
 
   <!-- HERO / INTRO -->
-  <div class="card card--accent-edges hero-centered">
+  <div class="card card--accent-lr hero-centered">
     <h1 class="mt-0" style="margin-bottom:6px">Your next student home — without the faff.</h1>
     <p class="muted" style="margin-bottom:0">
       Look out for the ✅ green tick – it means properties from verified landlords and agents.
@@ -12,7 +12,7 @@
   </div>
 
   <!-- SEARCH -->
-  <div class="card card--accent-edges hero-centered">
+  <div class="card card--accent-lr hero-centered">
     <h2 class="mt-0">Search Student Properties</h2>
 
     <form action="{{ url_for('public.search') }}" method="get"
@@ -64,23 +64,24 @@
         </select>
       </label>
 
-      <!-- Preferences row with BIG centered button -->
-      <div class="field" style="grid-column:1/-1">
-        <span class="label">Preferences</span>
-        <div class="prefs-row" style="justify-content:center; align-items:center; gap:18px">
-          <label class="check"><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
+      <!-- Middle row: Ensuite | BIG BUTTON | Bills included -->
+      <div class="prefs-row" style="grid-column:1/-1; justify-content:center; align-items:center; gap:18px; margin-top:6px">
+        <label class="check"><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
 
-          <!-- Big wide button in the middle -->
-          <button class="btn btn-accent btn-lg-wide btn-wide" type="submit">Find rooms</button>
+        <!-- Big wide button (doubled width) -->
+        <button class="btn btn-accent"
+                type="submit"
+                style="padding:14px 28px; min-width:280px; font-size:18px; font-weight:700;">
+          Find rooms
+        </button>
 
-          <label class="check"><input type="checkbox" name="bills_included"> All bills included</label>
-        </div>
+        <label class="check"><input type="checkbox" name="bills_included"> All bills included</label>
       </div>
     </form>
   </div>
 
   <!-- FEATURED + CITY GRID -->
-  <div class="card card--accent-edges">
+  <div class="card card--accent-lr">
     <h2 class="mt-0">Featured this week</h2>
     <p class="muted">A popular pick in {{ cities[0] if cities else 'Cardiff' }}.</p>
 
