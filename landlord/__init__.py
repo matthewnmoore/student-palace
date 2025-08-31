@@ -1,13 +1,15 @@
 # landlord/__init__.py
+from __future__ import annotations
+
 from flask import Blueprint
 
-# One shared blueprint so endpoint names stay as 'landlord.*'
-bp = Blueprint("landlord", __name__, url_prefix="")
+# Shared blueprint so endpoint names stay 'landlord.*'
+bp = Blueprint("landlord", __name__)
 
-# Import submodules so their routes attach to this bp
-# (Order doesn't really matter, but keeping a tidy grouping helps.)
-from . import dashboard   # noqa: E402,F401
-from . import profile     # noqa: E402,F401
-from . import houses      # noqa: E402,F401
-from . import rooms       # noqa: E402,F401
-from . import photos      # noqa: E402,F401
+# Explicit imports so their @bp.route decorators register.
+from . import dashboard as _dashboard      # noqa: F401,E402
+from . import houses as _houses            # noqa: F401,E402
+from . import photos as _photos            # noqa: F401,E402
+from . import profile as _profile          # noqa: F401,E402
+from . import rooms as _rooms              # noqa: F401,E402
+from . import epc as _epc                  # ← NEW: EPC routes
