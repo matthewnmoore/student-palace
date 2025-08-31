@@ -330,6 +330,8 @@
     const preview  = $('address_preview');
 
     const partIds = ['flat_number','house_name','house_number','street_name','address_extra','postcode'];
+    let partsDirty = false;
+
     const getVal = (id) => ( $(id)?.value || '' ).trim();
 
     function titleCaseWordish(s) {
@@ -370,13 +372,21 @@
     function syncTownFromCity() {
       if (townInp && citySel) townInp.value = (citySel.value || '').trim();
     }
-    on(citySel, 'change', () => { syncTownFromCity(); composeFromParts(); });
+    on(citySel, 'change', () => {
+      syncTownFromCity();
+      // Only recompute if user has actually edited address parts
+      if (partsDirty) composeFromParts();
+    });
 
     // Format individual inputs on blur (so what they "enter" becomes capitalised)
     function wireTitleCaseOnBlur(id, formatter = titleCaseWordish) {
       const el = $(id);
       if (!el) return;
-      on(el, 'blur', () => { el.value = formatter(el.value); composeFromParts(); });
+      on(el, 'blur', () => {
+        el.value = formatter(el.value);
+        partsDirty = true;
+        composeFromParts();
+      });
     }
     wireTitleCaseOnBlur('flat_number');
     wireTitleCaseOnBlur('house_name');
@@ -385,20 +395,28 @@
     wireTitleCaseOnBlur('address_extra');
     wireTitleCaseOnBlur('postcode', normalizePostcode);
 
-    // Also re-compose on input so preview stays live (don’t mutate live typing to avoid cursor jumps)
-    partIds.forEach(id => on($(id), 'input', composeFromParts));
+    // Live compose when typing (but don't mutate values, just mark dirty and update preview/hidden)
+    partIds.forEach(id => on($(id), 'input', () => {
+      partsDirty = true;
+      composeFromParts();
+    }));
 
     // Initial render:
     syncTownFromCity();
-    // Keep existing hidden/preview values for edit pages (already saved in DB)
-    // Compose once to apply casing if user starts editing
-    composeFromParts();
 
-    // Before submit, ensure hidden has the latest preview (compose if user filled parts)
+    // IMPORTANT: Do NOT overwrite an existing saved address on load.
+    // If we already have a hidden value (edit page), just show it.
+    if (hidden && hidden.value && hidden.value.trim()) {
+      if (preview) preview.textContent = hidden.value;
+    } else {
+      // New page or no saved address — start with composition (city might be selected)
+      composeFromParts();
+    }
+
+    // Before submit, ensure hidden has the latest preview only if user edited parts
     const form = document.getElementById('house-form');
     on(form, 'submit', function () {
-      const anyPart = partIds.some(id => getVal(id));
-      if (anyPart && (!hidden.value || !hidden.value.trim())) {
+      if (partsDirty) {
         composeFromParts();
       }
       syncTownFromCity();
