@@ -368,6 +368,54 @@ Notes / sanity checks:
 
 
 
+House Amenities – Display Grouping (UI order)
+
+Bills
+	•	bills_option (yes / no / some)
+	•	(legacy: bills_included → derived: 1 if bills_option='yes' else 0)
+
+Cleaning
+	•	cleaning_service (none / weekly / fortnightly / monthly)
+
+Kitchen / Utilities
+	•	washing_machine (default ✔)
+	•	tumble_dryer
+	•	dishwasher
+	•	cooker (default ✔)
+	•	microwave
+	•	coffee_maker
+
+Heating / Comfort
+	•	central_heating (default ✔)
+	•	air_con
+	•	vacuum
+
+Connectivity / Media
+	•	wifi (default ✔)
+	•	wired_internet
+	•	common_area_tv
+
+Security / Access
+	•	cctv
+	•	video_door_entry
+	•	fob_entry
+
+Parking / Outdoors
+	•	off_street_parking
+	•	local_parking
+	•	garden
+	•	roof_terrace
+	•	bike_storage
+
+Shared Facilities
+	•	games_room
+	•	cinema_room
+
+
+
+
+
+
 
 
 
