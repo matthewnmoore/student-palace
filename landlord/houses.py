@@ -1,4 +1,3 @@
-# landlord/houses.py
 from __future__ import annotations
 
 from flask import render_template, request, redirect, url_for, flash
@@ -60,6 +59,10 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
     bedrooms_total = int(form.get("bedrooms_total") or 0)
     listing_type = (form.get("listing_type") or default_listing_type or "owner").strip()
 
+    # NEW: EPC rating (optional A–G). Store empty string if not valid/selected.
+    epc_rating_raw = (form.get("epc_rating") or "").strip().upper()
+    epc_rating = epc_rating_raw if epc_rating_raw in ("A", "B", "C", "D", "E", "F", "G") else ""
+
     # Amenities (form names; air_conditioning maps to DB air_con)
     payload = {
         "title": title,
@@ -95,6 +98,7 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
         "cinema_room": clean_bool("cinema_room"),
         "cleaning_service": (form.get("cleaning_service") or "none").strip(),
         "listing_type": listing_type,
+        "epc_rating": epc_rating,  # NEW
     }
     payload.update(bills_util)
 
@@ -116,6 +120,9 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
         errors.append("Invalid cleaning service value.")
     if not valid_choice(listing_type, ("owner", "agent")):
         errors.append("Invalid listing type.")
+    # epc_rating is optional; if provided, ensure valid
+    if epc_rating_raw and epc_rating == "":
+        errors.append("Invalid EPC rating (choose A, B, C, D, E, F or G).")
 
     return payload, errors
     # ---- End fallback ----
