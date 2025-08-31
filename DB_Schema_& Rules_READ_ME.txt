@@ -22,6 +22,213 @@ HISTORY:
 
 
 
+THIS IS THE LATEST UPDATE PROVIDED BY CHATGPT 31/08/2025
+========================================================
+
+
+ADD: Frontend Style Conventions (canonical class names)
+	•	Accent edges (purple on both sides): use card--accent-edges
+• Old aliases sometimes seen: card--accent-lr → prefer card--accent-edges
+	•	Thickness variable: --accent-border (CSS), default 3px
+	•	Cards always: .card + .card--accent-edges when you want accent
+	•	Search button sizing helper (homepage): .btn-wide-ish (wider than default)
+	•	Centering helpers used on homepage:
+• hero-centered (center text)
+• Search form wrapper constrained at ~820px; button centered and conditionally shown by JS
+
+ADD: Homepage Search – UX Rules (authoritative)
+
+Required dropdowns (button stays hidden until all are chosen):
+	•	City (select[name="city"], data-required)
+	•	Group size (select[name="group_size"], data-required)
+	•	Academic year (select[name="academic_year"], data-required)
+	•	A house that identifies as (select[name="gender_pref"], values: Male/Female/Anything)
+
+Conditional dropdown:
+	•	“Can I politely ask…” (select[name="seeker_gender"] with values Male/Female/NA)
+• Shown when gender_pref has a value.
+• Required once shown.
+
+Optional checkboxes (do not gate button):
+	•	Ensuite / own bathroom
+	•	All bills included
+
+Button behavior:
+	•	#find_btn is hidden until all data-required selects have values.
+	•	Button sits centered between the two optional checkboxes.
+
+ADD: House Bills – Detailed Utilities (DB + form names)
+
+DB columns (INTEGER 0/1):
+	•	bills_util_gas
+	•	bills_util_electric
+	•	bills_util_water
+	•	bills_util_broadband
+	•	bills_util_tv
+
+Form input names (checkboxes):
+	•	bills_util_gas
+	•	bills_util_electric
+	•	bills_util_water
+	•	bills_util_broadband
+	•	bills_util_tv
+
+Authoritative rule:
+	•	If bills_option = 'yes' → set all five utilities to 1 (checked)
+	•	If bills_option = 'no' → set all five utilities to 0 (unchecked)
+	•	If bills_option = 'some' → respect individual checkboxes
+
+Legacy sync rule:
+	•	bills_included (legacy boolean) mirrors only the YES case:
+• bills_included = 1 iff bills_option == ‘yes’
+• Otherwise 0
+
+ADD: Landlord House Form – Field Map (names you see in HTML)
+	•	air_conditioning (form) → air_con (DB)
+	•	bills_included (form: ‘yes’|‘no’|‘some’) → bills_option (DB text)
+	•	listing_type (form: ‘owner’|‘agent’) → listing_type (DB text)
+	•	cleaning_service (form: ‘none’|‘weekly’|‘fortnightly’|‘monthly’) → same in DB
+	•	Checkbox booleans map 1/0:
+washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker, central_heating, vacuum,
+wifi, wired_internet, common_area_tv, cctv, video_door_entry, fob_entry, off_street_parking, local_parking,
+garden, roof_terrace, bike_storage, games_room, cinema_room
+
+ADD: Refactor Notes (routes split + ownership)
+	•	landlord/houses.py now focuses on routes only.
+	•	landlord/house_form.py:
+• get_default_listing_type(conn, landlord_id, existing=None)
+• parse_house_form(form, mode, default_listing_type) → returns (payload, errors)
+	•	landlord/house_repo.py:
+• insert_house(conn, landlord_id, payload)
+• update_house(conn, landlord_id, house_id, payload)
+	•	Ownership checks use utils.owned_house_or_none(conn, hid, lid) (unchanged behavior).
+
+ADD: Env Vars (authoritative set)
+	•	DB_PATH=/opt/render/project/src/static/uploads/houses/student_palace.db
+	•	ADMIN_TOKEN= (required for /debug/db-backup)
+	•	Optional (future address API):
+• UK_POSTCODES_API_KEY= (if using a paid service; not needed for open postcodes.io)
+• ADDRESS_LOOKUP_PROVIDER=postcodes_io|getaddress|ideal_postcodes (TBD)
+
+ADD: Debug Endpoints (temporary)
+	•	GET /debug/db → shows active DB path, size, table counts, sample rows
+	•	GET /debug/db-candidates → lists *.db files under project with size/mtime
+	•	GET /debug/db-scan → opens each *.db and reports key table counts
+	•	POST /debug/db-backup?token=ADMIN_TOKEN → creates timestamped snapshot under uploads/backups/
+Notes: remove or protect behind stricter auth when stable.
+
+ADD: Photo Stack – Code Freeze (Do-Not-Touch)
+	•	Confirmed perfect (uploads, drag & drop, watermarking).
+	•	Files locked (no changes unless agreed):
+• image_helpers.py
+• landlord/photos.py
+• templates/house_photos.html
+• templates/photos_room.html
+• DB table: house_images (indices + NOT NULLs)
+• Static pathing: relative under static/uploads/houses/
+	•	Future room photos: replicate pipeline; DO NOT modify house photo code.
+
+ADD: DNS/SSL Final State Target (quick crib)
+	•	Apex A: student-palace.co.uk → 216.24.57.1 (only)
+	•	WWW CNAME: www → student-palace.onrender.com (resolves to 216.24.57.251/7)
+	•	No residual 62.233.121.5 anywhere.
+	•	SSL: valid padlock at both https://student-palace.co.uk and https://www.student-palace.co.uk (Render-managed cert).
+
+ADD: Testing Checklist (quick, practical)
+	•	Landlord:
+[ ] Login/logout
+[ ] Houses list loads
+[ ] Add house (all validations)
+[ ] Edit house (bills yes/no/some flow incl. utilities)
+[ ] Photos: upload ≤5, drag order, watermark visible, primary image set
+	•	Public:
+[ ] Homepage: purple accents visible on all three cards
+[ ] Search form: button shows only when required selects chosen
+[ ] “Can I politely ask…” shows after gender_pref picked, is required
+[ ] City grid renders with active cities (or placeholder tile)
+	•	Admin:
+[ ] Cities CRUD
+[ ] Landlords view
+[ ] Images admin list
+[ ] Stats dashboard loads
+	•	Ops:
+[ ] /debug/db shows correct DB_PATH and non-zero counts
+[ ] /debug/db-backup creates a snapshot
+
+ADD: Future Enhancements (logged but not active yet)
+	•	Address auto-complete by postcode (UK):
+• On “Add/Edit House”: user enters postcode → fetch address list → dropdown to fill address.
+• Candidate provider: postcodes.io (free), or paid (GetAddress/Ideal Postcodes) if we need UDPRN/UMPRN or SLA.
+• DB impact: none (still a single “address” field); we only assist with form filling.
+	•	Public House Detail:
+• Minor layout tweaks only; backend complete.
+	•	Room Photos:
+• Implement same house photo pipeline and UI for rooms (separate table or reuse with type flag if desired later).
+
+ADD: Repo Structure (current snapshot – concise)
+
+admin/
+init.py
+auth.py
+backups.py
+cities.py
+images.py
+landlords.py
+stats.py
+
+landlord/
+init.py
+dashboard.py
+helpers.py
+house_form.py        new helper
+house_repo.py        new helper
+houses.py            refactored routes
+photos.py
+profile.py
+rooms.py
+
+static/
+css/style.css
+img/student-palace-logo.*
+uploads/houses/
+
+templates/
+(admin, landlord, student HTML templates)
+
+DB_Schema_& Rules_READ_ME.txt
+app.py
+db.py
+utils.py
+
+ADD: Versioning / Restore Points (labels you can use)
+	•	baseline-stable-2025-08-31
+	•	landlord-forms-split-2025-08-31
+	•	photos-stack-locked-2025-08-30
+Tip: when you take /debug/db-backup, note the label alongside the timestamp.
+
+ADD: Known Gotchas (quick reminders)
+	•	Don’t prefix file_path with “/”; keep it relative (e.g., uploads/houses/img.jpg).
+	•	When reading images: COALESCE(filename, file_name) to survive legacy rows.
+	•	Checkbox booleans: HTML “on” → truthy; always normalize via clean_bool.
+	•	Gender fields:
+• House field: gender_preference (Male|Female|Mixed|Either)
+• Public search “identifies as”: (Male|Female|Anything) → separate, do not mix with house DB field
+• Seeker gender: seeker_gender (Male|Female|NA) used for search refinement only (not stored in DB).
+
+⸻
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 STYLE GUIDELINE – Cards, Rounded Corners & Purple Accent
 =========================================================
@@ -612,4 +819,17 @@ Everything here is confirmed working (uploads, drag-and-drop ordering, watermark
 Notes for future work
 	•	When we add room photos, we’ll replicate the same photo pipeline and UI patterns rather than changing the existing house photo code.
 	•	Public house detail page is ready for layout tweaks only (the backend fields are all in place).
+
+
+
+
+
+
+
+
+
+
+
+
+
 
