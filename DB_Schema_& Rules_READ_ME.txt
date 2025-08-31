@@ -365,3 +365,146 @@ Notes / sanity checks:
 - Mixed answers on whatsmydns.net during the first hours are normal. Final state = only Render answers.
 - After propagation & cert issuance, both apex and www should serve over HTTPS without warnings.
 
+
+
+
+
+
+
+
+THESE FIELDS HAVE BEEN ADDED LATER AND WE THINK ARE CORRECT BUT PLEASE CHECK YOURSELF
+
+Tables & Columns (authoritative list)
+
+cities
+	•	id (PK)
+	•	name (TEXT, UNIQUE, NOT NULL)
+	•	is_active (INTEGER, NOT NULL, default 1)
+
+landlords
+	•	id (PK)
+	•	email (TEXT, UNIQUE, NOT NULL)
+	•	password_hash (TEXT, NOT NULL)
+	•	created_at (TEXT, NOT NULL)
+
+landlord_profiles
+	•	landlord_id (PK, FK → landlords.id)
+	•	display_name (TEXT)
+	•	phone (TEXT)
+	•	website (TEXT)
+	•	bio (TEXT)
+	•	public_slug (TEXT, UNIQUE)
+	•	profile_views (INTEGER, NOT NULL, default 0)
+	•	is_verified (INTEGER, NOT NULL, default 0)  ← added earlier
+	•	role (TEXT, NOT NULL, default 'owner', allowed: 'owner'|'agent')  ← added earlier
+
+houses
+	•	id (PK)
+	•	landlord_id (FK → landlords.id)
+	•	title (TEXT, NOT NULL)
+	•	city (TEXT, NOT NULL)
+	•	address (TEXT, NOT NULL)
+	•	letting_type (TEXT, NOT NULL, 'whole'|'share')
+	•	bedrooms_total (INTEGER, NOT NULL)
+	•	gender_preference (TEXT, NOT NULL, 'Male'|'Female'|'Mixed'|'Either')
+	•	bills_included (INTEGER, NOT NULL, default 0) — legacy yes/no flag
+	•	shared_bathrooms (INTEGER, NOT NULL, default 0)
+	•	off_street_parking (INTEGER, NOT NULL, default 0)
+	•	local_parking (INTEGER, NOT NULL, default 0)
+	•	cctv (INTEGER, NOT NULL, default 0)
+	•	video_door_entry (INTEGER, NOT NULL, default 0)
+	•	bike_storage (INTEGER, NOT NULL, default 0)
+	•	cleaning_service (TEXT, NOT NULL, default 'none', allowed: 'none'|'weekly'|'fortnightly'|'monthly')
+	•	wifi (INTEGER, NOT NULL, default 1)
+	•	wired_internet (INTEGER, NOT NULL, default 0)
+	•	common_area_tv (INTEGER, NOT NULL, default 0)
+	•	created_at (TEXT, NOT NULL)
+	•	listing_type (TEXT, NOT NULL, default 'owner', allowed: 'owner'|'agent')  ← added earlier
+
+Houses — new fields (Phase 2)
+	•	bills_option (TEXT, NOT NULL, default 'no', allowed: 'yes'|'no'|'some')  ← new
+	•	washing_machine (INTEGER, NOT NULL, default 1)  ← new
+	•	tumble_dryer (INTEGER, NOT NULL, default 0)  ← new
+	•	dishwasher (INTEGER, NOT NULL, default 0)  ← new
+	•	cooker (INTEGER, NOT NULL, default 1)  ← new
+	•	microwave (INTEGER, NOT NULL, default 0)  ← new
+	•	coffee_maker (INTEGER, NOT NULL, default 0)  ← new
+	•	central_heating (INTEGER, NOT NULL, default 1)  ← new
+	•	air_con (INTEGER, NOT NULL, default 0)  ← new
+	•	vacuum (INTEGER, NOT NULL, default 0)  ← new
+	•	fob_entry (INTEGER, NOT NULL, default 0)  ← new
+	•	garden (INTEGER, NOT NULL, default 0)  ← new
+	•	roof_terrace (INTEGER, NOT NULL, default 0)  ← new
+	•	games_room (INTEGER, NOT NULL, default 0)  ← new
+	•	cinema_room (INTEGER, NOT NULL, default 0)  ← new
+
+Note: we keep bills_included (legacy boolean) in sync with bills_option (yes ⇒ 1, no/some ⇒ 0).
+
+rooms
+	•	id (PK)
+	•	house_id (FK → houses.id)
+	•	name (TEXT, NOT NULL)
+	•	ensuite (INTEGER, NOT NULL, default 0)
+	•	bed_size (TEXT, NOT NULL, 'Single'|'Small double'|'Double'|'King')
+	•	tv (INTEGER, NOT NULL, default 0)
+	•	desk_chair (INTEGER, NOT NULL, default 0)
+	•	wardrobe (INTEGER, NOT NULL, default 0)
+	•	chest_drawers (INTEGER, NOT NULL, default 0)
+	•	lockable_door (INTEGER, NOT NULL, default 0)
+	•	wired_internet (INTEGER, NOT NULL, default 0)
+	•	room_size (TEXT, nullable)
+	•	created_at (TEXT, NOT NULL)
+
+house_images
+	•	id (PK)
+	•	house_id (FK → houses.id)
+	•	file_name (TEXT, NOT NULL) — legacy duplicate
+	•	filename (TEXT, NOT NULL) — canonical duplicate
+	•	file_path (TEXT, NOT NULL) — relative path under static/ (e.g. uploads/houses/abc.jpg)
+	•	width (INTEGER, NOT NULL)
+	•	height (INTEGER, NOT NULL)
+	•	bytes (INTEGER, NOT NULL)
+	•	is_primary (INTEGER, NOT NULL, default 0)
+	•	sort_order (INTEGER, NOT NULL, default 0)
+	•	created_at (TEXT, NOT NULL)
+
+⸻
+
+Form ↔ DB name mapping (gotchas)
+	•	Bills included (dropdown)
+	•	Form field: bills_included with values 'yes'|'no'|'some'
+	•	DB:
+	•	bills_option ← stores 'yes'|'no'|'some' (authoritative)
+	•	bills_included ← kept in sync as 1 if 'yes' else 0 (legacy)
+	•	Air conditioning
+	•	Form field: air_conditioning
+	•	DB column: air_con
+	•	Cleaning service
+	•	Form field: cleaning_service ('none'|'weekly'|'fortnightly'|'monthly')
+	•	DB column: cleaning_service (same values)
+	•	Listing type
+	•	Form field: listing_type ('owner'|'agent')
+	•	DB column: listing_type
+	•	Boolean checkboxes (all map 1/0 in DB):
+	•	washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker,
+	•	central_heating, air_conditioning→air_con, vacuum,
+	•	wifi, wired_internet, common_area_tv,
+	•	cctv, video_door_entry, fob_entry,
+	•	off_street_parking, local_parking, garden, roof_terrace,
+	•	bike_storage, games_room, cinema_room.
+
+⸻
+
+Defaults (authoritative)
+	•	bills_option: 'no' (and bills_included → 0)
+	•	Checked by default (1): washing_machine, cooker, central_heating, wifi
+	•	Unchecked by default (0): all other amenities listed above
+	•	cleaning_service: 'none'
+	•	listing_type: 'owner'
+	•	Existing pre-Phase fields keep their original defaults (see tables above).
+
+
+
+
+
+
