@@ -4,7 +4,7 @@
 <section class="wrap">
 
   <!-- HERO / INTRO -->
-  <div class="card card--accent-edges hero-centered">
+  <div class="card card--accent-lr hero-centered">
     <h1 class="mt-0" style="margin-bottom:6px">Your next student home — without the faff.</h1>
     <p class="muted" style="margin-bottom:0">
       Look out for the ✅ green tick – it means properties from verified landlords and agents.
@@ -12,7 +12,7 @@
   </div>
 
   <!-- SEARCH -->
-  <div class="card card--accent-edges">
+  <div class="card card--accent-lr">
     <h2 class="mt-0" style="text-align:center">Search Student Properties</h2>
 
     <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2 form-compact-labels" style="max-width:820px;margin:0 auto">
@@ -63,37 +63,39 @@
         </select>
       </label>
 
-      <!-- NEW: Seeker gender (required; appears below the above; centered) -->
-      <div style="grid-column:1/-1">
-        <label class="field" id="seeker_gender_wrap" style="display:none; text-align:center; max-width:520px; margin:0 auto">
-          <span class="label">Can I politely ask if you are male or female to help me refine your search</span>
-          <select name="seeker_gender" id="seeker_gender" data-required style="max-width:320px; margin:0 auto">
+      <!-- Seeker gender (required; appears below the above; centered) -->
+      <div id="seeker_gender_block" style="grid-column:1/-1; display:none;">
+        <div class="field" style="display:flex; align-items:center; justify-content:center; gap:10px; text-align:center; max-width:780px; margin:0 auto">
+          <span class="label-inline">Can I politely ask if you are male or female to help me refine your search</span>
+          <select name="seeker_gender" id="seeker_gender" data-required style="max-width:320px">
             <option value="" selected>Please choose</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
             <option value="NA">I’d rather not say</option>
           </select>
-        </label>
+        </div>
+        <p class="help" style="text-align:center; margin-top:6px">This helps us match your preferences to suitable houses.</p>
       </div>
 
-      <!-- Preferences row (optional checkboxes). Button appears only when all dropdowns chosen -->
+      <!-- Preferences row (optional checkboxes) -->
       <label class="field" style="grid-column:1/-1; text-align:center">
         <div class="prefs-row" style="justify-content:center">
           <label><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
-
-          <!-- Hidden by default; shown when all selects have values -->
-          <button id="find_btn" class="btn btn-accent btn-wide-ish" type="submit" style="min-width:260px; display:none">
-            Find rooms
-          </button>
-
           <label><input type="checkbox" name="bills_included"> All bills included</label>
         </div>
       </label>
+
+      <!-- Find Rooms Button (centered below preferences; only shows when all dropdowns selected) -->
+      <div style="grid-column:1/-1; text-align:center; margin-top:10px">
+        <button id="find_btn" class="btn btn-accent" type="submit" style="min-width:260px; display:none">
+          Find rooms
+        </button>
+      </div>
     </form>
   </div>
 
   <!-- FEATURED -->
-  <div class="card card--accent-edges">
+  <div class="card card--accent-lr">
     <h2 class="mt-0">Featured this week</h2>
     <p class="muted">A popular pick in {{ cities[0] if cities else 'Cardiff' }}.</p>
     <div class="inline-actions" style="margin-top:8px">
@@ -104,7 +106,7 @@
 
   <!-- CITY GRID (order per admin, only active cities) -->
   {% if cities_with_meta and cities_with_meta|length %}
-    <div class="card card--accent-edges" style="padding:16px">
+    <div class="card card--accent-lr" style="padding:16px">
       <div class="city-grid">
         {% for c in cities_with_meta %}
           <a class="city-card" href="{{ url_for('public.search') }}?city={{ c.name|urlencode }}">
@@ -126,47 +128,48 @@
 
 </section>
 
-<!-- Minimal JS to reveal seeker gender and show the Find button only when all dropdowns are chosen -->
+<!-- JS: reveal seeker gender and show the Find button only when all dropdowns are chosen -->
 <script>
   (function(){
-    var gp   = document.getElementById('gender_pref');
-    var wrap = document.getElementById('seeker_gender_wrap');
-    var btn  = document.getElementById('find_btn');
+    var gp    = document.getElementById('gender_pref');
+    var block = document.getElementById('seeker_gender_block');
+    var sg    = document.getElementById('seeker_gender');
+    var btn   = document.getElementById('find_btn');
 
+    // All selects that must be chosen
     var requiredSelects = Array.prototype.slice.call(
       document.querySelectorAll('select[data-required]')
     );
 
-    function showSeekerGender(){
-      if(!gp || !wrap) return;
-      wrap.style.display = gp.value ? 'block' : 'none';
-      // If we hide the wrap, also clear the seeker value to keep validation logic simple
-      var sg = document.getElementById('seeker_gender');
-      if (sg && wrap.style.display === 'none') sg.value = '';
+    function revealSeekerGender(){
+      if (!gp) return;
+      var show = !!gp.value;
+      block.style.display = show ? 'block' : 'none';
+      if (!show && sg) sg.value = ''; // clear if hidden
     }
 
     function allSelected(){
-      for (var i=0; i<requiredSelects.length; i++){
+      for (var i = 0; i < requiredSelects.length; i++){
         if (!requiredSelects[i].value) return false;
       }
       return true;
     }
 
     function toggleFindButton(){
-      if(!btn) return;
+      if (!btn) return;
       btn.style.display = allSelected() ? 'inline-block' : 'none';
     }
 
     // Wire up listeners
     requiredSelects.forEach(function(el){
       el.addEventListener('change', function(){
-        showSeekerGender();
+        revealSeekerGender();
         toggleFindButton();
       });
     });
 
-    // Initial state
-    showSeekerGender();
+    // Initial
+    revealSeekerGender();
     toggleFindButton();
   })();
 </script>
