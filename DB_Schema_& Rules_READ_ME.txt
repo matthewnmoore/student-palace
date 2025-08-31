@@ -23,6 +23,40 @@ HISTORY:
 
 
 
+STYLE GUIDELINE – Cards, Rounded Corners & Purple Accent
+=========================================================
+
+
+- Page layout uses multiple small "cards" (white boxes) rather than one long panel.
+- Each card:
+  • background: #fff
+  • subtle shadow (var(--shadow))
+  • rounded corners (var(--radius), currently 8px)
+  • 1px neutral border (var(--border))
+
+- Accent edges:
+  • Use `card--accent-edges` to add a purple accent on BOTH left and right sides.
+  • Thickness is controlled by CSS variable: `--accent-edge-width` (currently 3px).
+  • Accent color: `var(--brand)` (Student Palace purple).
+
+- When to accent:
+  • Hero/intro on landing pages.
+  • Key callouts (e.g., verification, warnings, success summaries).
+  • Top-most card on important dashboard/editor pages.
+
+- Consistency:
+  • Keep form pages split into logical sections (Basics, Bathrooms, Amenities, Actions).
+  • Avoid stacking >3–4 dense sections in a single card.
+  • Prefer readability and breathing room over dense layouts.
+
+
+
+
+
+
+
+
+
 REFERENCE: Database – Persistence, Safety & Ops (Render)
 ========================================================
 
