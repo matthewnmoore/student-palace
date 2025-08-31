@@ -12,19 +12,13 @@ from . import house_form, house_repo
 
 
 # -----------------------------
-# Address normalization helpers
+# Normalisation helpers
 # -----------------------------
 def _title_case_wordish(s: str) -> str:
-    """
-    Light title-casing suitable for UK addresses:
-    - Lowercases everything, then uppercases word initials
-    - Title-cases parts after spaces, hyphens and apostrophes.
-    """
     s = (s or "").strip()
     if not s:
-        return s
+        return ""
     s = s.lower()
-
     out = []
     cap_next = True
     for ch in s:
@@ -47,32 +41,11 @@ def _normalize_postcode(pc: str) -> str:
     return pc
 
 
-def _compose_address_from_parts(form) -> str:
-    """
-    Backend source of truth: build the one-line address from individual fields.
-    """
-    f = lambda k: (form.get(k) or "").strip()
-    flat_number   = _title_case_wordish(f("flat_number"))
-    house_name    = _title_case_wordish(f("house_name"))
-    house_number  = _title_case_wordish(f("house_number"))
-    street_name   = _title_case_wordish(f("street_name"))
-    address_extra = _title_case_wordish(f("address_extra"))
-    city          = _title_case_wordish(f("city"))
-    postcode      = _normalize_postcode(f("postcode"))
-
-    line1 = " ".join(x for x in [flat_number, (house_name or house_number), street_name] if x)
-    line2 = address_extra
-    line3 = city
-
-    parts = [p for p in [line1, line2, line3] if p and p.replace(",", "").strip()]
-    composed = ", ".join(parts + ([postcode] if postcode else []))
-    return composed.strip()
-
-
 def _normalize_full_address(s: str) -> str:
     """
-    Normalize a pre-built one-line address (e.g., hidden preview).
-    Title-case non-postcode parts and uppercase/space the final postcode.
+    Normalize the one-line preview address:
+    - Title-case non-postcode parts split by commas
+    - Uppercase and space the final postcode (if present)
     """
     s = (s or "").strip()
     if not s:
@@ -80,12 +53,12 @@ def _normalize_full_address(s: str) -> str:
     bits = [b.strip() for b in s.split(",") if b.strip()]
     if not bits:
         return ""
-    if len(bits) >= 1:
-        # Assume last is postcode
-        last = _normalize_postcode(bits[-1])
-        prior = [_title_case_wordish(b) for b in bits[:-1]]
-        return ", ".join(prior + ([last] if last else [])) if last else ", ".join([_title_case_wordish(b) for b in bits])
-    return ", ".join([_title_case_wordish(b) for b in bits])
+    # assume last is postcode
+    last = _normalize_postcode(bits[-1])
+    prior = [_title_case_wordish(b) for b in bits[:-1]]
+    if last:
+        return ", ".join(prior + [last])
+    return ", ".join(prior)  # no obvious postcode; just title-case parts
 
 
 # -------------------------------------------------------
@@ -93,11 +66,10 @@ def _normalize_full_address(s: str) -> str:
 # -------------------------------------------------------
 def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_address: str | None = None):
     """
-    Returns: (payload: dict, errors: list[str])
-    Strategy for address (server-side canonical):
-      1) Compose from parts (flat/house/street/city/postcode). If non-empty, use it.
-      2) Else, use hidden preview 'address' (normalized) if present.
-      3) Else (edit only), keep existing DB address.
+    STRICT RULE: Save ONLY the hidden preview address (name='address').
+    - If provided, normalize and use it.
+    - If empty in EDIT mode, keep existing DB value.
+    - If empty in NEW mode, error: address is required.
     """
     if hasattr(house_form, "parse_house_form"):
         return house_form.parse_house_form(form, mode=mode, default_listing_type=default_listing_type)
@@ -106,18 +78,13 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
     fget = lambda k, default="": (form.get(k) or default).strip()
 
     title = fget("title")
-    city = fget("city")
+    city_raw = fget("city")
     letting_type = fget("letting_type")
     gender_pref = fget("gender_preference")
 
-    # Address: server is source of truth
-    composed_from_parts = _compose_address_from_parts(form)
+    # Address: ONLY take hidden preview field
     address_hidden = fget("address")
-    address = (
-        composed_from_parts
-        or _normalize_full_address(address_hidden)
-        or (_normalize_full_address(existing_address) if (mode == "edit" and existing_address) else "")
-    )
+    address = _normalize_full_address(address_hidden) if address_hidden else ""
 
     # Bills dropdown -> houses.bills_option (+ legacy flag)
     bills_option = (form.get("bills_included") or "no").strip().lower()
@@ -153,10 +120,15 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
     epc_rating_raw = (form.get("epc_rating") or "").strip().upper()
     epc_rating = epc_rating_raw if epc_rating_raw in ("A", "B", "C", "D", "E", "F", "G") else ""
 
-    # Payload
+    # If address missing: on edit keep existing; on new error
+    if not address:
+        if mode == "edit" and existing_address:
+            address = _normalize_full_address(existing_address)
+        # else leave empty; validator below will catch it
+
     payload = {
         "title": title,
-        "city": _title_case_wordish(city),
+        "city": _title_case_wordish(city_raw),  # keep city tidy
         "address": address,
         "letting_type": letting_type,
         "bedrooms_total": bedrooms_total,
@@ -196,11 +168,11 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
     errors = []
     if not title:
         errors.append("Title is required.")
-    if not address:
+    if not payload["address"]:
         errors.append("Address is required.")
     if bedrooms_total < 1:
         errors.append("Bedrooms must be at least 1.")
-    if not validate_city_active(city):
+    if not validate_city_active(city_raw):
         errors.append("Please choose a valid active city.")
     if not valid_choice(letting_type, ("whole", "share")):
         errors.append("Invalid letting type.")
