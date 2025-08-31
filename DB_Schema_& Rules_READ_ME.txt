@@ -22,6 +22,64 @@ HISTORY:
 
 
 
+
+updated 31-08-2025
+==================
+
+UPDATE 2025-08-31 — Address Preview & EPC
+
+Address model (authoritative)
+	•	Single source of truth: houses.address (one-line string).
+	•	Address parts (flat_number, house_name, house_number, street_name, address_extra, postcode) exist only in the form UI to build a preview.
+Do NOT store these parts in the DB.
+	•	What is saved: the hidden form field address (the preview line) only.
+
+Normalisation rules (server + client)
+	•	Capitalisation: Non-postcode parts are light title-cased (handles spaces, hyphens, apostrophes).
+Examples:
+o'connor house → O'Connor House
+north-east road → North-East Road
+	•	Postcode: Uppercased, ensure final 3 characters separated by a space if missing.
+Example: sw1a1aa → SW1A 1AA
+	•	City/Town: City is admin-controlled and trusted; the Town input in the form mirrors City (read-only).
+
+Form behaviour (safety)
+	•	On Edit, if a saved address exists, the UI displays it as-is and will not recompute from parts unless the user edits the parts (tracked by a partsDirty flag).
+	•	On New, or if no saved address, the preview composes from parts.
+	•	On submit, the hidden address is updated only if parts were edited; otherwise the saved value passes through unchanged.
+
+Validation
+	•	houses.address is required (must be non-empty after normalisation).
+
+EPC rating (Phase 1)
+	•	Column: houses.epc_rating (TEXT, nullable/empty allowed) with allowed bands: A|B|C|D|E|F|G.
+	•	Form: <select name="epc_rating"> with options A–G and blank (optional).
+	•	Validation: If provided, must be one of A–G; otherwise store empty string.
+
+Migrations (add-only)
+	•	Ensure _safe_add_column(houses, "ADD COLUMN epc_rating TEXT NOT NULL DEFAULT ''").
+(If you already applied this, no action required.)
+
+Testing checklist (addresses & EPC)
+	•	New House: enter parts → preview shows one-line → Save → revisit Edit → preview shows saved line unchanged.
+	•	Edit House (no edits): Save → address persists exactly.
+	•	Edit House (change parts): preview updates → Save → DB shows new one-line.
+	•	Postcode formats to AA9 9AA shape where applicable.
+	•	EPC select enforces A–G when chosen; blank allowed.
+
+Known gotcha (fixed)
+	•	Symptom: Saved addresses “disappeared” on Edit.
+	•	Cause: JS recomposed from empty parts on load and overwrote hidden address.
+	•	Fix: Guard with partsDirty and only recompute when user edits parts; always prefer existing saved address on load.
+
+Restore points
+	•	Added: checkpoint-address-preview-sorted-2025-08-31 (UI + server aligned; preview guarded; EPC field live).
+
+
+
+
+
+
 THIS IS THE LATEST UPDATE PROVIDED BY CHATGPT 31/08/2025
 ========================================================
 
