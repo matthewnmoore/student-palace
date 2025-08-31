@@ -212,10 +212,15 @@ def ensure_db():
         """)
         conn.commit()
 
-    # --- NEW: Add-only feature columns on houses (your requested defaults) ---
-    # Bills dropdown (yes/no/some). Keep legacy bills_included; prefer this new field going forward.
+    # --- NEW: Bills model (dropdown + detailed utilities) ---
     _safe_add_column(conn, "houses", "ADD COLUMN bills_option TEXT NOT NULL DEFAULT 'no'")
+    _safe_add_column(conn, "houses", "ADD COLUMN bills_util_gas INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN bills_util_electric INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN bills_util_water INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN bills_util_broadband INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN bills_util_tv INTEGER NOT NULL DEFAULT 0")
 
+    # --- NEW: Amenities added previously ---
     _safe_add_column(conn, "houses", "ADD COLUMN washing_machine INTEGER NOT NULL DEFAULT 1")
     _safe_add_column(conn, "houses", "ADD COLUMN tumble_dryer INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN dishwasher INTEGER NOT NULL DEFAULT 0")
@@ -225,12 +230,9 @@ def ensure_db():
     _safe_add_column(conn, "houses", "ADD COLUMN central_heating INTEGER NOT NULL DEFAULT 1")
     _safe_add_column(conn, "houses", "ADD COLUMN air_con INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN vacuum INTEGER NOT NULL DEFAULT 0")
-    # wifi / wired_internet / common_area_tv / cctv / video_door_entry already exist
     _safe_add_column(conn, "houses", "ADD COLUMN fob_entry INTEGER NOT NULL DEFAULT 0")
-    # off_street_parking / local_parking already exist
     _safe_add_column(conn, "houses", "ADD COLUMN garden INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN roof_terrace INTEGER NOT NULL DEFAULT 0")
-    # bike_storage already exists
     _safe_add_column(conn, "houses", "ADD COLUMN games_room INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN cinema_room INTEGER NOT NULL DEFAULT 0")
 
