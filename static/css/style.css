@@ -135,3 +135,24 @@ input[type="text"],input[type="email"],input[type="password"],input[type="number
   .flex-between{flex-direction:column; align-items:flex-start; gap:8px}
   .logo-img{height:64px}
 }
+
+/* ===== Accent edges for cards ===== */
+.card--accent-edges{
+  position:relative;
+}
+.card--accent-edges::before,
+.card--accent-edges::after{
+  content:"";
+  position:absolute;
+  top:0; bottom:0;
+  width:6px;
+  background:var(--brand);
+  border-radius: var(--radius);
+}
+.card--accent-edges::before{ left:-1px; }
+.card--accent-edges::after{  right:-1px; }
+
+@media (max-width:720px){
+  .card--accent-edges::before,
+  .card--accent-edges::after{ width:5px; }
+}
