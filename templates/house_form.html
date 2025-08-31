@@ -2,15 +2,7 @@
 {% block title %}{{ 'Add house' if mode=='new' else 'Edit house' }} – Student Palace{% endblock %}
 {% block content %}
 <section class="wrap">
-  <div class="flex-between" style="margin-bottom:12px">
-    <h1 class="mt-0">{{ 'Add a house' if mode=='new' else 'Edit house' }}</h1>
-    {% if mode == 'edit' and house %}
-      <div class="inline-actions">
-        <a class="btn btn-outline" href="{{ url_for('landlord.house_photos', hid=house.id) }}">Manage photos</a>
-        <a class="btn btn-outline" href="{{ url_for('landlord.house_epc', hid=house.id) }}">Manage EPC PDF</a>
-      </div>
-    {% endif %}
-  </div>
+  <h1>{{ 'Add a house' if mode=='new' else 'Edit house' }}</h1>
 
   <form method="post" class="card" id="house-form">
     <div class="grid grid-2">
@@ -293,9 +285,13 @@
       </label>
     </div>
 
-    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button class="btn" type="submit">{{ 'Create house' if mode=='new' else 'Save changes' }}</button>
       <a class="btn" href="{{ url_for('landlord.landlord_houses') }}">Cancel</a>
+      {% if mode=='edit' and house and house.id %}
+        <!-- Use literal path so the page does not error if the endpoint isn’t registered yet -->
+        <a class="btn btn-outline" href="/landlord/houses/{{ house.id }}/epc">Manage EPC PDF</a>
+      {% endif %}
     </div>
   </form>
 </section>
@@ -344,6 +340,7 @@
 
     function titleCaseWordish(s) {
       s = (s || '').toLowerCase();
+      // Uppercase first letter after start, space, hyphen, apostrophe
       return s.replace(/(^|[ \-’'])\p{L}/gu, m => m.toUpperCase());
     }
 
@@ -375,14 +372,17 @@
       if (hidden) hidden.value = composed;
     }
 
+    // Mirror Town from City (read-only)
     function syncTownFromCity() {
       if (townInp && citySel) townInp.value = (citySel.value || '').trim();
     }
     on(citySel, 'change', () => {
       syncTownFromCity();
+      // Only recompute if user has actually edited address parts
       if (partsDirty) composeFromParts();
     });
 
+    // Format individual inputs on blur (so what they "enter" becomes capitalised)
     function wireTitleCaseOnBlur(id, formatter = titleCaseWordish) {
       const el = $(id);
       if (!el) return;
@@ -399,6 +399,7 @@
     wireTitleCaseOnBlur('address_extra');
     wireTitleCaseOnBlur('postcode', normalizePostcode);
 
+    // Live compose when typing (but don't mutate values, just mark dirty and update preview/hidden)
     partIds.forEach(id => on($(id), 'input', () => {
       partsDirty = true;
       composeFromParts();
@@ -407,15 +408,21 @@
     // Initial render:
     syncTownFromCity();
 
+    // IMPORTANT: Do NOT overwrite an existing saved address on load.
+    // If we already have a hidden value (edit page), just show it.
     if (hidden && hidden.value && hidden.value.trim()) {
       if (preview) preview.textContent = hidden.value;
     } else {
+      // New page or no saved address — start with composition (city might be selected)
       composeFromParts();
     }
 
+    // Before submit, ensure hidden has the latest preview only if user edited parts
     const form = document.getElementById('house-form');
     on(form, 'submit', function () {
-      if (partsDirty) composeFromParts();
+      if (partsDirty) {
+        composeFromParts();
+      }
       syncTownFromCity();
     });
   })();
