@@ -321,7 +321,9 @@
     on(billsSelect, 'change', syncUtilitiesVisibility);
     syncUtilitiesVisibility();
 
-    // Address composer -> ONLY the preview string is saved (into hidden #address_hidden)
+    // ------------------------------
+    // Title casing + address compose
+    // ------------------------------
     const citySel  = $('city_select');
     const townInp  = $('town');
     const hidden   = $('address_hidden');
@@ -329,6 +331,12 @@
 
     const partIds = ['flat_number','house_name','house_number','street_name','address_extra','postcode'];
     const getVal = (id) => ( $(id)?.value || '' ).trim();
+
+    function titleCaseWordish(s) {
+      s = (s || '').toLowerCase();
+      // Uppercase first letter after start, space, hyphen, apostrophe
+      return s.replace(/(^|[ \-’'])\p{L}/gu, m => m.toUpperCase());
+    }
 
     function normalizePostcode(pc) {
       pc = (pc || '').toUpperCase().trim();
@@ -339,20 +347,20 @@
     }
 
     function composeFromParts() {
-      const flat_number  = getVal('flat_number');
-      const house_name   = getVal('house_name');
-      const house_number = getVal('house_number');
-      const street_name  = getVal('street_name');
-      const address_extra= getVal('address_extra');
-      const city         = (citySel?.value || '').trim();
+      const flat_number  = titleCaseWordish(getVal('flat_number'));
+      const house_name   = titleCaseWordish(getVal('house_name'));
+      const house_number = titleCaseWordish(getVal('house_number'));
+      const street_name  = titleCaseWordish(getVal('street_name'));
+      const address_extra= titleCaseWordish(getVal('address_extra'));
+      const city         = titleCaseWordish(citySel?.value || '');
       const postcode     = normalizePostcode(getVal('postcode'));
 
       const line1 = [flat_number, (house_name || house_number), street_name].filter(Boolean).join(' ');
       const line2 = address_extra;
       const line3 = city;
 
-      const parts = [line1, line2, line3, postcode].filter(s => s && s.replace(/[, ]+/g,'').length);
-      const composed = parts.join(', ');
+      const parts = [line1, line2, line3].filter(s => s && s.replace(/[, ]+/g,'').length);
+      const composed = parts.join(', ') + (postcode ? (parts.length ? ', ' : '') + postcode : '');
 
       if (preview) preview.textContent = composed;
       if (hidden) hidden.value = composed;
@@ -364,24 +372,35 @@
     }
     on(citySel, 'change', () => { syncTownFromCity(); composeFromParts(); });
 
-    // Wire all part inputs to recompute the preview + hidden address
+    // Format individual inputs on blur (so what they "enter" becomes capitalised)
+    function wireTitleCaseOnBlur(id, formatter = titleCaseWordish) {
+      const el = $(id);
+      if (!el) return;
+      on(el, 'blur', () => { el.value = formatter(el.value); composeFromParts(); });
+    }
+    wireTitleCaseOnBlur('flat_number');
+    wireTitleCaseOnBlur('house_name');
+    wireTitleCaseOnBlur('house_number');
+    wireTitleCaseOnBlur('street_name');
+    wireTitleCaseOnBlur('address_extra');
+    wireTitleCaseOnBlur('postcode', normalizePostcode);
+
+    // Also re-compose on input so preview stays live (don’t mutate live typing to avoid cursor jumps)
     partIds.forEach(id => on($(id), 'input', composeFromParts));
 
     // Initial render:
-    // - Keep existing hidden value (so edit pages show saved address immediately)
-    // - Sync town display, but DO NOT override hidden/preview unless user types
     syncTownFromCity();
-    if (!hidden.value && preview) preview.textContent = ''; // ensure consistent state
+    // Keep existing hidden/preview values for edit pages (already saved in DB)
+    // Compose once to apply casing if user starts editing
+    composeFromParts();
 
     // Before submit, ensure hidden has the latest preview (compose if user filled parts)
     const form = document.getElementById('house-form');
     on(form, 'submit', function () {
-      // If user entered any parts but hidden is empty, compose now.
       const anyPart = partIds.some(id => getVal(id));
       if (anyPart && (!hidden.value || !hidden.value.trim())) {
         composeFromParts();
       }
-      // Always mirror town one last time
       syncTownFromCity();
     });
   })();
