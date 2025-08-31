@@ -26,28 +26,27 @@ def _compose_address_from_parts(form) -> str:
     house_number  = f("house_number")
     street_name   = f("street_name")
     address_extra = f("address_extra")
-    # Town mirrors city in the UI, but we won't rely on that
     city          = f("city")
     postcode      = _normalize_postcode(f("postcode"))
 
     line1 = " ".join(x for x in [flat_number, (house_name or house_number), street_name] if x)
     line2 = address_extra
-    line3 = city  # single source of truth for locality
+    line3 = city
     parts = [line1, line2, line3, postcode]
     composed = ", ".join([p for p in parts if p and p.replace(",", "").strip()])
     return composed.strip()
 
 
-def _parse_or_delegate(form, mode: str, default_listing_type: str):
+def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_address: str | None = None):
     """
     Use house_form.parse_house_form if available.
-    Fallback to an inline parser (mirrors previous working behaviour) so we never 500.
+    Fallback to an inline parser so we never 500.
     Returns: (payload: dict, errors: list[str])
     """
     if hasattr(house_form, "parse_house_form"):
         return house_form.parse_house_form(form, mode=mode, default_listing_type=default_listing_type)
 
-    # ---- Fallback parser (keeps prior behaviour) ----
+    # ---- Fallback parser ----
     fget = lambda k, default="": (form.get(k) or default).strip()
 
     title = fget("title")
@@ -56,11 +55,15 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
     letting_type = fget("letting_type")
     gender_pref = fget("gender_preference")
 
-    # If hidden 'address' is empty, compose it server-side from the new fields
+    # If hidden 'address' is empty, compose it server-side from parts
     if not address:
         address = _compose_address_from_parts(form)
 
-    # Bills dropdown (form field name 'bills_included') -> houses.bills_option (+ legacy flag)
+    # EDIT safety net: if still empty and we have an existing address, keep the old one
+    if mode == "edit" and (not address) and existing_address:
+        address = existing_address
+
+    # Bills dropdown -> houses.bills_option (+ legacy flag)
     bills_option = (form.get("bills_included") or "no").strip().lower()
     if bills_option not in ("yes", "no", "some"):
         bills_option = "no"
@@ -90,11 +93,11 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
     bedrooms_total = int(form.get("bedrooms_total") or 0)
     listing_type = (form.get("listing_type") or default_listing_type or "owner").strip()
 
-    # NEW: EPC rating (optional A–G). Store empty string if not valid/selected.
+    # EPC rating (optional A–G). Store empty string if not valid/selected.
     epc_rating_raw = (form.get("epc_rating") or "").strip().upper()
     epc_rating = epc_rating_raw if epc_rating_raw in ("A", "B", "C", "D", "E", "F", "G") else ""
 
-    # Amenities (form names; air_conditioning maps to DB air_con)
+    # Payload
     payload = {
         "title": title,
         "city": city,
@@ -129,11 +132,11 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
         "cinema_room": clean_bool("cinema_room"),
         "cleaning_service": (form.get("cleaning_service") or "none").strip(),
         "listing_type": listing_type,
-        "epc_rating": epc_rating,  # NEW
+        "epc_rating": epc_rating,
     }
     payload.update(bills_util)
 
-    # Validation (same rules as before)
+    # Validation
     errors = []
     if not title:
         errors.append("Title is required.")
@@ -151,14 +154,8 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
         errors.append("Invalid cleaning service value.")
     if not valid_choice(listing_type, ("owner", "agent")):
         errors.append("Invalid listing type.")
-    # epc_rating is optional; if provided, ensure valid
     if epc_rating_raw and epc_rating == "":
         errors.append("Invalid EPC rating (choose A, B, C, D, E, F or G).")
-
-    # Helpful debug flash if we blocked save
-    if errors:
-        # Show what address the server composed, to debug hidden-field issues quickly
-        flash(f"Debug: composed address = {address}", "info")
 
     return payload, errors
     # ---- End fallback ----
@@ -236,7 +233,11 @@ def house_edit(hid):
     default_listing_type = house_form.get_default_listing_type(conn, lid, existing=house)
 
     if request.method == "POST":
-        payload, errors = _parse_or_delegate(request.form, mode="edit", default_listing_type=default_listing_type)
+        payload, errors = _parse_or_delegate(
+            request.form, mode="edit",
+            default_listing_type=default_listing_type,
+            existing_address=house.get("address")
+        )
 
         if errors:
             for e in errors:
