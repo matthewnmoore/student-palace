@@ -52,23 +52,16 @@
         </select>
       </label>
 
-      <!-- Bills included (dropdown) – saved in DB as houses.bills_option -->
+      <!-- Bills included (dropdown) – saved as houses.bills_option -->
+      {% set bi = (form.bills_option or 'no') if form else 'no' %}
       <label class="field">
         <span class="label">Bills included</span>
-        {% set bi = (form.bills_option or 'no') if form else 'no' %}
         <select name="bills_included" id="bills_included">
           <option value="no" {% if bi=='no' %}selected{% endif %}>No</option>
           <option value="yes" {% if bi=='yes' %}selected{% endif %}>Yes</option>
           <option value="some" {% if bi=='some' %}selected{% endif %}>Some</option>
         </select>
         <p class="help">Choose “Some” to specify which utilities are covered.</p>
-      </label>
-
-      <!-- Placeholder for price (not wired yet) -->
-      <label class="field">
-        <span class="label">Price (placeholder)</span>
-        <input type="text" name="price_placeholder" placeholder="£— coming soon" value="" disabled>
-        <p class="help">We’ll add pricing logic later.</p>
       </label>
 
       <!-- Listing type (Owner/Agent) -->
@@ -83,46 +76,47 @@
       </label>
     </div>
 
+    <!-- Bills utilities (shown only when “some”) -->
+    <div id="bills-utilities" class="card" style="margin-top:10px; {% if bi!='some' %}display:none{% endif %}">
+      <h3 class="mt-0">Bills cover (tick the utilities included)</h3>
+      <div class="grid grid-3">
+        <label class="field checkbox">
+          <input type="checkbox" name="bills_util_gas" id="bills_util_gas"
+                 {% if form and form.bills_util_gas in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Gas</span>
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" name="bills_util_electric" id="bills_util_electric"
+                 {% if form and form.bills_util_electric in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Electric</span>
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" name="bills_util_water" id="bills_util_water"
+                 {% if form and form.bills_util_water in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Water</span>
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" name="bills_util_broadband" id="bills_util_broadband"
+                 {% if form and form.bills_util_broadband in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Broadband</span>
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" name="bills_util_tv" id="bills_util_tv"
+                 {% if form and form.bills_util_tv in ['1',1,'on',True] %}checked{% endif %}>
+          <span>TV licence/TV</span>
+        </label>
+      </div>
+      <p class="help" style="margin-top:8px">
+        If you set “Yes” for bills, all utilities are treated as included; if “No”, none are included.
+      </p>
+    </div>
+
     <h3 style="margin-top:14px">Bathrooms</h3>
     <div class="grid">
       <label class="field">
         <span class="label">Shared bathrooms (number)</span>
         <input type="number" name="shared_bathrooms" min="0" value="{{ (form.shared_bathrooms or 0) if form else 0 }}">
       </label>
-    </div>
-
-    <!-- Bills details: only shown when "Some" is selected -->
-    {% set show_some = (bi == 'some') %}
-    <div class="card" id="bills_some_block" style="margin-top:10px; {% if not show_some %}display:none;{% endif %}">
-      <h3 class="mt-0">Bills breakdown (when “Some” selected)</h3>
-      <div class="grid grid-3">
-        <label class="field checkbox">
-          {% set util_gas = (form.bills_util_gas in ['1',1,'on',True]) if form else False %}
-          <input type="checkbox" name="bills_util_gas" id="bills_util_gas" {% if util_gas %}checked{% endif %}>
-          <span>Gas</span>
-        </label>
-        <label class="field checkbox">
-          {% set util_elec = (form.bills_util_electric in ['1',1,'on',True]) if form else False %}
-          <input type="checkbox" name="bills_util_electric" id="bills_util_electric" {% if util_elec %}checked{% endif %}>
-          <span>Electric</span>
-        </label>
-        <label class="field checkbox">
-          {% set util_water = (form.bills_util_water in ['1',1,'on',True]) if form else False %}
-          <input type="checkbox" name="bills_util_water" id="bills_util_water" {% if util_water %}checked{% endif %}>
-          <span>Water</span>
-        </label>
-        <label class="field checkbox">
-          {% set util_bb = (form.bills_util_broadband in ['1',1,'on',True]) if form else False %}
-          <input type="checkbox" name="bills_util_broadband" id="bills_util_broadband" {% if util_bb %}checked{% endif %}>
-          <span>Broadband</span>
-        </label>
-        <label class="field checkbox">
-          {% set util_tv = (form.bills_util_tv in ['1',1,'on',True]) if form else False %}
-          <input type="checkbox" name="bills_util_tv" id="bills_util_tv" {% if util_tv %}checked{% endif %}>
-          <span>TV licence</span>
-        </label>
-      </div>
-      <p class="help" style="margin-top:6px">Tick the utilities that are included in the rent.</p>
     </div>
 
     <h3 style="margin-top:14px">House Info</h3>
@@ -239,37 +233,31 @@
 </section>
 
 <script>
-// Bills UI logic:
-// - "no"  => hide details, uncheck all utilities
-// - "yes" => hide details, check all utilities
-// - "some"=> show details, leave user selections as-is (server will persist)
-(function() {
-  const select = document.getElementById('bills_included');
-  const block  = document.getElementById('bills_some_block');
-  const utilIds = ['bills_util_gas','bills_util_electric','bills_util_water','bills_util_broadband','bills_util_tv'];
-  const utils = utilIds.map(id => document.getElementById(id));
+  (function () {
+    const billsSelect = document.getElementById('bills_included');
+    const utilBox = document.getElementById('bills-utilities');
+    const utilIds = ['bills_util_gas','bills_util_electric','bills_util_water','bills_util_broadband','bills_util_tv'];
+    const getChecks = () => utilIds.map(id => document.getElementById(id)).filter(Boolean);
 
-  function setUtils(checked) {
-    utils.forEach(cb => { if (cb) cb.checked = checked; });
-  }
-
-  function updateVisibility() {
-    const v = (select.value || 'no').toLowerCase();
-    if (v === 'some') {
-      block.style.display = '';
-    } else {
-      block.style.display = 'none';
-      if (v === 'yes') setUtils(true);
-      else setUtils(false); // 'no'
+    function syncUtilitiesVisibility() {
+      const val = billsSelect.value;
+      if (val === 'some') {
+        utilBox.style.display = '';
+      } else {
+        utilBox.style.display = 'none';
+        const checks = getChecks();
+        if (val === 'yes') {
+          checks.forEach(c => c.checked = true);
+        } else {
+          // val === 'no'
+          checks.forEach(c => c.checked = false);
+        }
+      }
     }
-  }
 
-  if (select && block) {
-    // On load: enforce initial state (handles Edit + New consistently)
-    updateVisibility();
-    // On change: apply rules
-    select.addEventListener('change', updateVisibility);
-  }
-})();
+    billsSelect.addEventListener('change', syncUtilitiesVisibility);
+    // Initial state:
+    syncUtilitiesVisibility();
+  })();
 </script>
 {% endblock %}
