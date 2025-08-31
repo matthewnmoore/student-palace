@@ -212,6 +212,29 @@ def ensure_db():
         """)
         conn.commit()
 
+    # --- NEW: Add-only feature columns on houses (your requested defaults) ---
+    # Bills dropdown (yes/no/some). Keep legacy bills_included; prefer this new field going forward.
+    _safe_add_column(conn, "houses", "ADD COLUMN bills_option TEXT NOT NULL DEFAULT 'no'")
+
+    _safe_add_column(conn, "houses", "ADD COLUMN washing_machine INTEGER NOT NULL DEFAULT 1")
+    _safe_add_column(conn, "houses", "ADD COLUMN tumble_dryer INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN dishwasher INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN cooker INTEGER NOT NULL DEFAULT 1")
+    _safe_add_column(conn, "houses", "ADD COLUMN microwave INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN coffee_maker INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN central_heating INTEGER NOT NULL DEFAULT 1")
+    _safe_add_column(conn, "houses", "ADD COLUMN air_con INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN vacuum INTEGER NOT NULL DEFAULT 0")
+    # wifi / wired_internet / common_area_tv / cctv / video_door_entry already exist
+    _safe_add_column(conn, "houses", "ADD COLUMN fob_entry INTEGER NOT NULL DEFAULT 0")
+    # off_street_parking / local_parking already exist
+    _safe_add_column(conn, "houses", "ADD COLUMN garden INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN roof_terrace INTEGER NOT NULL DEFAULT 0")
+    # bike_storage already exists
+    _safe_add_column(conn, "houses", "ADD COLUMN games_room INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN cinema_room INTEGER NOT NULL DEFAULT 0")
+
+    # --- house_images add-only sync ---
     if table_exists(conn, "house_images"):
         _safe_add_column(conn, "house_images", "ADD COLUMN file_name TEXT NOT NULL DEFAULT ''")
         _safe_add_column(conn, "house_images", "ADD COLUMN filename TEXT NOT NULL DEFAULT ''")
