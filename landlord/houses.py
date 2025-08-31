@@ -60,7 +60,7 @@ def house_new():
             bills_option = "no"
         bills_included_legacy = 1 if bills_option == "yes" else 0
 
-        # Utilities detailed flags (appear in form later; supported now)
+        # Detailed utilities (supported now; visible when 'some')
         if bills_option == "yes":
             bills_util_gas = 1
             bills_util_electric = 1
@@ -92,7 +92,7 @@ def house_new():
         microwave = clean_bool("microwave")
         coffee_maker = clean_bool("coffee_maker")
         central_heating = clean_bool("central_heating")
-        air_conditioning = clean_bool("air_conditioning")  # form name
+        air_conditioning = clean_bool("air_conditioning")  # form field name; maps to DB air_con
         vacuum = clean_bool("vacuum")
         wifi = clean_bool("wifi")
         wired_internet = clean_bool("wired_internet")
