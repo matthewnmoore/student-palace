@@ -116,3 +116,19 @@ if 'no' show all properties with "all bills" and all properties with "some bills
 
 
 
+Room availabe flow chart
+=========================
+
+#is room available# default as yes when setting up the room
+#is the room let/unavailable# tick box if changed to yes then ask #when is it let/unavailable until#
+
+
+
+
+
+
+
+
+
+
+
