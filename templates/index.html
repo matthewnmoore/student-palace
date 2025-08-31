@@ -16,11 +16,12 @@
     <h2 class="mt-0" style="text-align:center">Search Student Properties</h2>
 
     <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2 form-compact-labels" style="max-width:820px;margin:0 auto">
+
       <!-- City -->
       <label class="field" style="text-align:center">
         <span class="label-inline">City</span>
-        <select name="city">
-          <option value="">Any city</option>
+        <select name="city" id="city" data-required>
+          <option value="" selected>Please choose</option>
           {% for c in cities %}
             <option value="{{ c }}">{{ c }}</option>
           {% endfor %}
@@ -30,8 +31,8 @@
       <!-- Group size -->
       <label class="field" style="text-align:center">
         <span class="label-inline">Group size</span>
-        <select name="group_size">
-          <option value="">Any</option>
+        <select name="group_size" id="group_size" data-required>
+          <option value="" selected>Please choose</option>
           {% for n in range(1,10) %}
             <option value="{{ n }}">{{ n }}</option>
           {% endfor %}
@@ -41,7 +42,8 @@
       <!-- Academic year -->
       <label class="field" style="text-align:center">
         <span class="label-inline">Academic year</span>
-        <select name="academic_year">
+        <select name="academic_year" id="academic_year" data-required>
+          <option value="" selected>Please choose</option>
           {% set current_year = 2025 %}
           {% for y in range(current_year, current_year+5) %}
             {% set next = y + 1 %}
@@ -50,39 +52,43 @@
         </select>
       </label>
 
-      <!-- Property gender preference (does NOT clash with user gender) -->
-      <label class="field" style="text-align:center">
+      <!-- Property gender preference (centered) -->
+      <label class="field" style="text-align:center; grid-column:1/-1; max-width:420px; margin:0 auto">
         <span class="label-inline">A house that identifies as</span>
-        <select name="gender_pref" id="gender_pref">
-          <option value="" selected>Please choose one</option>
+        <select name="gender_pref" id="gender_pref" data-required>
+          <option value="" selected>Please choose</option>
           <option value="Male">Just Male</option>
           <option value="Female">Just Female</option>
           <option value="Anything">Anything — I’m not fussed</option>
         </select>
       </label>
 
-      <!-- Preferences row centered -->
-      <label class="field" style="grid-column:1/-1; text-align:center">
-        <div class="prefs-row" style="justify-content:center">
-          <label><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
-          <button class="btn btn-accent btn-wide-ish" type="submit" style="min-width:240px">Find rooms</button>
-          <label><input type="checkbox" name="bills_included"> All bills included</label>
-        </div>
-      </label>
-
-      <!-- NEW: Seeker gender (appears after any selection above) -->
+      <!-- NEW: Seeker gender (required; appears below the above; centered) -->
       <div style="grid-column:1/-1">
-        <label class="field" id="seeker_gender_wrap" style="display:none; text-align:center">
+        <label class="field" id="seeker_gender_wrap" style="display:none; text-align:center; max-width:520px; margin:0 auto">
           <span class="label">Can I politely ask if you are male or female to help me refine your search</span>
-          <select name="seeker_gender" id="seeker_gender" style="max-width:320px; margin:0 auto">
-            <option value="">Please choose (optional)</option>
+          <select name="seeker_gender" id="seeker_gender" data-required style="max-width:320px; margin:0 auto">
+            <option value="" selected>Please choose</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
             <option value="NA">I’d rather not say</option>
           </select>
-          <p class="help">This helps us match your preferences to suitable houses.</p>
         </label>
       </div>
+
+      <!-- Preferences row (optional checkboxes). Button appears only when all dropdowns chosen -->
+      <label class="field" style="grid-column:1/-1; text-align:center">
+        <div class="prefs-row" style="justify-content:center">
+          <label><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
+
+          <!-- Hidden by default; shown when all selects have values -->
+          <button id="find_btn" class="btn btn-accent btn-wide-ish" type="submit" style="min-width:260px; display:none">
+            Find rooms
+          </button>
+
+          <label><input type="checkbox" name="bills_included"> All bills included</label>
+        </div>
+      </label>
     </form>
   </div>
 
@@ -120,17 +126,48 @@
 
 </section>
 
-<!-- Minimal JS to reveal seeker gender once a house gender is chosen -->
+<!-- Minimal JS to reveal seeker gender and show the Find button only when all dropdowns are chosen -->
 <script>
   (function(){
-    var gp = document.getElementById('gender_pref');
+    var gp   = document.getElementById('gender_pref');
     var wrap = document.getElementById('seeker_gender_wrap');
-    if(!gp || !wrap) return;
-    function toggle(){
+    var btn  = document.getElementById('find_btn');
+
+    var requiredSelects = Array.prototype.slice.call(
+      document.querySelectorAll('select[data-required]')
+    );
+
+    function showSeekerGender(){
+      if(!gp || !wrap) return;
       wrap.style.display = gp.value ? 'block' : 'none';
+      // If we hide the wrap, also clear the seeker value to keep validation logic simple
+      var sg = document.getElementById('seeker_gender');
+      if (sg && wrap.style.display === 'none') sg.value = '';
     }
-    gp.addEventListener('change', toggle);
-    toggle(); // init
+
+    function allSelected(){
+      for (var i=0; i<requiredSelects.length; i++){
+        if (!requiredSelects[i].value) return false;
+      }
+      return true;
+    }
+
+    function toggleFindButton(){
+      if(!btn) return;
+      btn.style.display = allSelected() ? 'inline-block' : 'none';
+    }
+
+    // Wire up listeners
+    requiredSelects.forEach(function(el){
+      el.addEventListener('change', function(){
+        showSeekerGender();
+        toggleFindButton();
+      });
+    });
+
+    // Initial state
+    showSeekerGender();
+    toggleFindButton();
   })();
 </script>
 {% endblock %}
