@@ -12,12 +12,15 @@
   </div>
 
   <!-- SEARCH -->
-  <div class="card card--accent-edges">
-    <h2 class="mt-0">Search verified properties</h2>
-    <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2 form-compact-labels">
+  <div class="card card--accent-edges hero-centered">
+    <h2 class="mt-0">Search Student Properties</h2>
+
+    <form action="{{ url_for('public.search') }}" method="get"
+          class="grid grid-2 form-compact-labels"
+          style="justify-items:center; text-align:center;">
 
       <!-- City -->
-      <label class="field">
+      <label class="field" style="min-width:240px">
         <span class="label-inline">City</span>
         <select name="city">
           <option value="">Any city</option>
@@ -28,7 +31,7 @@
       </label>
 
       <!-- Group size -->
-      <label class="field">
+      <label class="field" style="min-width:240px">
         <span class="label-inline">Group size</span>
         <select name="group_size">
           <option value="">Any</option>
@@ -38,9 +41,9 @@
         </select>
       </label>
 
-      <!-- Gender -->
-      <label class="field">
-        <span class="label-inline">I want a house that is</span>
+      <!-- Gender wording update -->
+      <label class="field" style="min-width:240px">
+        <span class="label-inline">I want a house that identifies as</span>
         <select name="gender" required>
           <option value="" selected>Please choose one</option>
           <option value="Male">Male</option>
@@ -49,14 +52,26 @@
         </select>
       </label>
 
-      <!-- Preferences row with button in middle -->
+      <!-- Academic Year -->
+      <label class="field" style="min-width:240px">
+        <span class="label-inline">Academic year</span>
+        <select name="academic_year">
+          <option value="">Any</option>
+          <option value="2025/2026">2025/2026</option>
+          <option value="2026/2027">2026/2027</option>
+          <option value="2027/2028">2027/2028</option>
+          <option value="2028/2029">2028/2029</option>
+        </select>
+      </label>
+
+      <!-- Preferences row with BIG centered button -->
       <div class="field" style="grid-column:1/-1">
         <span class="label">Preferences</span>
         <div class="prefs-row" style="justify-content:center; align-items:center; gap:18px">
           <label class="check"><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
 
-          <!-- Button sits between -->
-          <button class="btn btn-accent" type="submit">Find rooms</button>
+          <!-- Big wide button in the middle -->
+          <button class="btn btn-accent btn-lg-wide btn-wide" type="submit">Find rooms</button>
 
           <label class="check"><input type="checkbox" name="bills_included"> All bills included</label>
         </div>
