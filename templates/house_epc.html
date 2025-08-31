@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}EPC PDF – {{ house.title }}{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">EPC document for “{{ house.title }}”</h1>
+    <div class="inline-actions">
+      <a class="btn" href="{{ url_for('landlord.landlord_houses') }}">Back to houses</a>
+      <a class="btn btn-outline" href="{{ url_for('landlord.house_edit', hid=house.id) }}">Edit house</a>
+      <a class="btn btn-outline" href="{{ url_for('landlord.house_photos', hid=house.id) }}">Manage photos</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card card--accent-edges">
+    <h3 class="mt-0">Upload or replace EPC (PDF only)</h3>
+    <p class="help">Only one EPC is current at a time. Uploading a new file replaces the current EPC and keeps the old one in history.</p>
+
+    <form id="epc-upload-form"
+          action="{{ url_for('landlord.house_epc', hid=house.id) }}"
+          method="post" enctype="multipart/form-data">
+      <input id="epc-file" type="file" name="epc_pdf" accept="application/pdf" required hidden>
+
+      <div id="drop-zone"
+           style="border:2px dashed var(--border); border-radius:12px; padding:20px; text-align:center; cursor:pointer; background:#fff;">
+        <div style="font-weight:600; margin-bottom:6px">Drag &amp; drop EPC PDF here</div>
+        <div class="small" style="color:var(--muted)">…or click to choose a file from your device</div>
+      </div>
+
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+        <button id="choose-btn" class="btn btn-outline" type="button">Choose PDF</button>
+        <button id="upload-btn" class="btn" type="submit">Upload</button>
+        <span id="selection-status" class="small" style="color:var(--muted)"></span>
+      </div>
+    </form>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <div class="flex-between" style="margin-bottom:10px; align-items:flex-end;">
+      <h3 class="mt-0">Current &amp; history</h3>
+      <div class="muted small">
+        {% if docs and docs|length %}
+          {{ docs|length }} file{{ docs|length>1 and 's' or '' }} in total
+        {% else %}
+          No EPC uploaded yet.
+        {% endif %}
+      </div>
+    </div>
+
+    {% if docs and docs|length %}
+      <ul style="list-style:none; padding:0; margin:0; display:grid; grid-template-columns:1fr; gap:10px;">
+        {% for d in docs %}
+          <li style="border:1px solid var(--border); border-radius:10px; background:#fff; padding:10px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+            <div>
+              <div style="font-weight:600">
+                {{ d.is_current and 'Current EPC' or 'Previous EPC' }}
+              </div>
+              <div class="small muted">
+                {{ (d.bytes/1024/1024)|round(2) }} MB • Uploaded {{ d.created_at }}
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <a class="btn btn-outline" href="{{ url_for('static', filename=d.file_path) }}" target="_blank" rel="noopener">View</a>
+              <form method="post" action="{{ url_for('landlord.house_epc_delete', hid=house.id, doc_id=d.id) }}"
+                    onsubmit="return confirm('Delete this EPC PDF?');">
+                <button class="btn btn-admin" type="submit">Delete</button>
+              </form>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No EPC on file yet. Upload your PDF above.</p>
+    {% endif %}
+  </div>
+</section>
+
+<script>
+(function(){
+  const input = document.getElementById('epc-file');
+  const drop = document.getElementById('drop-zone');
+  const chooseBtn = document.getElementById('choose-btn');
+  const status = document.getElementById('selection-status');
+
+  function summarize(file){
+    if (!file){ status.textContent=''; return; }
+    const mb = (file.size/1024/1024).toFixed(2);
+    status.textContent = `${file.name} • ${mb} MB`;
+  }
+
+  function setInputFile(file){
+    const bag = new DataTransfer();
+    if (file) bag.items.add(file);
+    input.files = bag.files;
+    summarize(file);
+  }
+
+  chooseBtn.addEventListener('click', () => input.click());
+  drop.addEventListener('click', () => input.click());
+
+  input.addEventListener('change', () => {
+    const f = input.files && input.files[0] ? input.files[0] : null;
+    if (f && f.type !== 'application/pdf'){
+      alert('Only PDF files are allowed.');
+      setInputFile(null);
+      return;
+    }
+    setInputFile(f);
+  });
+
+  ['dragenter','dragover'].forEach(evt =>
+    drop.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation();
+      drop.style.background = '#f8f6ff'; drop.style.borderColor = 'var(--brand)'; })
+  );
+  ['dragleave','drop'].forEach(evt =>
+    drop.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation();
+      drop.style.background = '#fff'; drop.style.borderColor = 'var(--border)'; })
+  );
+  drop.addEventListener('drop', e => {
+    const files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [];
+    const f = files[0] || null;
+    if (f && f.type !== 'application/pdf'){
+      alert('Only PDF files are allowed.');
+      setInputFile(null);
+      return;
+    }
+    setInputFile(f);
+  });
+})();
+</script>
+{% endblock %}
