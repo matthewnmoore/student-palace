@@ -12,9 +12,11 @@
   </div>
 
   <!-- SEARCH -->
-  <div class="card">
+  <div class="card card--accent-edges">
     <h2 class="mt-0">Search verified properties</h2>
     <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2 form-compact-labels">
+
+      <!-- City -->
       <label class="field">
         <span class="label-inline">City</span>
         <select name="city">
@@ -25,6 +27,7 @@
         </select>
       </label>
 
+      <!-- Group size -->
       <label class="field">
         <span class="label-inline">Group size</span>
         <select name="group_size">
@@ -35,6 +38,7 @@
         </select>
       </label>
 
+      <!-- Gender -->
       <label class="field">
         <span class="label-inline">I want a house that is</span>
         <select name="gender" required>
@@ -45,34 +49,28 @@
         </select>
       </label>
 
-      <label class="field" style="grid-column:1/-1">
+      <!-- Preferences row with button in middle -->
+      <div class="field" style="grid-column:1/-1">
         <span class="label">Preferences</span>
-        <div class="prefs-row">
-          <label><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
-          <label><input type="checkbox" name="bills_included"> All bills included</label>
-        </div>
-      </label>
+        <div class="prefs-row" style="justify-content:center; align-items:center; gap:18px">
+          <label class="check"><input type="checkbox" name="ensuite"> Ensuite / own bathroom</label>
 
-      <div style="grid-column:1/-1; margin-top:6px">
-        <button class="btn btn-accent" type="submit">Find rooms</button>
+          <!-- Button sits between -->
+          <button class="btn btn-accent" type="submit">Find rooms</button>
+
+          <label class="check"><input type="checkbox" name="bills_included"> All bills included</label>
+        </div>
       </div>
     </form>
   </div>
 
-  <!-- FEATURED -->
-  <div class="card">
+  <!-- FEATURED + CITY GRID -->
+  <div class="card card--accent-edges">
     <h2 class="mt-0">Featured this week</h2>
     <p class="muted">A popular pick in {{ cities[0] if cities else 'Cardiff' }}.</p>
-    <div class="inline-actions" style="margin-top:8px">
-      <a class="btn" href="{{ url_for('public.search') }}">Browse all</a>
-      <a class="btn btn-outline" href="{{ url_for('public.index') }}">Back to home</a>
-    </div>
-  </div>
 
-  <!-- CITY GRID (order per admin, only active cities) -->
-  {% if cities_with_meta and cities_with_meta|length %}
-    <div class="card" style="padding:16px">
-      <div class="city-grid">
+    {% if cities_with_meta and cities_with_meta|length %}
+      <div class="city-grid" style="margin-top:12px">
         {% for c in cities_with_meta %}
           <a class="city-card" href="{{ url_for('public.search') }}?city={{ c.name|urlencode }}">
             {% if c.image_url %}
@@ -88,8 +86,13 @@
           </a>
         {% endfor %}
       </div>
+    {% endif %}
+
+    <div class="inline-actions" style="margin-top:16px">
+      <a class="btn" href="{{ url_for('public.search') }}">Browse all</a>
+      <a class="btn btn-outline" href="{{ url_for('public.index') }}">Back to home</a>
     </div>
-  {% endif %}
+  </div>
 
 </section>
 {% endblock %}
