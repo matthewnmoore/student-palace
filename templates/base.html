@@ -18,8 +18,7 @@
       <a class="btn btn-accent" href="{{ url_for('public.index') }}">Tenants</a>
 
       {% if session.get('landlord_id') %}
-        <!-- ✅ avoid missing endpoint; use existing landlord page -->
-        <a class="btn" href="{{ url_for('landlord.landlord_houses') }}">My houses</a>
+        <a class="btn" href="{{ url_for('landlord.dashboard') }}">Dashboard</a>
         <a class="btn btn-outline" href="{{ url_for('auth.logout') }}">Log out</a>
       {% else %}
         <a class="btn" href="{{ url_for('auth.landlords_entry') }}">Landlords</a>
