@@ -127,7 +127,11 @@ if the tick box was left empty then do nothing, tickbox default is no
 
 
 
+Searches will resultin:
 
+all criteria must be met from the selection on the homepage.
+list 'boosted properties first'
+if there are no results then remove the ensuite and inclusive bills from the search and run the search again with the heading 'we couldnt find any rooms to fit your requirements but these are close'
 
 
 
