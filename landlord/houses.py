@@ -6,9 +6,10 @@ from datetime import datetime as dt
 from db import get_db
 from utils import (
     current_landlord_id, require_landlord, get_active_cities_safe,
-    validate_city_active, clean_bool, valid_choice, owned_house_or_none
+    owned_house_or_none
 )
 from . import bp
+from . import house_form, house_repo
 
 
 @bp.route("/landlord/houses")
@@ -26,11 +27,7 @@ def landlord_houses():
     ).fetchall()
     conn.close()
     is_verified = int(prof["is_verified"]) if (prof and "is_verified" in prof.keys()) else 0
-    return render_template(
-        "houses_list.html",
-        houses=rows,
-        is_verified=is_verified
-    )
+    return render_template("houses_list.html", houses=rows, is_verified=is_verified)
 
 
 @bp.route("/landlord/houses/new", methods=["GET", "POST"])
@@ -42,132 +39,25 @@ def house_new():
     cities = get_active_cities_safe()
 
     conn = get_db()
-    prof = conn.execute(
-        "SELECT role FROM landlord_profiles WHERE landlord_id=?", (lid,)
-    ).fetchone()
-    default_listing_type = (prof["role"] if prof and prof["role"] in ("owner", "agent") else "owner")
+    default_listing_type = house_form.get_default_listing_type(conn, lid)
 
     if request.method == "POST":
-        title = (request.form.get("title") or "").strip()
-        city = (request.form.get("city") or "").strip()
-        address = (request.form.get("address") or "").strip()
-        letting_type = (request.form.get("letting_type") or "").strip()
-        gender_pref = (request.form.get("gender_preference") or "").strip()
+        payload, errors = house_form.parse_house_form(request.form, mode="new", default_listing_type=default_listing_type)
 
-        # Bills dropdown (form field name 'bills_included') -> houses.bills_option (+ legacy flag)
-        bills_option = (request.form.get("bills_included") or "no").strip().lower()
-        if bills_option not in ("yes", "no", "some"):
-            bills_option = "no"
-        bills_included_legacy = 1 if bills_option == "yes" else 0
-
-        # Detailed utilities (supported now; visible when 'some')
-        if bills_option == "yes":
-            bills_util_gas = 1
-            bills_util_electric = 1
-            bills_util_water = 1
-            bills_util_broadband = 1
-            bills_util_tv = 1
-        elif bills_option == "some":
-            bills_util_gas = clean_bool("bills_util_gas")
-            bills_util_electric = clean_bool("bills_util_electric")
-            bills_util_water = clean_bool("bills_util_water")
-            bills_util_broadband = clean_bool("bills_util_broadband")
-            bills_util_tv = clean_bool("bills_util_tv")
-        else:
-            bills_util_gas = 0
-            bills_util_electric = 0
-            bills_util_water = 0
-            bills_util_broadband = 0
-            bills_util_tv = 0
-
-        shared_bathrooms = int(request.form.get("shared_bathrooms") or 0)
-        bedrooms_total = int(request.form.get("bedrooms_total") or 0)
-        listing_type = (request.form.get("listing_type") or default_listing_type or "owner").strip()
-
-        # Amenities
-        washing_machine = clean_bool("washing_machine")
-        tumble_dryer = clean_bool("tumble_dryer")
-        dishwasher = clean_bool("dishwasher")
-        cooker = clean_bool("cooker")
-        microwave = clean_bool("microwave")
-        coffee_maker = clean_bool("coffee_maker")
-        central_heating = clean_bool("central_heating")
-        air_conditioning = clean_bool("air_conditioning")  # form field name; maps to DB air_con
-        vacuum = clean_bool("vacuum")
-        wifi = clean_bool("wifi")
-        wired_internet = clean_bool("wired_internet")
-        common_area_tv = clean_bool("common_area_tv")
-        cctv = clean_bool("cctv")
-        video_door_entry = clean_bool("video_door_entry")
-        fob_entry = clean_bool("fob_entry")
-        off_street_parking = clean_bool("off_street_parking")
-        local_parking = clean_bool("local_parking")
-        garden = clean_bool("garden")
-        roof_terrace = clean_bool("roof_terrace")
-        bike_storage = clean_bool("bike_storage")
-        games_room = clean_bool("games_room")
-        cinema_room = clean_bool("cinema_room")
-
-        cleaning_service = (request.form.get("cleaning_service") or "none").strip()
-
-        # Validation
-        errors = []
-        if not title:
-            errors.append("Title is required.")
-        if not address:
-            errors.append("Address is required.")
-        if bedrooms_total < 1:
-            errors.append("Bedrooms must be at least 1.")
-        if not validate_city_active(city):
-            errors.append("Please choose a valid active city.")
-        if not valid_choice(letting_type, ("whole", "share")):
-            errors.append("Invalid letting type.")
-        if not valid_choice(gender_pref, ("Male", "Female", "Mixed", "Either")):
-            errors.append("Invalid gender preference.")
-        if not valid_choice(cleaning_service, ("none", "weekly", "fortnightly", "monthly")):
-            errors.append("Invalid cleaning service value.")
-        if not valid_choice(listing_type, ("owner", "agent")):
-            errors.append("Invalid listing type.")
         if errors:
             for e in errors:
                 flash(e, "error")
             conn.close()
-            f = dict(request.form)
-            f["listing_type"] = listing_type
-            f["bills_option"] = bills_option
-            return render_template("house_form.html", cities=cities, form=f, mode="new", default_listing_type=default_listing_type)
+            return render_template(
+                "house_form.html",
+                cities=cities,
+                form=request.form,
+                mode="new",
+                default_listing_type=default_listing_type,
+            )
 
-        # Insert
-        conn.execute(
-            """
-            INSERT INTO houses(
-              landlord_id, title, city, address, letting_type, bedrooms_total, gender_preference,
-              bills_included, bills_option,
-              bills_util_gas, bills_util_electric, bills_util_water, bills_util_broadband, bills_util_tv,
-              shared_bathrooms,
-              washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker,
-              central_heating, air_con, vacuum,
-              wifi, wired_internet, common_area_tv,
-              cctv, video_door_entry, fob_entry,
-              off_street_parking, local_parking, garden, roof_terrace, bike_storage, games_room, cinema_room,
-              cleaning_service, listing_type, created_at
-            )
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                lid, title, city, address, letting_type, bedrooms_total, gender_pref,
-                bills_included_legacy, bills_option,
-                bills_util_gas, bills_util_electric, bills_util_water, bills_util_broadband, bills_util_tv,
-                shared_bathrooms,
-                washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker,
-                central_heating, air_conditioning, vacuum,
-                wifi, wired_internet, common_area_tv,
-                cctv, video_door_entry, fob_entry,
-                off_street_parking, local_parking, garden, roof_terrace, bike_storage, games_room, cinema_room,
-                cleaning_service, listing_type, dt.utcnow().isoformat()
-            )
-        )
-        conn.commit()
+        payload["created_at"] = dt.utcnow().isoformat()
+        house_repo.insert_house(conn, lid, payload)
         conn.close()
         flash("House added.", "ok")
         return redirect(url_for("landlord.landlord_houses"))
@@ -190,141 +80,26 @@ def house_edit(hid):
         flash("House not found.", "error")
         return redirect(url_for("landlord.landlord_houses"))
 
-    # Work with a plain dict for convenience
     house = dict(house_row)
-
-    prof = conn.execute(
-        "SELECT role FROM landlord_profiles WHERE landlord_id=?", (lid,)
-    ).fetchone()
-    default_listing_type = (
-        house.get("listing_type")
-        if house.get("listing_type")
-        else (prof["role"] if prof and prof["role"] in ("owner", "agent") else "owner")
-    )
+    default_listing_type = house_form.get_default_listing_type(conn, lid, existing=house)
 
     if request.method == "POST":
-        title = (request.form.get("title") or "").strip()
-        city = (request.form.get("city") or "").strip()
-        address = (request.form.get("address") or "").strip()
-        letting_type = (request.form.get("letting_type") or "").strip()
-        gender_pref = (request.form.get("gender_preference") or "").strip()
+        payload, errors = house_form.parse_house_form(request.form, mode="edit", default_listing_type=default_listing_type)
 
-        bills_option = (request.form.get("bills_included") or "no").strip().lower()
-        if bills_option not in ("yes", "no", "some"):
-            bills_option = "no"
-        bills_included_legacy = 1 if bills_option == "yes" else 0
-
-        if bills_option == "yes":
-            bills_util_gas = 1
-            bills_util_electric = 1
-            bills_util_water = 1
-            bills_util_broadband = 1
-            bills_util_tv = 1
-        elif bills_option == "some":
-            bills_util_gas = clean_bool("bills_util_gas")
-            bills_util_electric = clean_bool("bills_util_electric")
-            bills_util_water = clean_bool("bills_util_water")
-            bills_util_broadband = clean_bool("bills_util_broadband")
-            bills_util_tv = clean_bool("bills_util_tv")
-        else:
-            bills_util_gas = 0
-            bills_util_electric = 0
-            bills_util_water = 0
-            bills_util_broadband = 0
-            bills_util_tv = 0
-
-        shared_bathrooms = int(request.form.get("shared_bathrooms") or 0)
-        bedrooms_total = int(request.form.get("bedrooms_total") or 0)
-        listing_type = (request.form.get("listing_type") or default_listing_type or "owner").strip()
-
-        washing_machine = clean_bool("washing_machine")
-        tumble_dryer = clean_bool("tumble_dryer")
-        dishwasher = clean_bool("dishwasher")
-        cooker = clean_bool("cooker")
-        microwave = clean_bool("microwave")
-        coffee_maker = clean_bool("coffee_maker")
-        central_heating = clean_bool("central_heating")
-        air_conditioning = clean_bool("air_conditioning")
-        vacuum = clean_bool("vacuum")
-        wifi = clean_bool("wifi")
-        wired_internet = clean_bool("wired_internet")
-        common_area_tv = clean_bool("common_area_tv")
-        cctv = clean_bool("cctv")
-        video_door_entry = clean_bool("video_door_entry")
-        fob_entry = clean_bool("fob_entry")
-        off_street_parking = clean_bool("off_street_parking")
-        local_parking = clean_bool("local_parking")
-        garden = clean_bool("garden")
-        roof_terrace = clean_bool("roof_terrace")
-        bike_storage = clean_bool("bike_storage")
-        games_room = clean_bool("games_room")
-        cinema_room = clean_bool("cinema_room")
-
-        cleaning_service = (request.form.get("cleaning_service") or "none").strip()
-
-        errors = []
-        if not title:
-            errors.append("Title is required.")
-        if not address:
-            errors.append("Address is required.")
-        if bedrooms_total < 1:
-            errors.append("Bedrooms must be at least 1.")
-        if not validate_city_active(city):
-            errors.append("Please choose a valid active city.")
-        if not valid_choice(letting_type, ("whole", "share")):
-            errors.append("Invalid letting type.")
-        if not valid_choice(gender_pref, ("Male", "Female", "Mixed", "Either")):
-            errors.append("Invalid gender preference.")
-        if not valid_choice(cleaning_service, ("none", "weekly", "fortnightly", "monthly")):
-            errors.append("Invalid cleaning service value.")
-        if not valid_choice(listing_type, ("owner", "agent")):
-            errors.append("Invalid listing type.")
         if errors:
             for e in errors:
                 flash(e, "error")
             conn.close()
-            f = dict(request.form)
-            f["listing_type"] = listing_type
-            f["bills_option"] = bills_option
             return render_template(
                 "house_form.html",
                 cities=cities,
-                form=f,
+                form=request.form,
                 mode="edit",
                 house=house,
                 default_listing_type=default_listing_type,
             )
 
-        conn.execute(
-            """
-            UPDATE houses SET
-              title=?, city=?, address=?, letting_type=?, bedrooms_total=?, gender_preference=?,
-              bills_included=?, bills_option=?,
-              bills_util_gas=?, bills_util_electric=?, bills_util_water=?, bills_util_broadband=?, bills_util_tv=?,
-              shared_bathrooms=?,
-              washing_machine=?, tumble_dryer=?, dishwasher=?, cooker=?, microwave=?, coffee_maker=?,
-              central_heating=?, air_con=?, vacuum=?,
-              wifi=?, wired_internet=?, common_area_tv=?,
-              cctv=?, video_door_entry=?, fob_entry=?,
-              off_street_parking=?, local_parking=?, garden=?, roof_terrace=?, bike_storage=?, games_room=?, cinema_room=?,
-              cleaning_service=?, listing_type=?
-            WHERE id=? AND landlord_id=?
-            """,
-            (
-                title, city, address, letting_type, bedrooms_total, gender_pref,
-                bills_included_legacy, bills_option,
-                bills_util_gas, bills_util_electric, bills_util_water, bills_util_broadband, bills_util_tv,
-                shared_bathrooms,
-                washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker,
-                central_heating, air_conditioning, vacuum,
-                wifi, wired_internet, common_area_tv,
-                cctv, video_door_entry, fob_entry,
-                off_street_parking, local_parking, garden, roof_terrace, bike_storage, games_room, cinema_room,
-                cleaning_service, listing_type,
-                hid, lid
-            )
-        )
-        conn.commit()
+        house_repo.update_house(conn, lid, hid, payload)
         conn.close()
         flash("House updated.", "ok")
         return redirect(url_for("landlord.landlord_houses"))
