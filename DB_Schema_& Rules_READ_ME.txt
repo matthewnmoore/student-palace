@@ -554,5 +554,28 @@ Defaults (authoritative)
 
 
 
+Progress
+=========
 
+
+
+Stable files (do-not-touch unless we agree)
+	•	db.py — schema + add-only migrations (bills model, amenities).
+	•	landlord/houses.py — add/edit flows, validations, DB writes.
+	•	templates/house_form.html — new layout, bills dropdown + utilities panel, amenity defaults.
+	•	utils.py — helpers used by the house form routes.
+
+Photo stack — do not edit/change
+
+Everything here is confirmed working (uploads, drag-and-drop ordering, watermarking):
+	•	image_helpers.py (processing: resize + watermark)
+	•	landlord/photos.py (routes/logic)
+	•	templates/house_photos.html (house photo UI)
+	•	templates/photos_room.html (room photo UI)
+	•	DB table: house_images (including indices & NOT NULL rules)
+	•	Static pathing: static/uploads/houses/… (relative paths only)
+
+Notes for future work
+	•	When we add room photos, we’ll replicate the same photo pipeline and UI patterns rather than changing the existing house photo code.
+	•	Public house detail page is ready for layout tweaks only (the backend fields are all in place).
 
