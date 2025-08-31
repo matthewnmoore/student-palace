@@ -47,11 +47,11 @@ def house_new():
         letting_type = (request.form.get("letting_type") or "").strip()
         gender_pref = (request.form.get("gender_preference") or "").strip()
 
-        # bills included dropdown -> text column; keep legacy int in sync (yes=1, some/no=0)
-        bills_included_text = (request.form.get("bills_included") or "no").strip().lower()
-        if bills_included_text not in ("yes","no","some"):
-            bills_included_text = "no"
-        bills_included_legacy = 1 if bills_included_text == "yes" else 0
+        # bills dropdown (form field name 'bills_included') -> houses.bills_option
+        bills_option = (request.form.get("bills_included") or "no").strip().lower()
+        if bills_option not in ("yes","no","some"):
+            bills_option = "no"
+        bills_included_legacy = 1 if bills_option == "yes" else 0
 
         shared_bathrooms = int(request.form.get("shared_bathrooms") or 0)
         bedrooms_total = int(request.form.get("bedrooms_total") or 0)
@@ -65,7 +65,7 @@ def house_new():
         microwave         = clean_bool("microwave")
         coffee_maker      = clean_bool("coffee_maker")
         central_heating   = clean_bool("central_heating")
-        air_conditioning  = clean_bool("air_conditioning")
+        air_conditioning  = clean_bool("air_conditioning")  # form name
         vacuum            = clean_bool("vacuum")
         wifi              = clean_bool("wifi")
         wired_internet    = clean_bool("wired_internet")
@@ -98,16 +98,16 @@ def house_new():
             conn.close()
             f = dict(request.form)
             f["listing_type"] = listing_type
-            f["bills_included_text"] = bills_included_text
+            f["bills_option"] = bills_option
             return render_template("house_form.html", cities=cities, form=f, mode="new", default_listing_type=default_listing_type)
 
         conn.execute("""
           INSERT INTO houses(
             landlord_id,title,city,address,letting_type,bedrooms_total,gender_preference,
-            bills_included, bills_included_text,
+            bills_included, bills_option,
             shared_bathrooms,
             washing_machine,tumble_dryer,dishwasher,cooker,microwave,coffee_maker,
-            central_heating,air_conditioning,vacuum,
+            central_heating,air_con,vacuum,
             wifi,wired_internet,common_area_tv,
             cctv,video_door_entry,fob_entry,
             off_street_parking,local_parking,garden,roof_terrace,bike_storage,games_room,cinema_room,
@@ -115,7 +115,7 @@ def house_new():
           ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             lid, title, city, address, letting_type, bedrooms_total, gender_pref,
-            bills_included_legacy, bills_included_text,
+            bills_included_legacy, bills_option,
             shared_bathrooms,
             washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker,
             central_heating, air_conditioning, vacuum,
@@ -159,10 +159,10 @@ def house_edit(hid):
         letting_type = (request.form.get("letting_type") or "").strip()
         gender_pref = (request.form.get("gender_preference") or "").strip()
 
-        bills_included_text = (request.form.get("bills_included") or "no").strip().lower()
-        if bills_included_text not in ("yes","no","some"):
-            bills_included_text = "no"
-        bills_included_legacy = 1 if bills_included_text == "yes" else 0
+        bills_option = (request.form.get("bills_included") or "no").strip().lower()
+        if bills_option not in ("yes","no","some"):
+            bills_option = "no"
+        bills_included_legacy = 1 if bills_option == "yes" else 0
 
         shared_bathrooms = int(request.form.get("shared_bathrooms") or 0)
         bedrooms_total = int(request.form.get("bedrooms_total") or 0)
@@ -207,16 +207,16 @@ def house_edit(hid):
             conn.close()
             f = dict(request.form)
             f["listing_type"] = listing_type
-            f["bills_included_text"] = bills_included_text
+            f["bills_option"] = bills_option
             return render_template("house_form.html", cities=cities, form=f, mode="edit", house=house, default_listing_type=default_listing_type)
 
         conn.execute("""
           UPDATE houses SET
             title=?, city=?, address=?, letting_type=?, bedrooms_total=?, gender_preference=?,
-            bills_included=?, bills_included_text=?,
+            bills_included=?, bills_option=?,
             shared_bathrooms=?,
             washing_machine=?,tumble_dryer=?,dishwasher=?,cooker=?,microwave=?,coffee_maker=?,
-            central_heating=?,air_conditioning=?,vacuum=?,
+            central_heating=?,air_con=?,vacuum=?,
             wifi=?,wired_internet=?,common_area_tv=?,
             cctv=?,video_door_entry=?,fob_entry=?,
             off_street_parking=?,local_parking=?,garden=?,roof_terrace=?,bike_storage=?,games_room=?,cinema_room=?,
@@ -224,7 +224,7 @@ def house_edit(hid):
           WHERE id=? AND landlord_id=?
         """, (
             title, city, address, letting_type, bedrooms_total, gender_pref,
-            bills_included_legacy, bills_included_text,
+            bills_included_legacy, bills_option,
             shared_bathrooms,
             washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker,
             central_heating, air_conditioning, vacuum,
@@ -240,8 +240,8 @@ def house_edit(hid):
         return redirect(url_for("landlord.landlord_houses"))
 
     form = dict(house)
-    # Fill a helper key so the form can use {{ form.bills_included_text }}
-    form.setdefault("bills_included_text", house.get("bills_included_text") or ("yes" if house.get("bills_included")==1 else "no"))
+    # make sure form has bills_option for pre-select
+    form.setdefault("bills_option", house.get("bills_option") or ("yes" if house.get("bills_included")==1 else "no"))
     conn.close()
     return render_template("house_form.html", cities=cities, form=form, mode="edit", house=house, default_listing_type=default_listing_type)
 
