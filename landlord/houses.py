@@ -46,21 +46,44 @@ def house_new():
         address = (request.form.get("address") or "").strip()
         letting_type = (request.form.get("letting_type") or "").strip()
         gender_pref = (request.form.get("gender_preference") or "").strip()
-        bills_included = clean_bool("bills_included")
+
+        # bills included dropdown -> text column; keep legacy int in sync (yes=1, some/no=0)
+        bills_included_text = (request.form.get("bills_included") or "no").strip().lower()
+        if bills_included_text not in ("yes","no","some"):
+            bills_included_text = "no"
+        bills_included_legacy = 1 if bills_included_text == "yes" else 0
+
         shared_bathrooms = int(request.form.get("shared_bathrooms") or 0)
         bedrooms_total = int(request.form.get("bedrooms_total") or 0)
         listing_type = (request.form.get("listing_type") or default_listing_type or "owner").strip()
 
-        off_street_parking = clean_bool("off_street_parking")
-        local_parking = clean_bool("local_parking")
-        cctv = clean_bool("cctv")
-        video_door_entry = clean_bool("video_door_entry")
-        bike_storage = clean_bool("bike_storage")
-        cleaning_service = (request.form.get("cleaning_service") or "none").strip()
-        wifi = 1 if request.form.get("wifi") is None else clean_bool("wifi")
-        wired_internet = clean_bool("wired_internet")
-        common_area_tv = clean_bool("common_area_tv")
+        # amenities
+        washing_machine   = clean_bool("washing_machine")
+        tumble_dryer      = clean_bool("tumble_dryer")
+        dishwasher        = clean_bool("dishwasher")
+        cooker            = clean_bool("cooker")
+        microwave         = clean_bool("microwave")
+        coffee_maker      = clean_bool("coffee_maker")
+        central_heating   = clean_bool("central_heating")
+        air_conditioning  = clean_bool("air_conditioning")
+        vacuum            = clean_bool("vacuum")
+        wifi              = clean_bool("wifi")
+        wired_internet    = clean_bool("wired_internet")
+        common_area_tv    = clean_bool("common_area_tv")
+        cctv              = clean_bool("cctv")
+        video_door_entry  = clean_bool("video_door_entry")
+        fob_entry         = clean_bool("fob_entry")
+        off_street_parking= clean_bool("off_street_parking")
+        local_parking     = clean_bool("local_parking")
+        garden            = clean_bool("garden")
+        roof_terrace      = clean_bool("roof_terrace")
+        bike_storage      = clean_bool("bike_storage")
+        games_room        = clean_bool("games_room")
+        cinema_room       = clean_bool("cinema_room")
 
+        cleaning_service = (request.form.get("cleaning_service") or "none").strip()
+
+        # validation
         errors = []
         if not title: errors.append("Title is required.")
         if not address: errors.append("Address is required.")
@@ -75,18 +98,31 @@ def house_new():
             conn.close()
             f = dict(request.form)
             f["listing_type"] = listing_type
+            f["bills_included_text"] = bills_included_text
             return render_template("house_form.html", cities=cities, form=f, mode="new", default_listing_type=default_listing_type)
 
         conn.execute("""
           INSERT INTO houses(
-            landlord_id,title,city,address,letting_type,bedrooms_total,gender_preference,bills_included,
-            shared_bathrooms,off_street_parking,local_parking,cctv,video_door_entry,bike_storage,cleaning_service,
-            wifi,wired_internet,common_area_tv,listing_type,created_at
-          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            landlord_id,title,city,address,letting_type,bedrooms_total,gender_preference,
+            bills_included, bills_included_text,
+            shared_bathrooms,
+            washing_machine,tumble_dryer,dishwasher,cooker,microwave,coffee_maker,
+            central_heating,air_conditioning,vacuum,
+            wifi,wired_internet,common_area_tv,
+            cctv,video_door_entry,fob_entry,
+            off_street_parking,local_parking,garden,roof_terrace,bike_storage,games_room,cinema_room,
+            cleaning_service, listing_type, created_at
+          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
-            lid, title, city, address, letting_type, bedrooms_total, gender_pref, bills_included,
-            shared_bathrooms, off_street_parking, local_parking, cctv, video_door_entry, bike_storage,
-            cleaning_service, wifi, wired_internet, common_area_tv, listing_type, dt.utcnow().isoformat()
+            lid, title, city, address, letting_type, bedrooms_total, gender_pref,
+            bills_included_legacy, bills_included_text,
+            shared_bathrooms,
+            washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker,
+            central_heating, air_conditioning, vacuum,
+            wifi, wired_internet, common_area_tv,
+            cctv, video_door_entry, fob_entry,
+            off_street_parking, local_parking, garden, roof_terrace, bike_storage, games_room, cinema_room,
+            cleaning_service, listing_type, dt.utcnow().isoformat()
         ))
         conn.commit()
         conn.close()
@@ -122,20 +158,40 @@ def house_edit(hid):
         address = (request.form.get("address") or "").strip()
         letting_type = (request.form.get("letting_type") or "").strip()
         gender_pref = (request.form.get("gender_preference") or "").strip()
-        bills_included = clean_bool("bills_included")
+
+        bills_included_text = (request.form.get("bills_included") or "no").strip().lower()
+        if bills_included_text not in ("yes","no","some"):
+            bills_included_text = "no"
+        bills_included_legacy = 1 if bills_included_text == "yes" else 0
+
         shared_bathrooms = int(request.form.get("shared_bathrooms") or 0)
         bedrooms_total = int(request.form.get("bedrooms_total") or 0)
         listing_type = (request.form.get("listing_type") or default_listing_type or "owner").strip()
 
-        off_street_parking = clean_bool("off_street_parking")
-        local_parking = clean_bool("local_parking")
-        cctv = clean_bool("cctv")
-        video_door_entry = clean_bool("video_door_entry")
-        bike_storage = clean_bool("bike_storage")
+        washing_machine   = clean_bool("washing_machine")
+        tumble_dryer      = clean_bool("tumble_dryer")
+        dishwasher        = clean_bool("dishwasher")
+        cooker            = clean_bool("cooker")
+        microwave         = clean_bool("microwave")
+        coffee_maker      = clean_bool("coffee_maker")
+        central_heating   = clean_bool("central_heating")
+        air_conditioning  = clean_bool("air_conditioning")
+        vacuum            = clean_bool("vacuum")
+        wifi              = clean_bool("wifi")
+        wired_internet    = clean_bool("wired_internet")
+        common_area_tv    = clean_bool("common_area_tv")
+        cctv              = clean_bool("cctv")
+        video_door_entry  = clean_bool("video_door_entry")
+        fob_entry         = clean_bool("fob_entry")
+        off_street_parking= clean_bool("off_street_parking")
+        local_parking     = clean_bool("local_parking")
+        garden            = clean_bool("garden")
+        roof_terrace      = clean_bool("roof_terrace")
+        bike_storage      = clean_bool("bike_storage")
+        games_room        = clean_bool("games_room")
+        cinema_room       = clean_bool("cinema_room")
+
         cleaning_service = (request.form.get("cleaning_service") or "none").strip()
-        wifi = 1 if request.form.get("wifi") is None else clean_bool("wifi")
-        wired_internet = clean_bool("wired_internet")
-        common_area_tv = clean_bool("common_area_tv")
 
         errors = []
         if not title: errors.append("Title is required.")
@@ -151,18 +207,32 @@ def house_edit(hid):
             conn.close()
             f = dict(request.form)
             f["listing_type"] = listing_type
+            f["bills_included_text"] = bills_included_text
             return render_template("house_form.html", cities=cities, form=f, mode="edit", house=house, default_listing_type=default_listing_type)
 
         conn.execute("""
           UPDATE houses SET
-            title=?, city=?, address=?, letting_type=?, bedrooms_total=?, gender_preference=?, bills_included=?,
-            shared_bathrooms=?, off_street_parking=?, local_parking=?, cctv=?, video_door_entry=?, bike_storage=?,
-            cleaning_service=?, wifi=?, wired_internet=?, common_area_tv=?, listing_type=?
+            title=?, city=?, address=?, letting_type=?, bedrooms_total=?, gender_preference=?,
+            bills_included=?, bills_included_text=?,
+            shared_bathrooms=?,
+            washing_machine=?,tumble_dryer=?,dishwasher=?,cooker=?,microwave=?,coffee_maker=?,
+            central_heating=?,air_conditioning=?,vacuum=?,
+            wifi=?,wired_internet=?,common_area_tv=?,
+            cctv=?,video_door_entry=?,fob_entry=?,
+            off_street_parking=?,local_parking=?,garden=?,roof_terrace=?,bike_storage=?,games_room=?,cinema_room=?,
+            cleaning_service=?, listing_type=?
           WHERE id=? AND landlord_id=?
         """, (
-            title, city, address, letting_type, bedrooms_total, gender_pref, bills_included,
-            shared_bathrooms, off_street_parking, local_parking, cctv, video_door_entry, bike_storage,
-            cleaning_service, wifi, wired_internet, common_area_tv, listing_type, hid, lid
+            title, city, address, letting_type, bedrooms_total, gender_pref,
+            bills_included_legacy, bills_included_text,
+            shared_bathrooms,
+            washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker,
+            central_heating, air_conditioning, vacuum,
+            wifi, wired_internet, common_area_tv,
+            cctv, video_door_entry, fob_entry,
+            off_street_parking, local_parking, garden, roof_terrace, bike_storage, games_room, cinema_room,
+            cleaning_service, listing_type,
+            hid, lid
         ))
         conn.commit()
         conn.close()
@@ -170,6 +240,8 @@ def house_edit(hid):
         return redirect(url_for("landlord.landlord_houses"))
 
     form = dict(house)
+    # Fill a helper key so the form can use {{ form.bills_included_text }}
+    form.setdefault("bills_included_text", house.get("bills_included_text") or ("yes" if house.get("bills_included")==1 else "no"))
     conn.close()
     return render_template("house_form.html", cities=cities, form=form, mode="edit", house=house, default_listing_type=default_listing_type)
 
