@@ -26,13 +26,13 @@ def _compose_address_from_parts(form) -> str:
     house_number  = f("house_number")
     street_name   = f("street_name")
     address_extra = f("address_extra")
-    town          = f("town")   # mirrored from city client-side; we won't rely on that though
+    # Town mirrors city in the UI, but we won't rely on that
     city          = f("city")
     postcode      = _normalize_postcode(f("postcode"))
 
     line1 = " ".join(x for x in [flat_number, (house_name or house_number), street_name] if x)
     line2 = address_extra
-    line3 = ", ".join(x for x in [town or city] if x)
+    line3 = city  # single source of truth for locality
     parts = [line1, line2, line3, postcode]
     composed = ", ".join([p for p in parts if p and p.replace(",", "").strip()])
     return composed.strip()
@@ -154,6 +154,11 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
     # epc_rating is optional; if provided, ensure valid
     if epc_rating_raw and epc_rating == "":
         errors.append("Invalid EPC rating (choose A, B, C, D, E, F or G).")
+
+    # Helpful debug flash if we blocked save
+    if errors:
+        # Show what address the server composed, to debug hidden-field issues quickly
+        flash(f"Debug: composed address = {address}", "info")
 
     return payload, errors
     # ---- End fallback ----
