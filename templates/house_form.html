@@ -52,12 +52,18 @@
         </select>
       </label>
 
-      <label class="field" style="align-self:end">
-        <input type="checkbox" name="bills_included" {% if form and form.bills_included in ['1',1,'on',True] %}checked{% endif %}>
-        <span class="label-inline">Bills included</span>
+      <!-- NEW: Bills included (dropdown) -->
+      <label class="field">
+        <span class="label">Bills included</span>
+        {% set bi = (form.bills_included_text or 'no') if form else 'no' %}
+        <select name="bills_included">
+          <option value="no" {% if bi=='no' %}selected{% endif %}>No</option>
+          <option value="yes" {% if bi=='yes' %}selected{% endif %}>Yes</option>
+          <option value="some" {% if bi=='some' %}selected{% endif %}>Some</option>
+        </select>
       </label>
 
-      <!-- NEW: Listing type (Owner/Agent) -->
+      <!-- Listing type (Owner/Agent) -->
       <label class="field" style="grid-column:1 / -1">
         <span class="label">This house is listed as</span>
         {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
@@ -77,32 +83,15 @@
       </label>
     </div>
 
-    <h3 style="margin-top:14px">House info (not searchable)</h3>
+    <!-- NEW TITLE -->
+    <h3 style="margin-top:14px">House Info</h3>
+
+    <!-- Cleaning service dropdown stays, default 'none' -->
     <div class="grid grid-3">
-      <label class="field checkbox">
-        <input type="checkbox" name="off_street_parking" {% if form and form.off_street_parking in ['1',1,'on',True] %}checked{% endif %}>
-        <span>Off-street parking available</span>
-      </label>
-      <label class="field checkbox">
-        <input type="checkbox" name="local_parking" {% if form and form.local_parking in ['1',1,'on',True] %}checked{% endif %}>
-        <span>Local parking available</span>
-      </label>
-      <label class="field checkbox">
-        <input type="checkbox" name="cctv" {% if form and form.cctv in ['1',1,'on',True] %}checked{% endif %}>
-        <span>CCTV</span>
-      </label>
-      <label class="field checkbox">
-        <input type="checkbox" name="video_door_entry" {% if form and form.video_door_entry in ['1',1,'on',True] %}checked{% endif %}>
-        <span>Video door entry</span>
-      </label>
-      <label class="field checkbox">
-        <input type="checkbox" name="bike_storage" {% if form and form.bike_storage in ['1',1,'on',True] %}checked{% endif %}>
-        <span>Bike storage</span>
-      </label>
       <label class="field">
         <span class="label">Cleaning service</span>
+        {% set cs = (form.cleaning_service or 'none') if form else 'none' %}
         <select name="cleaning_service">
-          {% set cs = (form.cleaning_service or 'none') if form else 'none' %}
           {% for opt in ['none','weekly','fortnightly','monthly'] %}
             <option value="{{ opt }}" {% if cs==opt %}selected{% endif %}>
               {{ 'None' if opt=='none' else opt|capitalize }}
@@ -111,17 +100,140 @@
         </select>
         <p class="help">If “None”, we won’t show cleaning info on the property page.</p>
       </label>
+
+      <!-- Amenity checkboxes in your exact order + defaults -->
+      <!-- Defaults for NEW form only; for EDIT we reflect saved values via form.* -->
+
       <label class="field checkbox">
-        <input type="checkbox" name="wifi" {% if (not form) or form.wifi in ['1',1,'on',True] %}checked{% endif %}>
+        <input type="checkbox" name="washing_machine"
+               {% if (not form) or form.washing_machine in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Washing machine</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="tumble_dryer"
+               {% if form and form.tumble_dryer in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Tumble dryer</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="dishwasher"
+               {% if form and form.dishwasher in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Dishwasher</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="cooker"
+               {% if (not form) or form.cooker in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Cooker</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="microwave"
+               {% if form and form.microwave in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Microwave</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="coffee_maker"
+               {% if form and form.coffee_maker in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Coffee maker</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="central_heating"
+               {% if (not form) or form.central_heating in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Central heating</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="air_conditioning"
+               {% if form and form.air_conditioning in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Air conditioning</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="vacuum"
+               {% if form and form.vacuum in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Vacuum</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="wifi"
+               {% if (not form) or form.wifi in ['1',1,'on',True] %}checked{% endif %}>
         <span>Wi-Fi</span>
       </label>
+
       <label class="field checkbox">
-        <input type="checkbox" name="wired_internet" {% if form and form.wired_internet in ['1',1,'on',True] %}checked{% endif %}>
+        <input type="checkbox" name="wired_internet"
+               {% if form and form.wired_internet in ['1',1,'on',True] %}checked{% endif %}>
         <span>Wired internet</span>
       </label>
+
       <label class="field checkbox">
-        <input type="checkbox" name="common_area_tv" {% if form and form.common_area_tv in ['1',1,'on',True] %}checked{% endif %}>
+        <input type="checkbox" name="common_area_tv"
+               {% if form and form.common_area_tv in ['1',1,'on',True] %}checked{% endif %}>
         <span>Common area TV</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="cctv"
+               {% if form and form.cctv in ['1',1,'on',True] %}checked{% endif %}>
+        <span>CCTV</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="video_door_entry"
+               {% if form and form.video_door_entry in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Video door entry</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="fob_entry"
+               {% if form and form.fob_entry in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Fob entry</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="off_street_parking"
+               {% if form and form.off_street_parking in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Off-street parking available</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="local_parking"
+               {% if form and form.local_parking in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Local parking available</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="garden"
+               {% if form and form.garden in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Garden</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="roof_terrace"
+               {% if form and form.roof_terrace in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Roof terrace</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="bike_storage"
+               {% if form and form.bike_storage in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Bike storage</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="games_room"
+               {% if form and form.games_room in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Games room</span>
+      </label>
+
+      <label class="field checkbox">
+        <input type="checkbox" name="cinema_room"
+               {% if form and form.cinema_room in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Cinema room</span>
       </label>
     </div>
 
