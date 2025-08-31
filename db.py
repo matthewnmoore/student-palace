@@ -172,6 +172,24 @@ def ensure_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_house ON house_images(house_id);")
         c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_primary ON house_images(house_id, is_primary DESC, sort_order ASC, id ASC);")
 
+    # --- House documents (EPC PDFs) ---
+    if not table_exists(conn, "house_documents"):
+        c.execute("""
+        CREATE TABLE house_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            house_id INTEGER NOT NULL,
+            doc_type TEXT NOT NULL,         -- 'epc' (future: other docs)
+            file_name TEXT NOT NULL,        -- basename
+            file_path TEXT NOT NULL,        -- relative under /static (e.g. uploads/houses/epc/xyz.pdf)
+            bytes INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            is_current INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE
+        );
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_house_docs_house ON house_documents(house_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_house_docs_current ON house_documents(house_id, doc_type, is_current)")
+
     conn.commit()
 
     # --- Non-destructive migrations ---
@@ -235,8 +253,7 @@ def ensure_db():
     _safe_add_column(conn, "houses", "ADD COLUMN games_room INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN cinema_room INTEGER NOT NULL DEFAULT 0")
 
-    # --- NEW: EPC rating (A–G, optional) ---
-    # We store as TEXT with empty-string default for compatibility; app validates values.
+    # --- NEW: EPC rating text (optional) ---
     _safe_add_column(conn, "houses", "ADD COLUMN epc_rating TEXT NOT NULL DEFAULT ''")
 
     # --- house_images add-only sync ---
