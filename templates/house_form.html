@@ -3,14 +3,6 @@
 {% block content %}
 <section class="wrap">
 
-  <!-- PAGE TITLE -->
-  <div class="card card--accent-edges hero-centered" style="margin-bottom:12px">
-    <h1 class="mt-0">{{ 'Add a house' if mode=='new' else 'Edit house' }}</h1>
-    {% if house and house.title %}
-      <p class="muted" style="margin:0">{{ house.title }} • {{ house.city }}</p>
-    {% endif %}
-  </div>
-
   <form method="post" id="house-form">
 
     <!-- BASICS -->
@@ -305,7 +297,7 @@
     const titleInput = $('title_input');
     function titleCaseWordishJS(s){
       s = (s || '').toLowerCase();
-      return s.replace(/(^|[ \\-’'])\\p{L}/gu, m => m.toUpperCase());
+      return s.replace(/(^|[ \-’'])\p{L}/gu, m => m.toUpperCase());
     }
     on(titleInput, 'blur', () => {
       const v = (titleInput.value || '').trim();
@@ -348,7 +340,7 @@
 
     function titleCaseWordish(s) {
       s = (s || '').toLowerCase();
-      return s.replace(/(^|[ \\-’'])\\p{L}/gu, m => m.toUpperCase());
+      return s.replace(/(^|[ \-’'])\p{L}/gu, m => m.toUpperCase());
     }
     function normalizePostcode(pc) {
       pc = (pc || '').toUpperCase().trim();
