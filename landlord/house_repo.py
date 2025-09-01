@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Dict, Any, Sequence
 
-
 # Columns we set on both INSERT and UPDATE (excluding landlord_id / created_at / id filters)
 _COMMON_COLS: Sequence[str] = (
     "title",
@@ -43,14 +42,13 @@ _COMMON_COLS: Sequence[str] = (
     "cinema_room",
     "cleaning_service",
     "listing_type",
-    "epc_rating",            # NEW (optional A–G, empty string if not set)
+    "epc_rating",     # optional A–G (or empty)
+    "youtube_url",    # <-- NEW: persist YouTube link
 )
-
 
 def _values_from_payload(payload: Dict[str, Any], cols: Sequence[str]) -> list:
     """Extract values from payload in column order (no casting here)."""
     return [payload.get(c) for c in cols]
-
 
 def insert_house(conn, landlord_id: int, payload: Dict[str, Any]) -> int:
     """
@@ -66,7 +64,6 @@ def insert_house(conn, landlord_id: int, payload: Dict[str, Any]) -> int:
     cur = conn.execute(sql, vals)
     conn.commit()
     return int(cur.lastrowid)
-
 
 def update_house(conn, landlord_id: int, house_id: int, payload: Dict[str, Any]) -> None:
     """
