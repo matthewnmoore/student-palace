@@ -1,127 +1,127 @@
-# landlord/room_photos.py
 from flask import render_template, request, redirect, url_for, flash
 from datetime import datetime as dt
 from db import get_db
-from utils import require_landlord, current_landlord_id, owned_house_or_none
+from utils import current_landlord_id, require_landlord, owned_house_or_none
+from .helpers import room_form_values, room_counts
 from . import bp
 
-# Image helper wrappers specific to room images
-# (You added this file earlier)
-from image_helpers_rooms import (
-    assert_room_images_schema,
-    select_room_images,
-    accept_upload_room,
-    set_primary_room_image,
-    delete_room_image,
-)
-
-def _owned_room_or_none(conn, hid: int, rid: int, lid: int):
-    """Verify the landlord owns the house and the room belongs to that house."""
+@bp.route("/landlord/houses/<int:hid>/rooms")
+def rooms_list(hid):
+    r = require_landlord()
+    if r: return r
+    lid = current_landlord_id()
+    conn = get_db()
     house = owned_house_or_none(conn, hid, lid)
     if not house:
-        return None, None
-    room = conn.execute(
-        "SELECT * FROM rooms WHERE id=? AND house_id=?",
-        (rid, hid)
-    ).fetchone()
-    if not room:
-        return house, None
-    return house, room
-
-@bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/photos", methods=["GET"])
-def room_photos(hid, rid):
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-
-    conn = get_db()
-    house, room = _owned_room_or_none(conn, hid, rid, lid)
-    if not house or not room:
         conn.close()
-        flash("Room not found.", "error")
-        return redirect(url_for("landlord.rooms_list", hid=hid))
-
-    # Ensure table exists (add-only guard) and fetch current images
-    assert_room_images_schema(conn)
-    images = select_room_images(conn, rid)
+        flash("House not found.", "error")
+        return redirect(url_for("landlord.landlord_houses"))
+    rows = conn.execute("SELECT * FROM rooms WHERE house_id=? ORDER BY id ASC", (hid,)).fetchall()
+    max_rooms, cnt = room_counts(conn, hid)
     conn.close()
-
+    remaining = max(0, max_rooms - cnt)
+    can_add = cnt < max_rooms
     return render_template(
-        "room_photos.html",
+        "rooms_list.html",
         house=house,
-        room=room,
-        images=images,
+        rooms=rows,
+        can_add=can_add,
+        remaining=remaining,
+        max_rooms=max_rooms
     )
 
-@bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/photos", methods=["POST"])
-def room_photos_upload(hid, rid):
+@bp.route("/landlord/houses/<int:hid>/rooms/new", methods=["GET","POST"])
+def room_new(hid):
     r = require_landlord()
     if r: return r
     lid = current_landlord_id()
-
     conn = get_db()
-    house, room = _owned_room_or_none(conn, hid, rid, lid)
-    if not house or not room:
+    house = owned_house_or_none(conn, hid, lid)
+    if not house:
         conn.close()
-        flash("Room not found.", "error")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    max_rooms, cnt = room_counts(conn, hid)
+    if cnt >= max_rooms:
+        conn.close()
+        flash(f"You’ve reached the room limit for this house ({max_rooms} bedrooms).", "error")
         return redirect(url_for("landlord.rooms_list", hid=hid))
 
-    assert_room_images_schema(conn)
-
-    file = request.files.get("file")
-    ok, msg = accept_upload_room(conn, rid, file, enforce_limit=True)
-    if ok:
+    if request.method == "POST":
+        vals, errors = room_form_values(request)
+        if errors:
+            for e in errors: flash(e, "error")
+            conn.close()
+            return render_template("room_form.html", house=house, form=vals, mode="new")
+        conn.execute("""
+          INSERT INTO rooms(house_id,name,ensuite,bed_size,tv,desk_chair,wardrobe,chest_drawers,lockable_door,wired_internet,room_size,created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (
+            hid, vals["name"], vals["ensuite"], vals["bed_size"], vals["tv"],
+            vals["desk_chair"], vals["wardrobe"], vals["chest_drawers"],
+            vals["lockable_door"], vals["wired_internet"], vals["room_size"],
+            dt.utcnow().isoformat()
+        ))
         conn.commit()
-        flash("Uploaded.", "ok")
-    else:
-        conn.rollback()
-        flash(msg or "Upload failed.", "error")
+        conn.close()
+        flash("Room added.", "ok")
+        return redirect(url_for("landlord.rooms_list", hid=hid))
 
     conn.close()
-    return redirect(url_for("landlord.room_photos", hid=hid, rid=rid))
+    return render_template("room_form.html", house=house, form={}, mode="new")
 
-@bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/photos/<int:img_id>/primary", methods=["POST"])
-def room_photos_set_primary(hid, rid, img_id):
+@bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/edit", methods=["GET","POST"])
+def room_edit(hid, rid):
     r = require_landlord()
     if r: return r
     lid = current_landlord_id()
-
     conn = get_db()
-    house, room = _owned_room_or_none(conn, hid, rid, lid)
-    if not house or not room:
+    house = owned_house_or_none(conn, hid, lid)
+    if not house:
+        conn.close()
+        return redirect(url_for("landlord.landlord_houses"))
+    room = conn.execute("SELECT * FROM rooms WHERE id=? AND house_id=?", (rid, hid)).fetchone()
+    if not room:
         conn.close()
         flash("Room not found.", "error")
         return redirect(url_for("landlord.rooms_list", hid=hid))
 
-    assert_room_images_schema(conn)
-    set_primary_room_image(conn, rid, img_id)
+    if request.method == "POST":
+        vals, errors = room_form_values(request)
+        if errors:
+            for e in errors: flash(e, "error")
+            conn.close()
+            return render_template("room_form.html", house=house, form=vals, mode="edit", room=room)
+        conn.execute("""
+          UPDATE rooms SET
+            name=?, ensuite=?, bed_size=?, tv=?, desk_chair=?, wardrobe=?, chest_drawers=?, lockable_door=?, wired_internet=?, room_size=?
+          WHERE id=? AND house_id=?
+        """, (
+            vals["name"], vals["ensuite"], vals["bed_size"], vals["tv"], vals["desk_chair"],
+            vals["wardrobe"], vals["chest_drawers"], vals["lockable_door"], vals["wired_internet"],
+            vals["room_size"], rid, hid
+        ))
+        conn.commit()
+        conn.close()
+        flash("Room updated.", "ok")
+        return redirect(url_for("landlord.rooms_list", hid=hid))
+
+    form = dict(room)
+    conn.close()
+    return render_template("room_form.html", house=house, form=form, mode="edit", room=room)
+
+@bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/delete", methods=["POST"])
+def room_delete(hid, rid):
+    r = require_landlord()
+    if r: return r
+    lid = current_landlord_id()
+    conn = get_db()
+    house = owned_house_or_none(conn, hid, lid)
+    if not house:
+        conn.close()
+        return redirect(url_for("landlord.landlord_houses"))
+    conn.execute("DELETE FROM rooms WHERE id=? AND house_id=?", (rid, hid))
     conn.commit()
     conn.close()
-    flash("Primary image set.", "ok")
-    return redirect(url_for("landlord.room_photos", hid=hid, rid=rid))
-
-@bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/photos/<int:img_id>/delete", methods=["POST"])
-def room_photos_delete(hid, rid, img_id):
-    r = require_landlord()
-    if r: return r
-    lid = current_landlord_id()
-
-    conn = get_db()
-    house, room = _owned_room_or_none(conn, hid, rid, lid)
-    if not house or not room:
-        conn.close()
-        flash("Room not found.", "error")
-        return redirect(url_for("landlord.rooms_list", hid=hid))
-
-    assert_room_images_schema(conn)
-    fname = delete_room_image(conn, rid, img_id)
-    if fname:
-        conn.commit()
-        flash("Deleted.", "ok")
-        # best-effort disk cleanup is handled inside helper; if not, house-keeping can run elsewhere.
-    else:
-        conn.rollback()
-        flash("Image not found.", "error")
-
-    conn.close()
-    return redirect(url_for("landlord.room_photos", hid=hid, rid=rid))
+    flash("Room deleted.", "ok")
+    return redirect(url_for("landlord.rooms_list", hid=hid))
