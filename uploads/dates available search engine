@@ -1,0 +1,78 @@
+Perfect — here’s the full design spec for your landlord room availability field with a UK-friendly date format.
+I’ve written it in a way you can copy/paste into your notes and repeat back to me later without losing anything.
+
+⸻
+
+Student Palace – Room Availability Field (Design Spec)
+
+1. Database Schema (rooms table)
+
+We need two new columns in the rooms table:
+	•	is_available → INTEGER NOT NULL DEFAULT 1
+	•	1 = Available now
+	•	0 = Currently let (not available now)
+	•	available_from → TEXT NOT NULL DEFAULT ''
+	•	Stores the date the room will next be available.
+	•	Format: DD/MM/YYYY (UK style) in the form and landlord UI, but stored as YYYY-MM-DD (ISO) in the database because SQLite sorts that format correctly.
+	•	When is_available = 1, this field should be empty.
+	•	When is_available = 0, this field must be a valid date today or later.
+
+⸻
+
+2. Landlord Form UX
+
+In the room form (add/edit), include an “Availability” section:
+	•	Radio buttons (or dropdown):
+	•	Available now → sets is_available = 1, clears available_from.
+	•	Currently let → sets is_available = 0.
+	•	If “Currently let” is selected:
+	•	Show a <input type="date"> field labelled Available from.
+	•	Display and accept dates in UK format (DD/MM/YYYY).
+	•	On save, convert to ISO (YYYY-MM-DD) for DB storage.
+
+⸻
+
+3. Validation Rules
+	•	If Available now selected:
+	•	Save is_available = 1.
+	•	Save available_from = '' (empty).
+	•	If Currently let selected:
+	•	Save is_available = 0.
+	•	Require available_from to be set.
+	•	Must be a valid date not in the past.
+	•	All dates should be converted:
+	•	On form input: landlord enters DD/MM/YYYY.
+	•	Before save: convert to YYYY-MM-DD for SQLite.
+	•	On form display: convert DB value back to DD/MM/YYYY for landlord UI.
+
+⸻
+
+4. Search Engine Logic (Student Side)
+
+When we build search later:
+	•	Default search (no move-in date specified by student):
+	•	Show all rooms where is_available = 1.
+	•	If student enters a move-in date D:
+	•	Show rooms where:
+	•	is_available = 1 (available immediately), OR
+	•	is_available = 0 AND available_from <= D.
+	•	This means:
+	•	Students looking for a September 2025 move-in will also see rooms currently let but due back before or in September 2025.
+
+⸻
+
+5. Why this design works
+	•	Clear now vs future state: landlord can say “room is not free right now but will be from X date”.
+	•	Reliable searching: ISO dates sort properly in SQLite.
+	•	Friendly landlord UX: they only ever see and enter dates in UK format.
+	•	Non-breaking: old rooms default to “Available now”.
+	•	Extensible: in future we can add logic for “let until” dates if you want auto-expire.
+
+⸻
+
+✅ Summary for memory:
+We are adding two new fields to rooms:
+	•	is_available (1 available, 0 not available),
+	•	available_from (UK date DD/MM/YYYY in UI, stored as ISO in DB).
+If available → date cleared. If not available → landlord must choose a date.
+Search logic will use these fields to filter what students see.
