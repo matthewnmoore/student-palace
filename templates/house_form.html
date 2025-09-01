@@ -7,14 +7,17 @@
   <form method="post" id="house-form" class="form-stacked">
 
     <!-- BASICS -->
-    <div class="card">
+    <div class="card card--accent-edges">
       <h2 class="card-title">Basics</h2>
-      <div class="grid grid-2">
+      <div class="grid grid-2 basics-grid">
+
+        <!-- Title -->
         <label class="field">
           <span class="label">Title</span>
           <input type="text" name="title" id="title_input" value="{{ (form.title or '') if form else '' }}" required>
         </label>
 
+        <!-- City -->
         <label class="field">
           <span class="label">City</span>
           <select name="city" id="city_select" required>
@@ -26,21 +29,9 @@
           <p class="help">Only admin-listed cities are available.</p>
         </label>
 
+        <!-- Identifies as -->
         <label class="field">
-          <span class="label">Letting type</span>
-          <select name="letting_type" required>
-            <option value="whole" {% if form and form.letting_type=='whole' %}selected{% endif %}>Whole property</option>
-            <option value="share" {% if form and form.letting_type=='share' %}selected{% endif %}>House share (rooms)</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span class="label">Bedrooms (total)</span>
-          <input type="number" name="bedrooms_total" min="1" value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
-        </label>
-
-        <label class="field">
-          <span class="label">I want a house that is</span>
+          <span class="label">This house identifies as</span>
           {% set g = (form.gender_preference or '') if form else '' %}
           <select name="gender_preference" required>
             <option value="" {% if not g %}selected{% endif %}>Please choose one</option>
@@ -51,27 +42,47 @@
           </select>
         </label>
 
+        <!-- Bedrooms -->
         <label class="field">
-          <span class="label">EPC rating</span>
-          {% set epc_val = (form.epc_rating or '') if form else '' %}
-          <select name="epc_rating" id="epc_rating">
-            <option value="" {% if not epc_val %}selected{% endif %}>Please choose</option>
-            {% for rating in ['A','B','C','D','E','F','G'] %}
-              <option value="{{ rating }}" {% if epc_val==rating %}selected{% endif %}>{{ rating }}</option>
-            {% endfor %}
-          </select>
-          <p class="help">Select the property’s Energy Performance Certificate band.</p>
+          <span class="label">Bedrooms (total)</span>
+          <input type="number" name="bedrooms_total" min="1" value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
         </label>
 
-        <label class="field" style="grid-column:1 / -1">
-          <span class="label">This house is listed as</span>
-          {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
-          <select name="listing_type" required>
-            <option value="owner" {% if lt=='owner' %}selected{% endif %}>Owner</option>
-            <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
-          </select>
-          <p class="help">Defaults to your profile preference; you can change per house.</p>
-        </label>
+        <!-- Compact row: EPC + Listed as + Bills included -->
+        {% set epc_val = (form.epc_rating or '') if form else '' %}
+        {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
+        {% set bi = (form.bills_option or 'no') if form else 'no' %}
+
+        <div class="field trio">
+          <label class="field">
+            <span class="label">EPC rating</span>
+            <select name="epc_rating" id="epc_rating">
+              <option value="" {% if not epc_val %}selected{% endif %}>Please choose</option>
+              {% for rating in ['A','B','C','D','E','F','G'] %}
+                <option value="{{ rating }}" {% if epc_val==rating %}selected{% endif %}>{{ rating }}</option>
+              {% endfor %}
+            </select>
+            <p class="help">Choose the Energy Performance band.</p>
+          </label>
+
+          <label class="field compact">
+            <span class="label">Listed as</span>
+            <select name="listing_type" required class="small-select">
+              <option value="owner" {% if lt=='owner' %}selected{% endif %}>Owner</option>
+              <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="label">Bills included</span>
+            <select name="bills_included" id="bills_included">
+              <option value="no" {% if bi=='no' %}selected{% endif %}>No</option>
+              <option value="yes" {% if bi=='yes' %}selected{% endif %}>Yes</option>
+              <option value="some" {% if bi=='some' %}selected{% endif %}>Some</option>
+            </select>
+            <p class="help">Choose “Some” to specify which utilities are covered.</p>
+          </label>
+        </div>
       </div>
     </div>
 
@@ -79,7 +90,7 @@
     <div class="card card--accent-edges">
       <h2 class="card-title">Address</h2>
 
-      <!-- Hidden one-line address that is actually saved to DB -->
+      <!-- Hidden one-line address saved to DB -->
       <input type="hidden" name="address" id="address_hidden" value="{{ (form.address or '') if form else '' }}">
 
       <div class="grid grid-3">
@@ -126,86 +137,86 @@
     </div>
 
     <!-- MEDIA -->
-    <div class="card">
+    <div class="card card--accent-edges">
       <h2 class="card-title">Media</h2>
-      <div class="grid">
+      <div class="grid grid-3 media-grid">
+        <!-- YouTube -->
         <label class="field">
           <span class="label">YouTube video link (optional)</span>
           <input type="url" name="youtube_url" id="youtube_url"
                  value="{{ (form.youtube_url or '') if form else '' }}"
                  placeholder="https://www.youtube.com/watch?v=VIDEOID or https://youtu.be/VIDEOID">
-          <p class="help">Paste a full YouTube URL or a youtu.be share link. We’ll format it correctly.</p>
+          <p class="help">Paste a full YouTube URL or a youtu.be share link.</p>
         </label>
-      </div>
-    </div>
 
-    <!-- BILLS -->
-    {% set bi = (form.bills_option or 'no') if form else 'no' %}
-    <div class="card">
-      <h2 class="card-title">Bills</h2>
-      <div class="grid grid-2">
-        <label class="field">
-          <span class="label">Bills included</span>
-          <select name="bills_included" id="bills_included">
-            <option value="no" {% if bi=='no' %}selected{% endif %}>No</option>
-            <option value="yes" {% if bi=='yes' %}selected{% endif %}>Yes</option>
-            <option value="some" {% if bi=='some' %}selected{% endif %}>Some</option>
-          </select>
-          <p class="help">Choose “Some” to specify which utilities are covered.</p>
-        </label>
-      </div>
-
-      <!-- Utilities (shown only when “some”) -->
-      <div id="bills-utilities" class="card card--sub" style="{% if bi!='some' %}display:none{% endif %}">
-        <h3 class="mt-0">Bills cover (tick the utilities included)</h3>
-        <div class="grid grid-3">
-          <label class="field checkbox">
-            <input type="checkbox" name="bills_util_gas" id="bills_util_gas"
-                   {% if form and form.bills_util_gas in ['1',1,'on',True] %}checked{% endif %}>
-            <span>Gas</span>
-          </label>
-          <label class="field checkbox">
-            <input type="checkbox" name="bills_util_electric" id="bills_util_electric"
-                   {% if form and form.bills_util_electric in ['1',1,'on',True] %}checked{% endif %}>
-            <span>Electric</span>
-          </label>
-          <label class="field checkbox">
-            <input type="checkbox" name="bills_util_water" id="bills_util_water"
-                   {% if form and form.bills_util_water in ['1',1,'on',True] %}checked{% endif %}>
-            <span>Water</span>
-          </label>
-          <label class="field checkbox">
-            <input type="checkbox" name="bills_util_broadband" id="bills_util_broadband"
-                   {% if form and form.bills_util_broadband in ['1',1,'on',True] %}checked{% endif %}>
-            <span>Broadband</span>
-          </label>
-          <label class="field checkbox">
-            <input type="checkbox" name="bills_util_tv" id="bills_util_tv"
-                   {% if form and form.bills_util_tv in ['1',1,'on',True] %}checked{% endif %}>
-            <span>TV licence/TV</span>
-          </label>
+        <!-- Photos button -->
+        <div class="field">
+          <span class="label">Photos</span>
+          {% if mode=='edit' and house and house.id %}
+            <a class="btn" href="/landlord/houses/{{ house.id }}/photos">Manage photos</a>
+          {% else %}
+            <a class="btn btn-outline" aria-disabled="true" tabindex="-1">Available after saving</a>
+          {% endif %}
+          <p class="help">Upload up to 5 images. We’ll resize & watermark for you.</p>
         </div>
-        <p class="help" style="margin-top:8px">
-          If you set “Yes” for bills, all utilities are treated as included; if “No”, none are included.
-        </p>
+
+        <!-- Floor plans button (placeholder for next project) -->
+        <div class="field">
+          <span class="label">Floor plans</span>
+          {% if mode=='edit' and house and house.id %}
+            <a class="btn btn-outline" href="/landlord/houses/{{ house.id }}/floorplans">Manage floor plans</a>
+          {% else %}
+            <a class="btn btn-outline" aria-disabled="true" tabindex="-1">Available after saving</a>
+          {% endif %}
+          <p class="help">Works the same as photos, just for plan images.</p>
+        </div>
       </div>
     </div>
 
-    <!-- BATHROOMS -->
-    <div class="card">
-      <h2 class="card-title">Bathrooms</h2>
-      <div class="grid">
+    <!-- BILLS UTILITIES (conditional) -->
+    <div id="bills-utilities" class="card card--accent-edges" style="{% if bi!='some' %}display:none{% endif %}">
+      <h2 class="card-title">Utilities covered (when “Some” selected)</h2>
+      <div class="grid grid-3">
+        <label class="field checkbox">
+          <input type="checkbox" name="bills_util_gas" id="bills_util_gas"
+                 {% if form and form.bills_util_gas in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Gas</span>
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" name="bills_util_electric" id="bills_util_electric"
+                 {% if form and form.bills_util_electric in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Electric</span>
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" name="bills_util_water" id="bills_util_water"
+                 {% if form and form.bills_util_water in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Water</span>
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" name="bills_util_broadband" id="bills_util_broadband"
+                 {% if form and form.bills_util_broadband in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Broadband</span>
+        </label>
+        <label class="field checkbox">
+          <input type="checkbox" name="bills_util_tv" id="bills_util_tv"
+                 {% if form and form.bills_util_tv in ['1',1,'on',True] %}checked{% endif %}>
+          <span>TV licence/TV</span>
+        </label>
+      </div>
+      <p class="help" style="margin-top:8px">
+        If you set “Yes” for bills, all utilities are treated as included; if “No”, none are included.
+      </p>
+    </div>
+
+    <!-- BATHROOMS & CLEANING -->
+    <div class="card card--accent-edges">
+      <h2 class="card-title">Bathrooms & Cleaning</h2>
+      <div class="grid grid-3">
         <label class="field">
           <span class="label">Shared bathrooms (number)</span>
           <input type="number" name="shared_bathrooms" min="0" value="{{ (form.shared_bathrooms or 0) if form else 0 }}">
         </label>
-      </div>
-    </div>
 
-    <!-- AMENITIES -->
-    <div class="card">
-      <h2 class="card-title">Amenities</h2>
-      <div class="grid grid-3">
         <label class="field">
           <span class="label">Cleaning service</span>
           {% set cs = (form.cleaning_service or 'none') if form else 'none' %}
@@ -218,7 +229,13 @@
           </select>
           <p class="help">If “None”, we won’t show cleaning info on the property page.</p>
         </label>
+      </div>
+    </div>
 
+    <!-- AMENITIES -->
+    <div class="card card--accent-edges">
+      <h2 class="card-title">Amenities</h2>
+      <div class="grid grid-3">
         <label class="field checkbox">
           <input type="checkbox" name="washing_machine" {% if (not form) or form.washing_machine in ['1',1,'on',True] %}checked{% endif %}>
           <span>Washing machine</span>
@@ -311,7 +328,7 @@
     </div>
 
     <!-- ACTIONS -->
-    <div class="card actions">
+    <div class="card card--accent-edges actions">
       <div class="actions-row">
         <button class="btn" type="submit">{{ 'Create house' if mode=='new' else 'Save changes' }}</button>
         <a class="btn" href="{{ url_for('landlord.landlord_houses') }}">Cancel</a>
@@ -328,7 +345,7 @@
     const $ = (id) => document.getElementById(id);
     const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
 
-    // Optional: keep auto-cap behaviour for title (no hint shown)
+    // Title auto-capitalise (no hint shown)
     const titleInput = $('title_input');
     function titleCaseWordishJS(s){
       s = (s || '').toLowerCase();
@@ -341,7 +358,7 @@
 
     // Bills utilities toggle
     const billsSelect = $('bills_included');
-    const utilBox = document.getElementById('bills-utilities');
+    const utilBox = $('bills-utilities');
     const utilIds = ['bills_util_gas','bills_util_electric','bills_util_water','bills_util_broadband','bills_util_tv'];
     const getChecks = () => utilIds.map(id => $(id)).filter(Boolean);
     function syncUtilitiesVisibility() {
@@ -368,9 +385,8 @@
     const hidden   = $('address_hidden');
     const preview  = $('address_preview');
 
-    const partIds = ['flat_number','house_name','house_number','street_name','address_extra','postcode'];
-    let partsDirty = false;
     const getVal = (id) => ( $(id)?.value || '' ).trim();
+    let partsDirty = false;
 
     function titleCaseWordish(s) {
       s = (s || '').toLowerCase();
@@ -407,28 +423,22 @@
     }
     on(citySel, 'change', () => {
       syncTownFromCity();
-      if (partsDirty) composeFromParts();
+      if ((document.activeElement && document.activeElement.tagName === 'SELECT') || partsDirty) {
+        composeFromParts();
+      }
     });
-    function wireTitleCaseOnBlur(id, formatter = titleCaseWordish) {
+
+    ['flat_number','house_name','house_number','street_name','address_extra'].forEach(id => {
       const el = $(id);
       if (!el) return;
-      on(el, 'blur', () => {
-        el.value = formatter(el.value);
-        partsDirty = true;
-        composeFromParts();
-      });
+      el.addEventListener('blur', () => { el.value = titleCaseWordish(el.value); partsDirty = true; composeFromParts(); });
+      el.addEventListener('input', () => { partsDirty = true; composeFromParts(); });
+    });
+    const pcEl = $('postcode');
+    if (pcEl) {
+      pcEl.addEventListener('blur', () => { pcEl.value = normalizePostcode(pcEl.value); partsDirty = true; composeFromParts(); });
+      pcEl.addEventListener('input', () => { partsDirty = true; composeFromParts(); });
     }
-    wireTitleCaseOnBlur('flat_number');
-    wireTitleCaseOnBlur('house_name');
-    wireTitleCaseOnBlur('house_number');
-    wireTitleCaseOnBlur('street_name');
-    wireTitleCaseOnBlur('address_extra');
-    wireTitleCaseOnBlur('postcode', normalizePostcode);
-
-    partIds.forEach(id => on($(id), 'input', () => {
-      partsDirty = true;
-      composeFromParts();
-    }));
 
     // Initial render
     syncTownFromCity();
@@ -439,7 +449,7 @@
     }
 
     const form = document.getElementById('house-form');
-    on(form, 'submit', function () {
+    form && form.addEventListener('submit', function () {
       if (partsDirty) composeFromParts();
       syncTownFromCity();
     });
@@ -450,11 +460,28 @@
   .page-title { margin-bottom: 8px; }
   .form-stacked .card { margin-bottom: 14px; }
   .card-title { margin: 0 0 10px 0; }
-  .card--sub { background: #faf9ff; border: 1px dashed var(--line); }
   .actions .actions-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+  /* Make the Basics grid fields align to same height */
+  .basics-grid { align-items: stretch; }
+  .basics-grid .field,
+  .media-grid .field { display:flex; flex-direction:column; }
+
+  /* Trio row (EPC + Listed as + Bills) */
+  .trio { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; grid-column:1 / -1; }
+  .small-select { max-width: 160px; }
+
+  /* Address preview */
   .address-preview { margin-top: 8px; }
   .address-preview .label { font-weight: 600; margin-right: 8px; }
   .address-preview .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
   .address-preview .small { font-size: 0.9rem; opacity: 0.85; }
+
+  /* Media 3-up layout */
+  .media-grid { align-items: stretch; }
+
+  /* Optional subtle sub-card style if needed later
+  .card--sub { background: #faf9ff; border: 1px dashed var(--line); }
+  */
 </style>
 {% endblock %}
