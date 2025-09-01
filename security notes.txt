@@ -1,0 +1,185 @@
+SECURITY NOTE — Tenant/Landlord Authorization (Critical)
+
+Problem (in plain English)
+	•	Our landlord dashboard pages are addressable by predictable IDs (e.g., /landlord/houses/123/edit).
+	•	If a route doesn’t verify ownership, a logged-in Landlord A could type Landlord B’s house ID in the URL and view/edit B’s data.
+	•	This is an Insecure Direct Object Reference (IDOR) issue. It risks exposure of private data and unauthorized changes.
+
+What “ownership check” means
+	•	Every landlord-only route must confirm:
+	1.	The user is logged in as a landlord.
+	2.	The requested resource (house/room/photo/etc.) belongs to that landlord.
+
+Impact if not fixed
+	•	Data leaks (addresses, emails, rooms, images).
+	•	Unauthorized edits or deletions.
+	•	Compliance/trust issues and potential legal exposure (privacy violation).
+
+How we fix it (high level)
+	1.	Require login on all landlord routes (already have require_landlord()).
+	2.	Enforce ownership everywhere using a single helper (abort if not owner).
+	3.	Use ownership for nested resources (rooms → their house → its landlord).
+	4.	Return 403/404 on failures and never reveal whether the target ID exists.
+
+Concrete code pattern (reuse everywhere)
+
+
+
+
+
+
+code:
+=====
+
+# utils.py (or a shared helpers module)
+from flask import abort
+from db import get_db
+
+def owned_house_or_abort(conn, hid: int, landlord_id: int):
+    row = conn.execute(
+        "SELECT id FROM houses WHERE id=? AND landlord_id=?",
+        (hid, landlord_id)
+    ).fetchone()
+    if not row:
+        abort(403)  # or 404; choose one policy and be consistent
+    return row
+
+def owned_room_or_abort(conn, hid: int, rid: int, landlord_id: int):
+    row = conn.execute("""
+        SELECT rooms.id FROM rooms
+        JOIN houses ON houses.id = rooms.house_id
+       WHERE rooms.id=? AND rooms.house_id=? AND houses.landlord_id=?
+    """, (rid, hid, landlord_id)).fetchone()
+    if not row:
+        abort(403)
+    return row
+
+
+
+
+
+
+    code
+    ====
+    # utils.py (or a shared helpers module)
+from flask import abort
+from db import get_db
+
+def owned_house_or_abort(conn, hid: int, landlord_id: int):
+    row = conn.execute(
+        "SELECT id FROM houses WHERE id=? AND landlord_id=?",
+        (hid, landlord_id)
+    ).fetchone()
+    if not row:
+        abort(403)  # or 404; choose one policy and be consistent
+    return row
+
+def owned_room_or_abort(conn, hid: int, rid: int, landlord_id: int):
+    row = conn.execute("""
+        SELECT rooms.id FROM rooms
+        JOIN houses ON houses.id = rooms.house_id
+       WHERE rooms.id=? AND rooms.house_id=? AND houses.landlord_id=?
+    """, (rid, hid, landlord_id)).fetchone()
+    if not row:
+        abort(403)
+    return row
+
+
+
+
+
+
+
+
+
+    Usage in routes (example)
+
+@bp.route("/landlord/houses/<int:hid>/edit", methods=["GET","POST"])
+def house_edit(hid):
+    r = require_landlord()
+    if r: return r
+    lid = current_landlord_id()
+
+    conn = get_db()
+    owned_house_or_abort(conn, hid, lid)  # hard gate
+    # ... proceed safely ...
+
+
+
+
+
+@bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/edit", methods=["GET","POST"])
+def room_edit(hid, rid):
+    r = require_landlord()
+    if r: return r
+    lid = current_landlord_id()
+
+    conn = get_db()
+    owned_room_or_abort(conn, hid, rid, lid)  # hard gate for nested resource
+    # ... proceed safely ...
+
+
+
+
+    Decorator variant (optional, nice for consistency)
+    # utils_auth.py
+from functools import wraps
+from flask import g, abort
+from utils import current_landlord_id
+from db import get_db
+
+def owns_house(param_name="hid"):
+    def deco(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            lid = current_landlord_id()
+            hid = kwargs.get(param_name)
+            conn = get_db()
+            row = conn.execute(
+                "SELECT 1 FROM houses WHERE id=? AND landlord_id=?",
+                (hid, lid)
+            ).fetchone()
+            if not row:
+                abort(403)
+            return fn(*args, **kwargs)
+        return wrapper
+    return deco
+
+
+
+  Then:
+@bp.route("/landlord/houses/<int:hid>/photos")
+@owns_house("hid")
+def house_photos(hid): ...
+
+
+
+
+
+
+
+What to audit now (checklist)
+	•	All landlord house routes: view, edit, delete, photos, floor plans, EPC, etc.
+	•	All landlord room routes: list, create, edit, delete, room photos.
+	•	Any POST actions that change data (set primary image, delete image, etc.).
+	•	API/JSON/debug endpoints under landlord scope.
+	•	Templates: ensure action URLs also include required IDs so the server can re-check ownership.
+
+Response policy
+	•	Prefer 403 Forbidden for “you’re not allowed” (reveals less about existence but still clear).
+	•	Alternatively use 404 Not Found to avoid confirming the resource exists. Pick one and be consistent.
+
+Extra hardening (nice to have)
+	•	Rate-limit landlord endpoints.
+	•	Log denied attempts with landlord ID and target ID.
+	•	Minimize ID guessing by using slugs/UUIDs for public pages (admin can still use numeric IDs internally).
+
+Bottom line
+	•	This is a classic authorization gap. Add a mandatory ownership check to every landlord route (and nested resources) and abort when the check fails.
+
+
+
+
+
+
+    
