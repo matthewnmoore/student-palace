@@ -8,7 +8,8 @@
     <div class="grid grid-2">
       <label class="field">
         <span class="label">Title</span>
-        <input type="text" name="title" value="{{ (form.title or '') if form else '' }}" required>
+        <input type="text" name="title" id="title_input" value="{{ (form.title or '') if form else '' }}" required>
+        <p class="help">We’ll auto-capitalize this nicely.</p>
       </label>
 
       <label class="field">
@@ -133,6 +134,15 @@
           <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
         </select>
         <p class="help">Defaults to your profile preference; you can change per house.</p>
+      </label>
+
+      <!-- YouTube link (single) -->
+      <label class="field" style="grid-column:1 / -1">
+        <span class="label">YouTube video link (optional)</span>
+        <input type="url" name="youtube_url" id="youtube_url"
+               value="{{ (form.youtube_url or '') if form else '' }}"
+               placeholder="https://www.youtube.com/watch?v=VIDEOID or https://youtu.be/VIDEOID">
+        <p class="help">Paste a full YouTube URL or a youtu.be share link. We’ll format it correctly.</p>
       </label>
     </div>
 
@@ -300,6 +310,17 @@
   (function () {
     const $ = (id) => document.getElementById(id);
     const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
+
+    // -------- Title auto-capitalise on blur --------
+    const titleInput = $('title_input');
+    function titleCaseWordishJS(s){
+      s = (s || '').toLowerCase();
+      return s.replace(/(^|[ \-’'])\p{L}/gu, m => m.toUpperCase());
+    }
+    on(titleInput, 'blur', () => {
+      const v = (titleInput.value || '').trim();
+      if (v) titleInput.value = titleCaseWordishJS(v);
+    });
 
     // Bills utilities toggle (defensive)
     const billsSelect = $('bills_included');
