@@ -27,6 +27,10 @@ def room_form_values(request):
     curtains = clean_bool("curtains")
     sofa = clean_bool("sofa")
 
+    # NEW SEARCHABLE FIELDS
+    couples_ok = clean_bool("couples_ok")
+    disabled_ok = clean_bool("disabled_ok")
+
     errors = []
     if not name:
         errors.append("Room name is required.")
@@ -53,6 +57,9 @@ def room_form_values(request):
         "blinds": blinds,
         "curtains": curtains,
         "sofa": sofa,
+        # NEW SEARCHABLE FIELDS
+        "couples_ok": couples_ok,
+        "disabled_ok": disabled_ok,
     }, errors)
 
 def room_counts(conn, hid):
