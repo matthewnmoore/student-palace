@@ -2,95 +2,93 @@
 {% block title %}{{ 'Add house' if mode=='new' else 'Edit house' }} – Student Palace{% endblock %}
 {% block content %}
 <section class="wrap">
-  <h1 class="page-title">{{ 'Add a house' if mode=='new' else 'Edit house' }}</h1>
+  <h1>{{ 'Add a house' if mode=='new' else 'Edit house' }}</h1>
 
-  <form method="post" id="house-form" class="form-stacked">
+  <!-- BASICS (accented) -->
+  <form method="post" class="card card--accent-edges" id="house-form">
+    <div class="grid grid-2 equal-fields">
+      <!-- Title -->
+      <label class="field">
+        <span class="label">Title</span>
+        <input type="text" name="title" id="title_input" value="{{ (form.title or '') if form else '' }}" required>
+        <p class="help">We’ll auto-capitalize this nicely.</p>
+      </label>
 
-    <!-- BASICS -->
-    <div class="card card--accent-edges">
-      <h2 class="card-title">Basics</h2>
-      <div class="grid grid-2 basics-grid">
+      <!-- City -->
+      <label class="field">
+        <span class="label">City</span>
+        <select name="city" id="city_select" required>
+          <option value="">Select a city</option>
+          {% for c in cities %}
+            <option value="{{ c }}" {% if form and form.city==c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+        <p class="help">Only admin-listed cities are available.</p>
+      </label>
 
-        <!-- Title -->
+      <!-- Row: Listed as + EPC + Bills (3-up) -->
+      <div class="field-group grid grid-3" style="grid-column:1 / -1">
+        <!-- Listed as -->
         <label class="field">
-          <span class="label">Title</span>
-          <input type="text" name="title" id="title_input" value="{{ (form.title or '') if form else '' }}" required>
+          <span class="label">Listed as</span>
+          {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
+          <select name="listing_type" required>
+            <option value="owner" {% if lt=='owner' %}selected{% endif %}>Owner</option>
+            <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
+          </select>
+          <p class="help">Defaults to your profile preference; you can change per house.</p>
         </label>
 
-        <!-- City -->
+        <!-- EPC -->
         <label class="field">
-          <span class="label">City</span>
-          <select name="city" id="city_select" required>
-            <option value="">Select a city</option>
-            {% for c in cities %}
-              <option value="{{ c }}" {% if form and form.city==c %}selected{% endif %}>{{ c }}</option>
+          <span class="label">EPC rating</span>
+          {% set epc_val = (form.epc_rating or '') if form else '' %}
+          <select name="epc_rating" id="epc_rating">
+            <option value="" {% if not epc_val %}selected{% endif %}>Please choose</option>
+            {% for rating in ['A','B','C','D','E','F','G'] %}
+              <option value="{{ rating }}" {% if epc_val==rating %}selected{% endif %}>{{ rating }}</option>
             {% endfor %}
           </select>
-          <p class="help">Only admin-listed cities are available.</p>
+          <p class="help">Select the property’s Energy Performance Certificate band.</p>
         </label>
 
-        <!-- Identifies as -->
-        <label class="field">
-          <span class="label">This house identifies as</span>
-          {% set g = (form.gender_preference or '') if form else '' %}
-          <select name="gender_preference" required>
-            <option value="" {% if not g %}selected{% endif %}>Please choose one</option>
-            <option value="Male" {% if g=='Male' %}selected{% endif %}>Male</option>
-            <option value="Female" {% if g=='Female' %}selected{% endif %}>Female</option>
-            <option value="Either" {% if g=='Either' %}selected{% endif %}>Anything</option>
-            <option value="Mixed" {% if g=='Mixed' %}selected{% endif %}>Mixed</option>
-          </select>
-        </label>
-
-        <!-- Bedrooms -->
-        <label class="field">
-          <span class="label">Bedrooms (total)</span>
-          <input type="number" name="bedrooms_total" min="1" value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
-        </label>
-
-        <!-- Compact row: EPC + Listed as + Bills included -->
-        {% set epc_val = (form.epc_rating or '') if form else '' %}
-        {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
+        <!-- Bills included -->
         {% set bi = (form.bills_option or 'no') if form else 'no' %}
-
-        <div class="field trio">
-          <label class="field">
-            <span class="label">EPC rating</span>
-            <select name="epc_rating" id="epc_rating">
-              <option value="" {% if not epc_val %}selected{% endif %}>Please choose</option>
-              {% for rating in ['A','B','C','D','E','F','G'] %}
-                <option value="{{ rating }}" {% if epc_val==rating %}selected{% endif %}>{{ rating }}</option>
-              {% endfor %}
-            </select>
-            <p class="help">Choose the Energy Performance band.</p>
-          </label>
-
-          <label class="field compact">
-            <span class="label">Listed as</span>
-            <select name="listing_type" required class="small-select">
-              <option value="owner" {% if lt=='owner' %}selected{% endif %}>Owner</option>
-              <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span class="label">Bills included</span>
-            <select name="bills_included" id="bills_included">
-              <option value="no" {% if bi=='no' %}selected{% endif %}>No</option>
-              <option value="yes" {% if bi=='yes' %}selected{% endif %}>Yes</option>
-              <option value="some" {% if bi=='some' %}selected{% endif %}>Some</option>
-            </select>
-            <p class="help">Choose “Some” to specify which utilities are covered.</p>
-          </label>
-        </div>
+        <label class="field">
+          <span class="label">Bills included</span>
+          <select name="bills_included" id="bills_included">
+            <option value="no" {% if bi=='no' %}selected{% endif %}>No</option>
+            <option value="yes" {% if bi=='yes' %}selected{% endif %}>Yes</option>
+            <option value="some" {% if bi=='some' %}selected{% endif %}>Some</option>
+          </select>
+          <p class="help">Choose “Some” to specify which utilities are covered.</p>
+        </label>
       </div>
+
+      <!-- Bedrooms -->
+      <label class="field">
+        <span class="label">Bedrooms (total)</span>
+        <input type="number" name="bedrooms_total" min="1" value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
+      </label>
+
+      <!-- Gender preference -->
+      <label class="field">
+        <span class="label">This house identifies as</span>
+        {% set g = (form.gender_preference or '') if form else '' %}
+        <select name="gender_preference" required>
+          <option value="" {% if not g %}selected{% endif %}>Please choose one</option>
+          <option value="Male" {% if g=='Male' %}selected{% endif %}>Male</option>
+          <option value="Female" {% if g=='Female' %}selected{% endif %}>Female</option>
+          <option value="Either" {% if g=='Either' %}selected{% endif %}>Anything</option>
+          <option value="Mixed" {% if g=='Mixed' %}selected{% endif %}>Mixed</option>
+        </select>
+      </label>
     </div>
 
-    <!-- ADDRESS -->
-    <div class="card card--accent-edges">
-      <h2 class="card-title">Address</h2>
+    <!-- ADDRESS (accented) -->
+    <div class="card card--accent-edges" style="margin-top:12px;">
+      <h3 class="mt-0">Address</h3>
 
-      <!-- Hidden one-line address saved to DB -->
       <input type="hidden" name="address" id="address_hidden" value="{{ (form.address or '') if form else '' }}">
 
       <div class="grid grid-3">
@@ -136,46 +134,38 @@
       </div>
     </div>
 
-    <!-- MEDIA -->
-    <div class="card card--accent-edges">
-      <h2 class="card-title">Media</h2>
-      <div class="grid grid-3 media-grid">
+    <!-- MEDIA (accented) -->
+    <div class="card card--accent-edges" style="margin-top:12px;">
+      <h3 class="mt-0">Media</h3>
+      <div class="grid grid-3">
         <!-- YouTube -->
         <label class="field">
           <span class="label">YouTube video link (optional)</span>
           <input type="url" name="youtube_url" id="youtube_url"
                  value="{{ (form.youtube_url or '') if form else '' }}"
                  placeholder="https://www.youtube.com/watch?v=VIDEOID or https://youtu.be/VIDEOID">
-          <p class="help">Paste a full YouTube URL or a youtu.be share link.</p>
+          <p class="help">Paste a full YouTube URL or a youtu.be share link. We’ll format it correctly.</p>
         </label>
 
-        <!-- Photos button -->
-        <div class="field">
-          <span class="label">Photos</span>
+        <!-- Manage EPC -->
+        <div class="field" style="display:flex; flex-direction:column; justify-content:flex-end;">
+          <span class="label">Energy certificate (EPC PDF)</span>
           {% if mode=='edit' and house and house.id %}
-            <a class="btn" href="/landlord/houses/{{ house.id }}/photos">Manage photos</a>
+            <a class="btn btn-outline" href="/landlord/houses/{{ house.id }}/epc">Manage EPC PDF</a>
           {% else %}
-            <a class="btn btn-outline" aria-disabled="true" tabindex="-1">Available after saving</a>
+            <button class="btn btn-outline" type="button" disabled title="Save the house first">Manage EPC PDF</button>
           {% endif %}
-          <p class="help">Upload up to 5 images. We’ll resize & watermark for you.</p>
+          <p class="help">Upload/update the EPC PDF shown on the public page.</p>
         </div>
 
-        <!-- Floor plans button (placeholder for next project) -->
-        <div class="field">
-          <span class="label">Floor plans</span>
-          {% if mode=='edit' and house and house.id %}
-            <a class="btn btn-outline" href="/landlord/houses/{{ house.id }}/floorplans">Manage floor plans</a>
-          {% else %}
-            <a class="btn btn-outline" aria-disabled="true" tabindex="-1">Available after saving</a>
-          {% endif %}
-          <p class="help">Works the same as photos, just for plan images.</p>
-        </div>
+        <!-- (Space reserved for Photos/Floor plans later) -->
+        <div class="field" aria-hidden="true"></div>
       </div>
     </div>
 
-    <!-- BILLS UTILITIES (conditional) -->
-    <div id="bills-utilities" class="card card--accent-edges" style="{% if bi!='some' %}display:none{% endif %}">
-      <h2 class="card-title">Utilities covered (when “Some” selected)</h2>
+    <!-- BILLS UTILITIES (shown only when “Some”) -->
+    <div id="bills-utilities" class="card" style="margin-top:10px; {% if bi!='some' %}display:none{% endif %}">
+      <h3 class="mt-0">Bills coverage (tick utilities included)</h3>
       <div class="grid grid-3">
         <label class="field checkbox">
           <input type="checkbox" name="bills_util_gas" id="bills_util_gas"
@@ -208,9 +198,9 @@
       </p>
     </div>
 
-    <!-- BATHROOMS & CLEANING -->
-    <div class="card card--accent-edges">
-      <h2 class="card-title">Bathrooms & Cleaning</h2>
+    <!-- BATHROOMS & CLEANING (accented) -->
+    <div class="card card--accent-edges" style="margin-top:12px;">
+      <h3 class="mt-0">Bathrooms & Cleaning</h3>
       <div class="grid grid-3">
         <label class="field">
           <span class="label">Shared bathrooms (number)</span>
@@ -229,113 +219,108 @@
           </select>
           <p class="help">If “None”, we won’t show cleaning info on the property page.</p>
         </label>
+
+        <div class="field" aria-hidden="true"></div>
       </div>
     </div>
 
-    <!-- AMENITIES -->
-    <div class="card card--accent-edges">
-      <h2 class="card-title">Amenities</h2>
-      <div class="grid grid-3">
-        <label class="field checkbox">
-          <input type="checkbox" name="washing_machine" {% if (not form) or form.washing_machine in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Washing machine</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="tumble_dryer" {% if form and form.tumble_dryer in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Tumble dryer</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="dishwasher" {% if form and form.dishwasher in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Dishwasher</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="cooker" {% if (not form) or form.cooker in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Cooker</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="microwave" {% if form and form.microwave in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Microwave</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="coffee_maker" {% if form and form.coffee_maker in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Coffee maker</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="central_heating" {% if (not form) or form.central_heating in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Central heating</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="air_conditioning" {% if form and form.air_conditioning in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Air conditioning</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="vacuum" {% if form and form.vacuum in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Vacuum</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="wifi" {% if (not form) or form.wifi in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Wi-Fi</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="wired_internet" {% if form and form.wired_internet in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Wired internet</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="common_area_tv" {% if form and form.common_area_tv in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Common area TV</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="cctv" {% if form and form.cctv in ['1',1,'on',True] %}checked{% endif %}>
-          <span>CCTV</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="video_door_entry" {% if form and form.video_door_entry in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Video door entry</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="fob_entry" {% if form and form.fob_entry in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Fob entry</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="off_street_parking" {% if form and form.off_street_parking in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Off-street parking available</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="local_parking" {% if form and form.local_parking in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Local parking available</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="garden" {% if form and form.garden in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Garden</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="roof_terrace" {% if form and form.roof_terrace in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Roof terrace</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="bike_storage" {% if form and form.bike_storage in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Bike storage</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="games_room" {% if form and form.games_room in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Games room</span>
-        </label>
-        <label class="field checkbox">
-          <input type="checkbox" name="cinema_room" {% if form and form.cinema_room in ['1',1,'on',True] %}checked{% endif %}>
-          <span>Cinema room</span>
-        </label>
-      </div>
+    <!-- AMENITIES (unchanged content) -->
+    <h3 style="margin-top:14px">House Info</h3>
+    <div class="grid grid-3">
+      <label class="field checkbox">
+        <input type="checkbox" name="washing_machine" {% if (not form) or form.washing_machine in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Washing machine</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="tumble_dryer" {% if form and form.tumble_dryer in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Tumble dryer</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="dishwasher" {% if form and form.dishwasher in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Dishwasher</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="cooker" {% if (not form) or form.cooker in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Cooker</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="microwave" {% if form and form.microwave in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Microwave</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="coffee_maker" {% if form and form.coffee_maker in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Coffee maker</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="central_heating" {% if (not form) or form.central_heating in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Central heating</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="air_conditioning" {% if form and form.air_conditioning in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Air conditioning</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="vacuum" {% if form and form.vacuum in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Vacuum</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="wifi" {% if (not form) or form.wifi in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Wi-Fi</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="wired_internet" {% if form and form.wired_internet in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Wired internet</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="common_area_tv" {% if form and form.common_area_tv in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Common area TV</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="cctv" {% if form and form.cctv in ['1',1,'on',True] %}checked{% endif %}>
+        <span>CCTV</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="video_door_entry" {% if form and form.video_door_entry in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Video door entry</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="fob_entry" {% if form and form.fob_entry in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Fob entry</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="off_street_parking" {% if form and form.off_street_parking in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Off-street parking available</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="local_parking" {% if form and form.local_parking in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Local parking available</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="garden" {% if form and form.garden in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Garden</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="roof_terrace" {% if form and form.roof_terrace in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Roof terrace</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="bike_storage" {% if form and form.bike_storage in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Bike storage</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="games_room" {% if form and form.games_room in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Games room</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="cinema_room" {% if form and form.cinema_room in ['1',1,'on',True] %}checked{% endif %}>
+        <span>Cinema room</span>
+      </label>
     </div>
 
-    <!-- ACTIONS -->
-    <div class="card card--accent-edges actions">
-      <div class="actions-row">
-        <button class="btn" type="submit">{{ 'Create house' if mode=='new' else 'Save changes' }}</button>
-        <a class="btn" href="{{ url_for('landlord.landlord_houses') }}">Cancel</a>
-        {% if mode=='edit' and house and house.id %}
-          <a class="btn btn-outline" href="/landlord/houses/{{ house.id }}/epc">Manage EPC PDF</a>
-        {% endif %}
-      </div>
+    <!-- Actions -->
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="btn" type="submit">{{ 'Create house' if mode=='new' else 'Save changes' }}</button>
+      <a class="btn" href="{{ url_for('landlord.landlord_houses') }}">Cancel</a>
     </div>
   </form>
 </section>
@@ -345,7 +330,7 @@
     const $ = (id) => document.getElementById(id);
     const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
 
-    // Title auto-capitalise (no hint shown)
+    // Title auto-capitalise on blur
     const titleInput = $('title_input');
     function titleCaseWordishJS(s){
       s = (s || '').toLowerCase();
@@ -361,6 +346,7 @@
     const utilBox = $('bills-utilities');
     const utilIds = ['bills_util_gas','bills_util_electric','bills_util_water','bills_util_broadband','bills_util_tv'];
     const getChecks = () => utilIds.map(id => $(id)).filter(Boolean);
+
     function syncUtilitiesVisibility() {
       if (!billsSelect || !utilBox) return;
       const val = billsSelect.value;
@@ -385,13 +371,16 @@
     const hidden   = $('address_hidden');
     const preview  = $('address_preview');
 
-    const getVal = (id) => ( $(id)?.value || '' ).trim();
+    const partIds = ['flat_number','house_name','house_number','street_name','address_extra','postcode'];
     let partsDirty = false;
+
+    const getVal = (id) => ( $(id)?.value || '' ).trim();
 
     function titleCaseWordish(s) {
       s = (s || '').toLowerCase();
       return s.replace(/(^|[ \\-’'])\\p{L}/gu, m => m.toUpperCase());
     }
+
     function normalizePostcode(pc) {
       pc = (pc || '').toUpperCase().trim();
       if (pc.length > 3 && pc.indexOf(' ') === -1) {
@@ -399,6 +388,7 @@
       }
       return pc;
     }
+
     function composeFromParts() {
       const flat_number  = titleCaseWordish(getVal('flat_number'));
       const house_name   = titleCaseWordish(getVal('house_name'));
@@ -418,29 +408,30 @@
       if (preview) preview.textContent = composed;
       if (hidden) hidden.value = composed;
     }
+
     function syncTownFromCity() {
       if (townInp && citySel) townInp.value = (citySel.value || '').trim();
     }
     on(citySel, 'change', () => {
       syncTownFromCity();
-      if ((document.activeElement && document.activeElement.tagName === 'SELECT') || partsDirty) {
-        composeFromParts();
-      }
+      if (partsDirty) composeFromParts();
     });
 
-    ['flat_number','house_name','house_number','street_name','address_extra'].forEach(id => {
+    function wireTitleCaseOnBlur(id, formatter = titleCaseWordish) {
       const el = $(id);
       if (!el) return;
-      el.addEventListener('blur', () => { el.value = titleCaseWordish(el.value); partsDirty = true; composeFromParts(); });
-      el.addEventListener('input', () => { partsDirty = true; composeFromParts(); });
-    });
-    const pcEl = $('postcode');
-    if (pcEl) {
-      pcEl.addEventListener('blur', () => { pcEl.value = normalizePostcode(pcEl.value); partsDirty = true; composeFromParts(); });
-      pcEl.addEventListener('input', () => { partsDirty = true; composeFromParts(); });
+      on(el, 'blur', () => {
+        el.value = formatter(el.value);
+        partsDirty = true;
+        composeFromParts();
+      });
     }
+    ['flat_number','house_name','house_number','street_name','address_extra'].forEach(wireTitleCaseOnBlur);
+    wireTitleCaseOnBlur('postcode', normalizePostcode);
 
-    // Initial render
+    partIds.forEach(id => on($(id), 'input', () => { partsDirty = true; composeFromParts(); }));
+
+    // Initial
     syncTownFromCity();
     if (hidden && hidden.value && hidden.value.trim()) {
       if (preview) preview.textContent = hidden.value;
@@ -448,8 +439,7 @@
       composeFromParts();
     }
 
-    const form = document.getElementById('house-form');
-    form && form.addEventListener('submit', function () {
+    on(document.getElementById('house-form'), 'submit', function () {
       if (partsDirty) composeFromParts();
       syncTownFromCity();
     });
@@ -457,31 +447,17 @@
 </script>
 
 <style>
-  .page-title { margin-bottom: 8px; }
-  .form-stacked .card { margin-bottom: 14px; }
-  .card-title { margin: 0 0 10px 0; }
-  .actions .actions-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  /* Equal visual height for inputs/selects in the Basics card */
+  .equal-fields .field input[type="text"],
+  .equal-fields .field input[type="number"],
+  .equal-fields .field select {
+    height: 44px;
+  }
+  .equal-fields .field .help { margin-top: 6px; }
 
-  /* Make the Basics grid fields align to same height */
-  .basics-grid { align-items: stretch; }
-  .basics-grid .field,
-  .media-grid .field { display:flex; flex-direction:column; }
-
-  /* Trio row (EPC + Listed as + Bills) */
-  .trio { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; grid-column:1 / -1; }
-  .small-select { max-width: 160px; }
-
-  /* Address preview */
   .address-preview { margin-top: 8px; }
   .address-preview .label { font-weight: 600; margin-right: 8px; }
   .address-preview .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
   .address-preview .small { font-size: 0.9rem; opacity: 0.85; }
-
-  /* Media 3-up layout */
-  .media-grid { align-items: stretch; }
-
-  /* Optional subtle sub-card style if needed later
-  .card--sub { background: #faf9ff; border: 1px dashed var(--line); }
-  */
 </style>
 {% endblock %}
