@@ -10,6 +10,13 @@
     <div class="card">
       <h2 class="card-title">Basics</h2>
       <div class="grid grid-2">
+
+        <!-- NEW: Price per month -->
+        <label class="field" style="grid-column:1 / -1">
+          <span class="label">Price per month (£)</span>
+          <input type="number" name="price_pcm" value="{{ (form.price_pcm or '') if form else '' }}" min="0" step="1" inputmode="numeric" placeholder="e.g., 650">
+        </label>
+
         <label class="field" style="grid-column:1 / -1">
           <span class="label">Room name</span>
           <input type="text" name="name" value="{{ (form.name or '') if form else '' }}" required placeholder="e.g., Room 1, Attic room">
@@ -34,8 +41,6 @@
       </div>
     </div>
 
-    
-    
     <!-- FEATURES -->
     <div class="card">
       <h2 class="card-title">Features</h2>
@@ -92,21 +97,7 @@
         </label>
       </div>
     </div>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-   
+
     <!-- ACTIONS -->
     <div class="card actions">
       <div class="actions-row">
