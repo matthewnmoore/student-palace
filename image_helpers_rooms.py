@@ -1,140 +1,48 @@
 # image_helpers_rooms.py
 from __future__ import annotations
 
-import io, os, time, logging, secrets
+import os, time
 from datetime import datetime as dt
 from typing import Dict, List, Tuple, Optional
+import logging
 
-from PIL import Image, ImageDraw, ImageOps, ImageFont
+# Reuse the proven photo pipeline (resize + watermark + JPEG save + limits)
+from image_helpers import (
+    process_image, save_jpeg, read_limited,  # core I/O + processing
+    ALLOWED_MIMES, FILE_SIZE_LIMIT_BYTES,    # limits & validation
+)
+
+from PIL import Image
 
 # ------------ Logging ------------
 logger = logging.getLogger("student_palace.room_uploads")
 
-# ------------ Config ------------
+# ------------ Config (rooms) ------------
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 STATIC_ROOT = os.path.join(PROJECT_ROOT, "static")
-UPLOAD_DIR = os.path.join(STATIC_ROOT, "uploads", "rooms")  # served at /static/uploads/rooms
+ROOM_UPLOAD_DIR_ABS = os.path.join(STATIC_ROOT, "uploads", "rooms")   # /static/uploads/rooms
+ROOM_UPLOAD_DIR_REL = "uploads/rooms"                                 # stored in DB (no leading slash)
 
 MAX_FILES_PER_ROOM = 5
-FILE_SIZE_LIMIT_BYTES = 5 * 1024 * 1024  # 5 MB
-ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-MAX_BOUND = 1600
-WATERMARK_TEXT = os.environ.get("WATERMARK_TEXT", "Student Palace")
 
 # ------------ FS helpers ------------
 
-def ensure_upload_dir() -> None:
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-def static_rel_path(filename: str) -> str:
-    # store WITHOUT a leading slash; render with url_for('static', filename=...)
-    return f"uploads/rooms/{filename}"
-
-def file_abs_path(filename: str) -> str:
-    return os.path.join(UPLOAD_DIR, filename)
-
-# Back-compat aliases expected by routes
-def ensure_upload_dir_room() -> None:
-    ensure_upload_dir()
+def ensure_room_upload_dir() -> None:
+    os.makedirs(ROOM_UPLOAD_DIR_ABS, exist_ok=True)
 
 def static_rel_path_room(filename: str) -> str:
-    return static_rel_path(filename)
+    # store WITHOUT a leading slash; render with url_for('static', filename=...)
+    return f"{ROOM_UPLOAD_DIR_REL}/{filename}"
 
 def file_abs_path_room(filename: str) -> str:
-    return file_abs_path(filename)
+    return os.path.join(ROOM_UPLOAD_DIR_ABS, filename)
 
-# ------------ Image helpers ------------
-
-def _rand_token(n: int = 6) -> str:
-    return secrets.token_hex(max(3, n // 2))
-
-def read_limited(file_storage) -> Optional[bytes]:
-    data = file_storage.read(FILE_SIZE_LIMIT_BYTES + 1)
-    file_storage.stream.seek(0)
-    return data if data else None
-
-def open_image_safely(buf: bytes) -> Image.Image:
-    im = Image.open(io.BytesIO(buf))
-    try:
-        im = ImageOps.exif_transpose(im)
-    except Exception:
-        pass
-    if im.mode not in ("RGB", "L"):
-        im = im.convert("RGBA")
-        bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
-        bg.alpha_composite(im)
-        im = bg.convert("RGB")
-    else:
-        im = im.convert("RGB")
-    return im
-
-def resize_longest(im: Image.Image, bound: int = MAX_BOUND) -> Image.Image:
-    w, h = im.size
-    longest = max(w, h)
-    if longest <= bound:
-        return im.copy()
-    scale = bound / float(longest)
-    return im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-
-def _load_font_for_width(img_width: int):
-    font_size = max(14, img_width // 16)
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "DejaVuSans-Bold.ttf",
-        "DejaVuSans.ttf",
-    ]
-    for p in candidates:
-        try:
-            return ImageFont.truetype(p, font_size)
-        except Exception:
-            pass
-    return ImageFont.load_default()
-
-def watermark(im: Image.Image, text: str = WATERMARK_TEXT) -> Image.Image:
-    out = im.copy().convert("RGBA")
-    overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    w, h = out.size
-    font = _load_font_for_width(w)
-
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
-
-    pad = max(12, w // 80)
-    x = max(pad, w - tw - pad)
-    y = max(pad, h - th - pad)
-
-    draw.text((x + 1, y + 1), text, font=font, fill=(0, 0, 0, 120))
-    draw.text((x, y), text, font=font, fill=(255, 255, 255, 170))
-
-    composed = Image.alpha_composite(out, overlay)
-    return composed.convert("RGB")
-
-def process_image(buf: bytes) -> Image.Image:
-    return watermark(resize_longest(open_image_safely(buf), MAX_BOUND))
-
-def save_jpeg(im: Image.Image, abs_path: str) -> Tuple[int, int, int]:
-    im.save(abs_path, format="JPEG", quality=85, optimize=True, progressive=True)
-    w, h = im.size
-    byt = os.path.getsize(abs_path
-    )
-    return w, h, byt
-
-# ------------ DB schema guard (rooms) ------------
-
-REQUIRED_COLS = {
-    "id","room_id","file_name","filename","file_path",
-    "width","height","bytes","is_primary","sort_order","created_at"
-}
-
-def get_cols(conn, table: str) -> List[str]:
-    return [r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+# ------------ DB schema (add-only safe) ------------
 
 def assert_room_images_schema(conn) -> None:
     """
-    Ensures `room_images` exists with required columns (add-only, never destructive).
+    Ensures table `room_images` exists with all required columns.
+    Add-only; safe to call before insert/select.
     """
     conn.execute("""
         CREATE TABLE IF NOT EXISTS room_images (
@@ -151,58 +59,41 @@ def assert_room_images_schema(conn) -> None:
             sort_order INTEGER NOT NULL DEFAULT 0
         )
     """)
-    # Add-only guards (if an older table existed missing some cols)
-    def _safe_add(sql: str):
+    # Add-only guards in case an older table exists
+    def _safe_add(sql_col: str):
         try:
-            conn.execute(f"ALTER TABLE room_images ADD COLUMN {sql}")
+            conn.execute(f"ALTER TABLE room_images ADD COLUMN {sql_col}")
         except Exception:
             pass
-    for col_sql in [
-        "file_name TEXT NOT NULL DEFAULT ''",
-        "filename TEXT NOT NULL DEFAULT ''",
-        "file_path TEXT NOT NULL DEFAULT 0",  # string column; using default 0 is tolerated by SQLite but you can change to '' if preferred
-        "width INTEGER NOT NULL DEFAULT 0",
-        "height INTEGER NOT NULL DEFAULT 0",
-        "bytes INTEGER NOT NULL DEFAULT 0",
-        "is_primary INTEGER NOT NULL DEFAULT 0",
-        "sort_order INTEGER NOT NULL DEFAULT 0",
-        "created_at TEXT NOT NULL DEFAULT ''",
-    ]:
-        _safe_add(col_sql)
 
-# ------------ DB operations (rooms) ------------
+    _safe_add("room_id INTEGER NOT NULL")
+    _safe_add("file_name TEXT NOT NULL DEFAULT ''")
+    _safe_add("filename TEXT NOT NULL DEFAULT ''")
+    _safe_add("file_path TEXT NOT NULL DEFAULT ''")
+    _safe_add("width INTEGER NOT NULL DEFAULT 0")
+    _safe_add("height INTEGER NOT NULL DEFAULT 0")
+    _safe_add("bytes INTEGER NOT NULL DEFAULT 0")
+    _safe_add("is_primary INTEGER NOT NULL DEFAULT 0")
+    _safe_add("sort_order INTEGER NOT NULL DEFAULT 0")
+    _safe_add("created_at TEXT NOT NULL DEFAULT ''")
 
-def count_for_room(conn, rid: int) -> int:
-    return int(conn.execute(
-        "SELECT COUNT(*) AS c FROM room_images WHERE room_id=?", (rid,)
-    ).fetchone()["c"])
+# ------------ DB ops (rooms) ------------
 
-def next_sort_order(conn, rid: int) -> int:
+def _count_for_room(conn, rid: int) -> int:
+    r = conn.execute("SELECT COUNT(*) AS c FROM room_images WHERE room_id=?", (rid,)).fetchone()
+    return int(r["c"] if r and "c" in r.keys() else 0)
+
+def _next_sort_order(conn, rid: int) -> int:
+    r = conn.execute("SELECT COALESCE(MAX(sort_order), 0) AS mx FROM room_images WHERE room_id=?", (rid,)).fetchone()
+    mx = int(r["mx"] if r and "mx" in r.keys() and r["mx"] is not None else 0)
+    return mx + 1
+
+def _ensure_primary_flag(conn, rid: int) -> int:
     r = conn.execute(
-        "SELECT COALESCE(MAX(sort_order), 0) AS mx FROM room_images WHERE room_id=?",
-        (rid,)
+        "SELECT COUNT(*) AS c FROM room_images WHERE room_id=? AND is_primary=1", (rid,)
     ).fetchone()
-    return (int(r["mx"]) if r else 0) + 1
-
-def ensure_primary_flag(conn, rid: int) -> int:
-    r = conn.execute(
-        "SELECT COUNT(*) AS c FROM room_images WHERE room_id=? AND is_primary=1",
-        (rid,)
-    ).fetchone()
-    return 1 if (r and int(r["c"]) == 0) else 0
-
-def insert_room_image_row(conn, rid: int, fname: str, width: int, height: int, bytes_: int) -> None:
-    file_path = static_rel_path(fname)
-    values = (
-        rid, fname, fname, file_path, width, height, bytes_,
-        ensure_primary_flag(conn, rid), next_sort_order(conn, rid), dt.utcnow().isoformat()
-    )
-    conn.execute("""
-        INSERT INTO room_images(
-          room_id, file_name, filename, file_path, width, height, bytes,
-          is_primary, sort_order, created_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?)
-    """, values)
+    c = int(r["c"] if r and "c" in r.keys() else 0)
+    return 1 if c == 0 else 0
 
 def select_room_images(conn, rid: int) -> List[Dict]:
     rows = conn.execute("""
@@ -217,7 +108,7 @@ def select_room_images(conn, rid: int) -> List[Dict]:
     return [{
         "id": r["id"],
         "is_primary": int(r["is_primary"]) == 1,
-        "file_path": r["file_path"],
+        "file_path": r["file_path"],   # relative path under /static
         "filename": r["filename"],
         "width": int(r["width"]),
         "height": int(r["height"]),
@@ -231,74 +122,104 @@ def set_room_primary(conn, rid: int, img_id: int) -> None:
     conn.execute("UPDATE room_images SET is_primary=1 WHERE id=? AND room_id=?", (img_id, rid))
 
 def delete_room_image(conn, rid: int, img_id: int) -> Optional[str]:
+    """
+    Delete row and return filename (so caller can remove file from disk),
+    or None if not found.
+    """
     row = conn.execute("""
         SELECT id, COALESCE(filename, file_name) AS filename
           FROM room_images
-         WHERE id=? AND room_id=?""", (img_id, rid)).fetchone()
+         WHERE id=? AND room_id=?
+    """, (img_id, rid)).fetchone()
     if not row:
         return None
     fname = row["filename"]
     conn.execute("DELETE FROM room_images WHERE id=? AND room_id=?", (img_id, rid))
+    # If we deleted the primary, pick the first remaining as new primary
+    nxt = conn.execute("""
+        SELECT id FROM room_images
+         WHERE room_id=?
+         ORDER BY is_primary DESC, sort_order ASC, id ASC
+    """, (rid,)).fetchone()
+    if nxt:
+        conn.execute("UPDATE room_images SET is_primary=1 WHERE id=?", (nxt["id"],))
     return fname
 
-# ------------ One-shot upload flow with timing logs (rooms) ------------
+# ------------ Upload flow (rooms) ------------
 
 def accept_room_upload(conn, rid: int, file_storage, *, enforce_limit: bool = True) -> Tuple[bool, str]:
     """
     Returns (ok, message). Saves to disk + DB or reports a reason.
-    Mirrors house photo behavior but under uploads/rooms and room_images table.
+    Mirrors house accept_upload(), but scoped to a room.
     """
-    start = time.perf_counter()
+    if not file_storage:
+        return False, "No file."
+
     original_name = getattr(file_storage, "filename", "") or "unnamed"
     mimetype = (getattr(file_storage, "mimetype", None) or "").lower()
 
-    if enforce_limit and count_for_room(conn, rid) >= MAX_FILES_PER_ROOM:
-        logger.info(f"[ROOM-UPLOAD] room={rid} name={original_name!r} mime={mimetype} skipped=limit_reached")
+    if enforce_limit and _count_for_room(conn, rid) >= MAX_FILES_PER_ROOM:
+        logger.info(f"[ROOM UPLOAD] room={rid} name={original_name!r} mime={mimetype} skipped=limit")
         return False, f"Room already has {MAX_FILES_PER_ROOM} photos."
 
     if mimetype not in ALLOWED_MIMES:
-        logger.info(f"[ROOM-UPLOAD] room={rid} name={original_name!r} mime={mimetype} skipped=bad_mime")
+        logger.info(f"[ROOM UPLOAD] room={rid} name={original_name!r} mime={mimetype} skipped=bad_mime")
         return False, "Unsupported image type."
 
-    data = read_limited(file_storage)
-    if not data:
-        logger.info(f"[ROOM-UPLOAD] room={rid} name={original_name!r} mime={mimetype} skipped=empty_read")
+    buf = read_limited(file_storage)
+    if not buf:
+        logger.info(f"[ROOM UPLOAD] room={rid} name={original_name!r} skipped=empty_read")
         return False, "Could not read the file."
-    if len(data) > FILE_SIZE_LIMIT_BYTES:
-        logger.info(f"[ROOM-UPLOAD] room={rid} name={original_name!r} mime={mimetype} skipped=too_large size={len(data)}")
+    if len(buf) > FILE_SIZE_LIMIT_BYTES:
+        logger.info(f"[ROOM UPLOAD] room={rid} name={original_name!r} skipped=too_large size={len(buf)}")
         return False, "File is larger than 5 MB."
 
+    # Process (open → resize → watermark)
     try:
-        im = process_image(data)
+        im = process_image(buf)
     except Exception:
-        logger.exception(f"[ROOM-UPLOAD] room={rid} name={original_name!r} mime={mimetype} failed=invalid_image")
+        logger.exception(f"[ROOM UPLOAD] room={rid} name={original_name!r} failed=invalid_image")
         return False, "File is not a valid image."
 
-    ensure_upload_dir()
+    # Write to disk
+    ensure_room_upload_dir()
     ts = dt.utcnow().strftime("%Y%m%d%H%M%S")
-    fname = f"room{rid}_{ts}_{_rand_token()}.jpg"
-    abs_path = file_abs_path(fname)
+    import secrets
+    token = secrets.token_hex(4)
+    fname = f"room{rid}_{ts}_{token}.jpg"
+    abs_path = file_abs_path_room(fname)
 
     try:
         w, h, byt = save_jpeg(im, abs_path)
     except Exception:
-        logger.exception(f"[ROOM-UPLOAD] room={rid} name={original_name!r} mime={mimetype} failed=fs_write")
+        logger.exception(f"[ROOM UPLOAD] room={rid} name={original_name!r} failed=fs_write")
         return False, "Server storage is not available."
 
+    # Insert DB row
     try:
         assert_room_images_schema(conn)
-        insert_room_image_row(conn, rid, fname, w, h, byt)
+        file_path = static_rel_path_room(fname)
+        conn.execute("""
+            INSERT INTO room_images(
+              room_id, file_name, filename, file_path, width, height, bytes,
+              is_primary, sort_order, created_at
+            ) VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, (
+            rid, fname, fname, file_path, w, h, byt,
+            _ensure_primary_flag(conn, rid), _next_sort_order(conn, rid),
+            dt.utcnow().isoformat()
+        ))
     except Exception as e:
+        # Roll back disk save if DB insert fails
         try:
             os.remove(abs_path)
         except Exception:
             pass
-        logger.exception(f"[ROOM-UPLOAD] room={rid} name={original_name!r} mime={mimetype} failed=db_insert")
+        logger.exception(f"[ROOM UPLOAD] room={rid} name={original_name!r} failed=db_insert")
         return False, f"Couldn’t record image in DB: {e}"
 
-    elapsed = time.perf_counter() - start
     logger.info(
-        f"[ROOM-UPLOAD] room={rid} name={original_name!r} saved={fname!r} mime={mimetype} "
-        f"size_bytes={byt} dims={w}x{h} elapsed={elapsed:.2f}s"
+        f"[ROOM UPLOAD] room={rid} name={original_name!r} saved={fname!r} "
+        f"mime={mimetype} size_bytes={byt} dims={w}x{h}"
     )
     return True, "Uploaded"
