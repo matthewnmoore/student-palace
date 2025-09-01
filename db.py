@@ -256,6 +256,12 @@ def ensure_db():
     # --- NEW: EPC rating text (optional) ---
     _safe_add_column(conn, "houses", "ADD COLUMN epc_rating TEXT NOT NULL DEFAULT ''")
 
+    # --- NEW: Rooms fields (2025-09-01) ---
+    _safe_add_column(conn, "rooms", "ADD COLUMN price_pcm INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "rooms", "ADD COLUMN safe INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "rooms", "ADD COLUMN dressing_table INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "rooms", "ADD COLUMN mirror INTEGER NOT NULL DEFAULT 0")
+
     # --- house_images add-only sync ---
     if table_exists(conn, "house_images"):
         _safe_add_column(conn, "house_images", "ADD COLUMN file_name TEXT NOT NULL DEFAULT ''")
