@@ -1,22 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Room photos – {{ house.title }} / {{ room.name }} – Student Palace{% endblock %}
+{% block title %}Room photos – {{ house.title }} – {{ room.name }}{% endblock %}
 {% block content %}
 <section class="wrap">
-
-  <!-- Header / breadcrumbs -->
-  <div class="card card--accent-edges" style="margin-top:12px">
-    <div class="flex-between">
-      <div>
-        <h2 class="mt-0" style="margin-bottom:6px">Room photos</h2>
-        <p class="small" style="margin:0">
-          <strong>House:</strong> {{ house.title }} (ID {{ house.id }}) &nbsp;•&nbsp;
-          <strong>Room:</strong> {{ room.name }} (ID {{ room.id }})
-        </p>
-      </div>
-      <div class="inline-actions">
-        <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Back to rooms</a>
-        <a class="btn btn-outline" href="{{ url_for('landlord.house_edit', hid=house.id) }}">Back to house</a>
-      </div>
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Photos for “{{ room.name }}” <span class="muted">in {{ house.title }}</span></h1>
+    <div class="inline-actions">
+      <a class="btn" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Back to rooms</a>
+      <a class="btn btn-outline" href="{{ url_for('landlord.house_edit', hid=house.id) }}">Edit house</a>
+      <a class="btn btn-outline" href="{{ url_for('landlord.house_photos', hid=house.id) }}">Manage house photos</a>
     </div>
   </div>
 
@@ -28,61 +19,166 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Upload -->
-  <div class="card card--accent-edges">
-    <h3 class="mt-0">Upload a new photo</h3>
-    <form method="post" enctype="multipart/form-data" action="{{ url_for('landlord.room_photos_upload', hid=house.id, rid=room.id) }}">
-      <div class="grid grid-2">
-        <label class="field" style="grid-column:1 / -1">
-          <span class="label">Choose image (JPEG/PNG/WebP/GIF, up to 5 MB)</span>
-          <input type="file" name="file" accept="image/*" required>
-        </label>
+  <div class="card">
+    <h3 class="mt-0">Upload photos</h3>
+    <p class="help" id="limit-note">
+      Max {{ max_images }} per room. Max size 5&nbsp;MB each. JPG/PNG/WebP/GIF accepted.<br>
+      You can select <em>multiple</em> files at once or drag &amp; drop them below.
+      {% set already = (images|length if images else 0) %}
+      {% set remaining = max_images - already %}
+      <br>Remaining slots: <strong id="remaining">{{ remaining }}</strong>
+    </p>
+
+    <form id="upload-form"
+          action="{{ url_for('landlord.room_photos', hid=house.id, rid=room.id) }}"
+          method="post" enctype="multipart/form-data">
+      <!-- Hidden real input (we programmatically fill this) -->
+      <input id="file-input" type="file" name="photos" accept="image/*" multiple required hidden>
+
+      <!-- Drop zone / picker -->
+      <div id="drop-zone"
+           style="border:2px dashed var(--border); border-radius:12px; padding:20px; text-align:center; cursor:pointer; background:#fff;">
+        <div style="font-weight:600; margin-bottom:6px">Drag &amp; drop images here</div>
+        <div class="small" style="color:var(--muted)">…or click to choose from your device</div>
       </div>
-      <p class="help" style="margin-top:6px">We automatically resize and add a small “Student Palace” watermark.</p>
-      <button class="btn" type="submit" style="margin-top:10px">Upload photo</button>
+
+      <!-- Actions + status -->
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+        <button id="choose-btn" class="btn btn-outline" type="button">Choose files</button>
+        <button id="upload-btn" class="btn" type="submit">Upload</button>
+        <span id="selection-status" class="small" style="color:var(--muted)"></span>
+      </div>
     </form>
   </div>
 
-  <!-- Current images -->
-  <div class="card card--accent-edges" style="margin-top:12px">
-    <h3 class="mt-0">Current photos</h3>
+  <div class="card" style="margin-top:14px;">
+    <div class="flex-between" style="margin-bottom:10px; align-items:flex-end;">
+      <h3 class="mt-0">Existing photos</h3>
+      <div class="muted small">
+        {% if images and images|length %}
+          {{ images|length }} / {{ max_images }} uploaded
+        {% else %}
+          No photos yet — add some above.
+        {% endif %}
+      </div>
+    </div>
 
     {% if images and images|length %}
-      <div class="grid grid-3">
+      <ul style="list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px;">
         {% for img in images %}
-          <div class="card" style="padding:12px; margin:0">
-            <div style="aspect-ratio: 4 / 3; width:100%; overflow:hidden; border-radius:8px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center;">
-              <img
-                src="{{ url_for('static', filename=img.file_path) }}"
-                alt="Room photo {{ loop.index }}"
-                style="max-width:100%; max-height:100%; display:block;">
+          <li style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff;">
+            <!-- IMPORTANT: file_path is RELATIVE under /static -->
+            <img src="{{ url_for('static', filename=img.file_path) }}" alt=""
+                 style="width:100%; height:140px; object-fit:cover;">
+            <div style="padding:8px; display:flex; gap:8px; justify-content:space-between; align-items:center;">
+              {% if img.is_primary %}
+                <span class="muted small">Primary</span>
+              {% else %}
+                <form method="post" action="{{ url_for('landlord.room_photos_primary', hid=house.id, rid=room.id, img_id=img.id) }}">
+                  <button class="btn btn-outline" type="submit">Make primary</button>
+                </form>
+              {% endif %}
+              <form method="post"
+                    action="{{ url_for('landlord.room_photos_delete', hid=house.id, rid=room.id, img_id=img.id) }}"
+                    onsubmit="return confirm('Delete this photo?');">
+                <button class="btn btn-admin" type="submit">Delete</button>
+              </form>
             </div>
-
-            <p class="small" style="margin:8px 0 0">
-              {{ img.width }}×{{ img.height }} • {{ (img.bytes / 1024)|round(0) }} KB
-            </p>
-            <p class="small" style="margin:2px 0 8px; color: var(--muted);">
-              Uploaded: {{ img.created_at }}
-            </p>
-
-            {% if img.is_primary %}
-              <span class="badge">Primary</span>
-            {% endif %}
-
-            <form method="post" action="{{ url_for('landlord.room_photos_set_primary', hid=house.id, rid=room.id, img_id=img.id) }}" style="display:inline-block; margin-top:8px">
-              <button class="btn btn-outline" type="submit" {% if img.is_primary %}disabled{% endif %}>Set primary</button>
-            </form>
-
-            <form method="post" action="{{ url_for('landlord.room_photos_delete', hid=house.id, rid=room.id, img_id=img.id) }}" style="display:inline-block; margin-top:8px">
-              <button class="btn btn-outline" type="submit" onclick="return confirm('Delete this photo?')">Delete</button>
-            </form>
-          </div>
+          </li>
         {% endfor %}
-      </div>
+      </ul>
     {% else %}
-      <p class="help">No photos yet. Upload your first one above.</p>
+      <p class="muted">No photos yet.</p>
     {% endif %}
   </div>
-
 </section>
+
+<script>
+(function(){
+  const MAX_MB_PER_FILE = 5;
+  const BYTES_LIMIT = MAX_MB_PER_FILE * 1024 * 1024;
+  const remainingSlots = {{ max_images - (images|length if images else 0) }};
+
+  const input = document.getElementById('file-input');
+  const drop = document.getElementById('drop-zone');
+  const chooseBtn = document.getElementById('choose-btn');
+  const status = document.getElementById('selection-status');
+
+  function humanMB(bytes){ return (bytes/1024/1024).toFixed(2); }
+
+  function summarize(files){
+    if (!files.length){ status.textContent = ''; return; }
+    const total = Array.from(files).reduce((n,f)=> n + (f.size||0), 0);
+    status.textContent = `${files.length} file${files.length>1?'s':''} • ${humanMB(total)} MB total`;
+  }
+
+  function filterAndTrim(files){
+    let arr = Array.from(files || []);
+    if (!arr.length) return arr;
+
+    // Remove non-images
+    const notImage = arr.filter(f => !(f && f.type && f.type.startsWith('image/')));
+    if (notImage.length){
+      alert('Some non-image files were removed.');
+      arr = arr.filter(f => f.type && f.type.startsWith('image/'));
+    }
+
+    // Remove > 5 MB
+    const tooBig = arr.filter(f => f.size > BYTES_LIMIT);
+    if (tooBig.length){
+      alert(`Some files exceed ${MAX_MB_PER_FILE} MB and were removed.`);
+      arr = arr.filter(f => f.size <= BYTES_LIMIT);
+    }
+
+    // Enforce remaining slots
+    if (remainingSlots <= 0){
+      alert("You have no remaining slots for this room.");
+      return [];
+    }
+    if (arr.length > remainingSlots){
+      alert(`You can add up to ${remainingSlots} more image${remainingSlots>1?'s':''}. Extra files were ignored.`);
+      arr = arr.slice(0, remainingSlots);
+    }
+    return arr;
+  }
+
+  function setInputFiles(files){
+    const bag = new DataTransfer();
+    files.forEach(f => bag.items.add(f));
+    input.files = bag.files;
+    summarize(files);
+  }
+
+  // Click-to-choose
+  chooseBtn.addEventListener('click', () => input.click());
+  drop.addEventListener('click', () => input.click());
+
+  // Native picker change
+  input.addEventListener('change', () => {
+    const filtered = filterAndTrim(input.files);
+    setInputFiles(filtered);
+  });
+
+  // Drag & drop handlers
+  ['dragenter','dragover'].forEach(evt =>
+    drop.addEventListener(evt, e => {
+      e.preventDefault(); e.stopPropagation();
+      drop.style.background = '#f8f6ff';
+      drop.style.borderColor = 'var(--brand)';
+    })
+  );
+  ['dragleave','drop'].forEach(evt =>
+    drop.addEventListener(evt, e => {
+      e.preventDefault(); e.stopPropagation();
+      drop.style.background = '#fff';
+      drop.style.borderColor = 'var(--border)';
+    })
+  );
+  drop.addEventListener('drop', e => {
+    const files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [];
+    const filtered = filterAndTrim(files);
+    setInputFiles(filtered);
+  });
+})();
+</script>
 {% endblock %}
