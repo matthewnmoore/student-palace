@@ -4,182 +4,75 @@
 <section class="wrap">
   <h1>{{ 'Add a house' if mode=='new' else 'Edit house' }}</h1>
 
-  <!-- BASICS -->
-  <form method="post" class="card card--accent-edges" id="house-form">
-    <div class="grid grid-2 equal-fields">
-      <!-- Title -->
-      <label class="field">
-        <span class="label">Title</span>
-        <input type="text" name="title" id="title_input" value="{{ (form.title or '') if form else '' }}" required>
-        <p class="help">We’ll auto-capitalize this nicely.</p>
-      </label>
+  <form method="post" id="house-form">
 
-      <!-- City -->
-      <label class="field">
-        <span class="label">City</span>
-        <select name="city" id="city_select" required>
-          <option value="">Select a city</option>
-          {% for c in cities %}
-            <option value="{{ c }}" {% if form and form.city==c %}selected{% endif %}>{{ c }}</option>
-          {% endfor %}
-        </select>
-        <p class="help">Only admin-listed cities are available.</p>
-      </label>
-
-      <!-- Second row in Basics: Listing + EPC + Bills (3-up) -->
-      <div class="field-group grid grid-3" style="grid-column:1 / -1">
-        <!-- Listing type -->
+    <!-- BASICS -->
+    <div class="card card--accent-edges">
+      <h3 class="mt-0">Basics</h3>
+      <div class="grid grid-2">
+        <!-- Title -->
         <label class="field">
-          <span class="label">Listed as</span>
-          {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
-          <select name="listing_type" required>
-            <option value="owner" {% if lt=='owner' %}selected{% endif %}>Owner</option>
-            <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
-          </select>
-          <p class="help">Defaults to your profile preference; you can change per house.</p>
+          <span class="label">Title</span>
+          <input type="text" name="title" value="{{ house.title or '' }}">
         </label>
 
-        <!-- EPC rating -->
+        <!-- City -->
         <label class="field">
-          <span class="label">EPC rating</span>
-          {% set epc_val = (form.epc_rating or '') if form else '' %}
-          <select name="epc_rating" id="epc_rating">
-            <option value="" {% if not epc_val %}selected{% endif %}>Please choose</option>
-            {% for rating in ['A','B','C','D','E','F','G'] %}
-              <option value="{{ rating }}" {% if epc_val==rating %}selected{% endif %}>{{ rating }}</option>
+          <span class="label">City</span>
+          <select name="city">
+            {% for c in cities %}
+              <option value="{{ c }}" {% if house.city==c %}selected{% endif %}>{{ c }}</option>
             {% endfor %}
           </select>
-          <p class="help">Select the property’s Energy Performance Certificate band.</p>
         </label>
 
-        <!-- Bills included (dropdown) – saved as bills_option via parser -->
-        {% set bi = (form.bills_option or 'no') if form else 'no' %}
+        <!-- Address -->
+        <label class="field" style="grid-column:1/-1">
+          <span class="label">Address</span>
+          <input type="text" name="address" value="{{ house.address or '' }}">
+        </label>
+
+        <!-- Bedrooms -->
         <label class="field">
-          <span class="label">Bills included</span>
-          <select name="bills_included" id="bills_included">
-            <option value="no" {% if bi=='no' %}selected{% endif %}>No</option>
-            <option value="yes" {% if bi=='yes' %}selected{% endif %}>Yes</option>
-            <option value="some" {% if bi=='some' %}selected{% endif %}>Some</option>
+          <span class="label">Total bedrooms</span>
+          <input type="number" name="bedrooms_total" value="{{ house.bedrooms_total or '' }}">
+        </label>
+
+        <!-- Gender pref -->
+        <label class="field">
+          <span class="label">This house identifies as</span>
+          <select name="gender_preference">
+            {% for g in ['Male','Female','Mixed','Either'] %}
+              <option value="{{ g }}" {% if house.gender_preference==g %}selected{% endif %}>{{ g }}</option>
+            {% endfor %}
           </select>
-          <p class="help">Choose “Some” to specify which utilities are covered.</p>
         </label>
-      </div>
-
-      <!-- Bedrooms -->
-      <label class="field">
-        <span class="label">Bedrooms (total)</span>
-        <input type="number" name="bedrooms_total" min="1" value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
-      </label>
-
-      <!-- Gender preference -->
-      <label class="field">
-        <span class="label">This house identifies as</span>
-        {% set g = (form.gender_preference or '') if form else '' %}
-        <select name="gender_preference" required>
-          <option value="" {% if not g %}selected{% endif %}>Please choose one</option>
-          <option value="Male" {% if g=='Male' %}selected{% endif %}>Male</option>
-          <option value="Female" {% if g=='Female' %}selected{% endif %}>Female</option>
-          <option value="Either" {% if g=='Either' %}selected{% endif %}>Anything</option>
-          <option value="Mixed" {% if g=='Mixed' %}selected{% endif %}>Mixed</option>
-        </select>
-      </label>
-    </div>
-
-    <!-- ADDRESS (accented card) -->
-    <div class="card card--accent-edges" style="margin-top:12px;">
-      <h3 class="mt-0">Address</h3>
-
-      <!-- Hidden one-line address that is actually saved to DB -->
-      <input type="hidden" name="address" id="address_hidden" value="{{ (form.address or '') if form else '' }}">
-
-      <div class="grid grid-3">
-        <label class="field">
-          <span class="label">Flat number</span>
-          <input type="text" name="flat_number" id="flat_number" value="">
-        </label>
-
-        <label class="field">
-          <span class="label">House name</span>
-          <input type="text" name="house_name" id="house_name" value="">
-        </label>
-
-        <label class="field">
-          <span class="label">House number</span>
-          <input type="text" name="house_number" id="house_number" value="">
-        </label>
-
-        <label class="field" style="grid-column:1 / -1">
-          <span class="label">Street name</span>
-          <input type="text" name="street_name" id="street_name" value="">
-        </label>
-
-        <label class="field" style="grid-column:1 / -1">
-          <span class="label">Extra address info (optional)</span>
-          <input type="text" name="address_extra" id="address_extra" value="" placeholder="Building, area, landmark (optional)">
-        </label>
-
-        <label class="field">
-          <span class="label">Town</span>
-          <input type="text" name="town" id="town" value="{{ (form.city or '') if form else '' }}" readonly>
-        </label>
-
-        <label class="field">
-          <span class="label">Postcode</span>
-          <input type="text" name="postcode" id="postcode" value="" placeholder="e.g., SW1A 1AA" autocomplete="postal-code">
-        </label>
-      </div>
-
-      <div class="address-preview">
-        <span class="label">Preview (what will be saved):</span>
-        <p id="address_preview" class="mono small">{{ (form.address or '') if form else '' }}</p>
       </div>
     </div>
 
-    <!-- MEDIA: YouTube + Photos + Floor plans -->
-    <div class="card card--accent-edges" style="margin-top:12px;">
+    <!-- MEDIA -->
+    <div class="card card--accent-edges">
       <h3 class="mt-0">Media</h3>
       <div class="grid grid-3">
-        <!-- YouTube -->
         <label class="field">
-          <span class="label">YouTube video link (optional)</span>
-          <input type="url" name="youtube_url" id="youtube_url"
-                 value="{{ (form.youtube_url or '') if form else '' }}"
-                 placeholder="https://www.youtube.com/watch?v=VIDEOID or https://youtu.be/VIDEOID">
-          <p class="help">Paste a full YouTube URL or a youtu.be share link. We’ll format it correctly.</p>
+          <span class="label">YouTube link</span>
+          <input type="url" name="youtube_url" value="{{ house.youtube_url or '' }}">
         </label>
-
-        <!-- Photos button -->
-        <div class="field" style="display:flex; flex-direction:column; justify-content:flex-end;">
-          <span class="label">House photos</span>
-          {% if mode=='edit' and house and house.id %}
-            <a class="btn" href="{{ url_for('landlord.house_photos', hid=house.id) }}">Manage photos</a>
-          {% else %}
-            <button class="btn" type="button" disabled title="Save the house first">Manage photos</button>
-          {% endif %}
-          <p class="help">Upload up to 5 images, drag to reorder, set a cover.</p>
+        <div class="field">
+          <span class="label">Photos</span>
+          <a class="btn" href="{{ url_for('landlord.house_photos', hid=house.id) }}">Manage photos</a>
         </div>
-
-        <!-- Floor plans button (next project; mirrors photos) -->
-        <div class="field" style="display:flex; flex-direction:column; justify-content:flex-end;">
+        <div class="field">
           <span class="label">Floor plans</span>
-          {% if mode=='edit' and house and house.id %}
-            <!-- placeholder path; will be implemented to mirror photos -->
-            <a class="btn btn-outline" href="/landlord/houses/{{ house.id }}/floorplans" title="Coming soon">
-              Manage floor plans
-            </a>
-          {% else %}
-            <button class="btn btn-outline" type="button" disabled title="Save the house first">Manage floor plans</button>
-          {% endif %}
-          <p class="help">Coming soon — same upload UI as photos.</p>
+          <button class="btn" type="button" disabled>Coming soon</button>
         </div>
       </div>
     </div>
 
-    <!-- BILLS UTILITIES (only when “some”) -->
-    <div id="bills-utilities" class="card" style="margin-top:10px; {% if bi!='some' %}display:none{% endif %}">
-      <h3 class="mt-0">Bills coverage (tick utilities included)</h3>
-      <div class="grid grid-3">
-        <label class="field checkbox">
-          <input type="checkbox" name="bills_util_gas" id="bills_util_gas"
-                 {% if form and form.bills_util_gas in ['1',1,'on',True] %}checked{% endif %}>
-          <
+    <!-- ACTIONS -->
+    <div class="card card--accent-edges">
+      <button type="submit" class="btn btn-accent">Save house</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
