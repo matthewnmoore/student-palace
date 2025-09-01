@@ -1,0 +1,182 @@
+<!-- templates/house_floorplans.html -->
+{% extends "base.html" %}
+{% block title %}Floor plans – {{ house.title }}{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Floor plans for “{{ house.title }}”</h1>
+    <div class="inline-actions">
+      <a class="btn" href="{{ url_for('landlord.landlord_houses') }}">Back to houses</a>
+      <a class="btn btn-outline" href="{{ url_for('landlord.house_edit', hid=house.id) }}">Edit house</a>
+      <a class="btn btn-outline" href="{{ url_for('landlord.house_photos', hid=house.id) }}">Manage photos</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card">
+    <h3 class="mt-0">Upload floor plans</h3>
+    <p class="help" id="limit-note">
+      Max {{ max_plans }} per house. Max size 5&nbsp;MB each. JPG/PNG/WebP/GIF accepted.<br>
+      You can select <em>multiple</em> files at once or drag &amp; drop them below.
+      {% set already = (plans|length if plans else 0) %}
+      {% set remaining = max_plans - already %}
+      <br>Remaining slots: <strong id="remaining">{{ remaining }}</strong>
+    </p>
+
+    <form id="upload-form"
+          action="{{ url_for('landlord.house_floorplans', hid=house.id) }}"
+          method="post" enctype="multipart/form-data">
+      <!-- Hidden real input (we programmatically fill this) -->
+      <input id="file-input" type="file" name="plans" accept="image/*" multiple required hidden>
+
+      <!-- Drop zone / picker -->
+      <div id="drop-zone"
+           style="border:2px dashed var(--border); border-radius:12px; padding:20px; text-align:center; cursor:pointer; background:#fff;">
+        <div style="font-weight:600; margin-bottom:6px">Drag &amp; drop images here</div>
+        <div class="small" style="color:var(--muted)">…or click to choose from your device</div>
+      </div>
+
+      <!-- Actions + status -->
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+        <button id="choose-btn" class="btn btn-outline" type="button">Choose files</button>
+        <button id="upload-btn" class="btn" type="submit">Upload</button>
+        <span id="selection-status" class="small" style="color:var(--muted)"></span>
+      </div>
+    </form>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <div class="flex-between" style="margin-bottom:10px; align-items:flex-end;">
+      <h3 class="mt-0">Existing floor plans</h3>
+      <div class="muted small">
+        {% if plans and plans|length %}
+          {{ plans|length }} / {{ max_plans }} uploaded
+        {% else %}
+          No floor plans yet — add some above.
+        {% endif %}
+      </div>
+    </div>
+
+    {% if plans and plans|length %}
+      <ul style="list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px;">
+        {% for img in plans %}
+          <li style="border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff;">
+            <!-- IMPORTANT: file_path is RELATIVE under /static -->
+            <img src="{{ url_for('static', filename=img.file_path) }}" alt=""
+                 style="width:100%; height:180px; object-fit:cover; object-position:center;">
+            <div style="padding:8px; display:flex; gap:8px; justify-content:space-between; align-items:center;">
+              {% if img.is_primary %}
+                <span class="muted small">Primary</span>
+              {% else %}
+                <form method="post" action="{{ url_for('landlord.house_floorplans_primary', hid=house.id, pid=img.id) }}">
+                  <button class="btn btn-outline" type="submit">Make primary</button>
+                </form>
+              {% endif %}
+              <form method="post"
+                    action="{{ url_for('landlord.house_floorplans_delete', hid=house.id, pid=img.id) }}"
+                    onsubmit="return confirm('Delete this floor plan?');">
+                <button class="btn btn-admin" type="submit">Delete</button>
+              </form>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No floor plans yet.</p>
+    {% endif %}
+  </div>
+</section>
+
+<script>
+(function(){
+  const MAX_MB_PER_FILE = 5;
+  const BYTES_LIMIT = MAX_MB_PER_FILE * 1024 * 1024;
+  const remainingSlots = {{ max_plans - (plans|length if plans else 0) }};
+
+  const input = document.getElementById('file-input');
+  const drop = document.getElementById('drop-zone');
+  const chooseBtn = document.getElementById('choose-btn');
+  const status = document.getElementById('selection-status');
+
+  function humanMB(bytes){ return (bytes/1024/1024).toFixed(2); }
+
+  function summarize(files){
+    if (!files.length){ status.textContent = ''; return; }
+    const total = Array.from(files).reduce((n,f)=> n + (f.size||0), 0);
+    status.textContent = `${files.length} file${files.length>1?'s':''} • ${humanMB(total)} MB total`;
+  }
+
+  function filterAndTrim(files){
+    let arr = Array.from(files || []);
+    if (!arr.length) return arr;
+
+    const notImage = arr.filter(f => !(f && f.type && f.type.startsWith('image/')));
+    if (notImage.length){
+      alert('Some non-image files were removed.');
+      arr = arr.filter(f => f.type && f.type.startsWith('image/'));
+    }
+
+    const tooBig = arr.filter(f => f.size > BYTES_LIMIT);
+    if (tooBig.length){
+      alert(`Some files exceed ${MAX_MB_PER_FILE} MB and were removed.`);
+      arr = arr.filter(f => f.size <= BYTES_LIMIT);
+    }
+
+    if (remainingSlots <= 0){
+      alert("You have no remaining slots for this house.");
+      return [];
+    }
+    if (arr.length > remainingSlots){
+      alert(`You can add up to ${remainingSlots} more image${remainingSlots>1?'s':''}. Extra files were ignored.`);
+      arr = arr.slice(0, remainingSlots);
+    }
+    return arr;
+  }
+
+  function setInputFiles(files){
+    const bag = new DataTransfer();
+    files.forEach(f => bag.items.add(f));
+    input.files = bag.files;
+    summarize(files);
+  }
+
+  // Click-to-choose
+  chooseBtn.addEventListener('click', () => input.click());
+  drop.addEventListener('click', () => input.click());
+
+  // Native picker change
+  input.addEventListener('change', () => {
+    const filtered = filterAndTrim(input.files);
+    setInputFiles(filtered);
+  });
+
+  // Drag & drop handlers
+  ['dragenter','dragover'].forEach(evt =>
+    drop.addEventListener(evt, e => {
+      e.preventDefault(); e.stopPropagation();
+      drop.style.background = '#f8f6ff';
+      drop.style.borderColor = 'var(--brand)';
+    })
+  );
+  ['dragleave','drop'].forEach(evt =>
+    drop.addEventListener(evt, e => {
+      e.preventDefault(); e.stopPropagation();
+      drop.style.background = '#fff';
+      drop.style.borderColor = 'var(--border)';
+    })
+  );
+  drop.addEventListener('drop', e => {
+    const files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [];
+    const filtered = filterAndTrim(files);
+    setInputFiles(filtered);
+  });
+})();
+</script>
+{% endblock %}
