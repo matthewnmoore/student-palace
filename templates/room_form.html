@@ -34,6 +34,8 @@
       </div>
     </div>
 
+    
+    
     <!-- FEATURES -->
     <div class="card">
       <h2 class="card-title">Features</h2>
@@ -72,9 +74,39 @@
           <input type="checkbox" name="wired_internet" {% if form and form.wired_internet in ['1',1,'on',True] %}checked{% endif %}>
           <span>Wired internet</span>
         </label>
+
+        <!-- NEW FIELDS -->
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="safe" {% if form and form.safe in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Safe</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="dressing_table" {% if form and form.dressing_table in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Dressing table</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="mirror" {% if form and form.mirror in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Mirror</span>
+        </label>
       </div>
     </div>
-
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+   
     <!-- ACTIONS -->
     <div class="card actions">
       <div class="actions-row">
