@@ -268,6 +268,10 @@ def ensure_db():
     _safe_add_column(conn, "rooms", "ADD COLUMN curtains INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "rooms", "ADD COLUMN sofa INTEGER NOT NULL DEFAULT 0")
 
+    # --- NEW: Searchable room flags (couples/disabled) ---
+    _safe_add_column(conn, "rooms", "ADD COLUMN couples_ok INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "rooms", "ADD COLUMN disabled_ok INTEGER NOT NULL DEFAULT 0")
+
     # --- house_images add-only sync ---
     if table_exists(conn, "house_images"):
         _safe_add_column(conn, "house_images", "ADD COLUMN file_name TEXT NOT NULL DEFAULT ''")
