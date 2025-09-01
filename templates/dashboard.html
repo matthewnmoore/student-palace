@@ -18,7 +18,7 @@
   {% endwith %}
 
   {% if not landlord %}
-    <div class="card">
+    <div class="card card--accent-lr">
       <p class="mt-0">You’re not logged in.</p>
       <p style="margin-top:10px">
         <a class="btn" href="{{ url_for('auth.login') }}">Log in</a>
@@ -28,7 +28,7 @@
   {% else %}
 
     <div class="grid grid-2">
-      <div class="card">
+      <div class="card card--accent-lr">
         <h3 class="mt-0">Account</h3>
         <p><strong>{{ landlord.email }}</strong></p>
         {% if created_at_uk %}
@@ -42,7 +42,7 @@
         </p>
       </div>
 
-      <div class="card">
+      <div class="card card--accent-lr">
         <h3 class="mt-0">Quick actions</h3>
         <div class="inline-actions">
           <a class="btn" href="{{ url_for('landlord.house_new') }}">Add a new house</a>
@@ -51,7 +51,7 @@
       </div>
     </div>
 
-    <div class="card" style="margin-top:14px">
+    <div class="card card--accent-lr" style="margin-top:14px">
       <h3 class="mt-0">Your houses</h3>
       {% if houses and houses|length %}
         <table class="table" style="margin:0">
