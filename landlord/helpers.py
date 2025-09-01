@@ -22,6 +22,10 @@ def room_form_values(request):
     safe = clean_bool("safe")
     dressing_table = clean_bool("dressing_table")
     mirror = clean_bool("mirror")
+    bedside_table = clean_bool("bedside_table")
+    blinds = clean_bool("blinds")
+    curtains = clean_bool("curtains")
+    sofa = clean_bool("sofa")
 
     errors = []
     if not name:
@@ -30,11 +34,25 @@ def room_form_values(request):
         errors.append("Please choose a valid bed size.")
 
     return ({
-        "name": name, "ensuite": ensuite, "bed_size": bed_size, "tv": tv,
-        "desk_chair": desk_chair, "wardrobe": wardrobe, "chest_drawers": chest_drawers,
-        "lockable_door": lockable_door, "wired_internet": wired_internet, "room_size": room_size,
+        "name": name,
+        "ensuite": ensuite,
+        "bed_size": bed_size,
+        "tv": tv,
+        "desk_chair": desk_chair,
+        "wardrobe": wardrobe,
+        "chest_drawers": chest_drawers,
+        "lockable_door": lockable_door,
+        "wired_internet": wired_internet,
+        "room_size": room_size,
         # NEW FIELDS
-        "price_pcm": price_pcm, "safe": safe, "dressing_table": dressing_table, "mirror": mirror,
+        "price_pcm": price_pcm,
+        "safe": safe,
+        "dressing_table": dressing_table,
+        "mirror": mirror,
+        "bedside_table": bedside_table,
+        "blinds": blinds,
+        "curtains": curtains,
+        "sofa": sofa,
     }, errors)
 
 def room_counts(conn, hid):
