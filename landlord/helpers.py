@@ -1,4 +1,4 @@
-from utils import clean_bool, clean_int
+from utils import clean_bool
 from db import get_db
 
 def room_form_values(request):
@@ -14,7 +14,11 @@ def room_form_values(request):
     room_size = (request.form.get("room_size") or "").strip()
 
     # NEW FIELDS
-    price_pcm = clean_int(request.form.get("price_pcm", ""), default=0)
+    raw_price = (request.form.get("price_pcm") or "").strip()
+    try:
+        price_pcm = int(raw_price.replace(",", ""))
+    except Exception:
+        price_pcm = 0
     safe = clean_bool("safe")
     dressing_table = clean_bool("dressing_table")
     mirror = clean_bool("mirror")
@@ -26,22 +30,11 @@ def room_form_values(request):
         errors.append("Please choose a valid bed size.")
 
     return ({
-        "name": name,
-        "ensuite": ensuite,
-        "bed_size": bed_size,
-        "tv": tv,
-        "desk_chair": desk_chair,
-        "wardrobe": wardrobe,
-        "chest_drawers": chest_drawers,
-        "lockable_door": lockable_door,
-        "wired_internet": wired_internet,
-        "room_size": room_size,
-
+        "name": name, "ensuite": ensuite, "bed_size": bed_size, "tv": tv,
+        "desk_chair": desk_chair, "wardrobe": wardrobe, "chest_drawers": chest_drawers,
+        "lockable_door": lockable_door, "wired_internet": wired_internet, "room_size": room_size,
         # NEW FIELDS
-        "price_pcm": price_pcm,
-        "safe": safe,
-        "dressing_table": dressing_table,
-        "mirror": mirror,
+        "price_pcm": price_pcm, "safe": safe, "dressing_table": dressing_table, "mirror": mirror,
     }, errors)
 
 def room_counts(conn, hid):
