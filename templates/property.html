@@ -13,15 +13,30 @@
 
         <p class="badges" style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap">
           <span class="badge">{{ 'Whole property' if house.letting_type=='whole' else 'House share' }}</span>
-          <span class="badge">{{ house.bedrooms_total }} bedrooms</span>
+          <span class="badge">{{ house.bedrooms_total }} bedroom{{ '' if house.bedrooms_total==1 else 's' }}</span>
           <span class="badge">{{ house.gender_preference }}</span>
           {% if house.bills_included %}<span class="badge">Bills included</span>{% endif %}
+          {% if house.epc_rating %}<span class="badge">EPC {{ house.epc_rating }}</span>{% endif %}
           {% if is_verified %}
             <span class="badge" style="background:#e5f9f5; color:#0f5132">✅ Verified landlord/agent</span>
           {% endif %}
         </p>
 
         <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+
+        {# --- YouTube embed (optional) --- #}
+        {% if house.youtube_url %}
+        <div class="card card--accent-edges" style="margin:14px 0;">
+          <h3 class="mt-0">Video tour</h3>
+          <div class="video-embed" data-youtube="{{ house.youtube_url }}" style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; background:#000;">
+            <!-- iframe injected by JS for better compatibility -->
+          </div>
+          <p class="small muted" style="margin-top:6px;">
+            <a href="{{ house.youtube_url }}" target="_blank" rel="noopener">Watch on YouTube</a>
+          </p>
+        </div>
+        {% endif %}
+
         <h3 class="mt-0">At a glance</h3>
         <ul class="feature-list">
           <li>{{ house.shared_bathrooms }} shared bathroom{{ '' if house.shared_bathrooms==1 else 's' }}</li>
@@ -49,4 +64,43 @@
     </div>
   {% endif %}
 </section>
+
+{% if house and house.youtube_url %}
+<script>
+/* Lightweight YT URL → embed converter (supports watch, youtu.be, shorts) */
+(function(){
+  var wrap = document.querySelector('.video-embed[data-youtube]');
+  if (!wrap) return;
+  var url = wrap.getAttribute('data-youtube') || '';
+  function toEmbed(u){
+    u = (u || '').trim();
+    if (!u) return '';
+    var lower = u.toLowerCase();
+    var vid = '';
+    if (lower.indexOf('youtu.be/') !== -1){
+      vid = u.split('/').pop().split('?')[0].split('#')[0];
+    } else if (lower.indexOf('/watch') !== -1 && lower.indexOf('v=') !== -1){
+      vid = u.split('v=')[1].split('&')[0].split('#')[0];
+    } else if (lower.indexOf('/shorts/') !== -1){
+      vid = u.split('/shorts/')[1].split('?')[0].split('#')[0];
+    }
+    return vid ? 'https://www.youtube.com/embed/' + vid : '';
+  }
+  var embed = toEmbed(url);
+  if (!embed) return;
+  var iframe = document.createElement('iframe');
+  iframe.setAttribute('src', embed);
+  iframe.setAttribute('title', 'YouTube video player');
+  iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+  iframe.setAttribute('allowfullscreen', 'true');
+  iframe.style.position = 'absolute';
+  iframe.style.top = '0';
+  iframe.style.left = '0';
+  iframe.style.width = '100%';
+  iframe.style.height = '100%';
+  iframe.style.border = '0';
+  wrap.appendChild(iframe);
+})();
+</script>
+{% endif %}
 {% endblock %}
