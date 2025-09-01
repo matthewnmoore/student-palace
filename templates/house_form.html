@@ -85,19 +85,23 @@
           <input type="number" name="bedrooms_total" min="1" value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
         </label>
 
+
 <!-- Gender preference -->
 <label class="field">
   <span class="label">This house identifies as</span>
   {% set g = (form.gender_preference or '') if form else '' %}
   <select name="gender_preference" required>
     <option value="" {% if not g %}selected{% endif %}>Please choose one</option>
-    <option value="Male" {% if g=='Male' %}selected{% endif %}>Male</option>
-    <option value="Female" {% if g=='Female' %}selected{% endif %}>Female</option>
-    <option value="Either" {% if g=='Either' %}selected{% endif %}>All Male or all Female</option>
-    <option value="Mixed" {% if g=='Mixed' %}selected{% endif %}>Mixed</option>
+    <option value="Male Only" {% if g=='Male Only' %}selected{% endif %}>Male Only</option>
+    <option value="Female Only" {% if g=='Female Only' %}selected{% endif %}>Female Only</option>
+    <option value="Anyone/Mixed" {% if g=='Anyone/Mixed' %}selected{% endif %}>Anyone/Mixed</option>
   </select>
 </label>
 
+        
+
+
+        
       </div>
     </div>
 
