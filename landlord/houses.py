@@ -1,5 +1,7 @@
+# landlord/houses.py
 from __future__ import annotations
 
+import sqlite3
 from flask import render_template, request, redirect, url_for, flash
 from datetime import datetime as dt
 from db import get_db
@@ -61,6 +63,53 @@ def _normalize_full_address(s: str) -> str:
     return ", ".join(prior)  # no obvious postcode; just title-case parts
 
 
+def _normalize_youtube_url(u: str) -> str:
+    """
+    Accept empty, youtube.com/watch?v=..., youtu.be/..., shorts/...
+    Return a standard full watch URL (https://www.youtube.com/watch?v=VIDEOID)
+    if recognisable; otherwise return the original string trimmed.
+    """
+    u = (u or "").strip()
+    if not u:
+        return ""
+    lower = u.lower()
+
+    # Be forgiving about missing scheme (allow youtu.be/... or www.youtu.be/...)
+    if lower.startswith("youtu.be/") or lower.startswith("www.youtu.be/"):
+        vid = u.split("/")[-1].split("?")[0].split("#")[0]
+        return f"https://www.youtube.com/watch?v={vid}" if vid else u
+
+    if "youtube.com" in lower:
+        # /watch?v=ID
+        if "watch?v=" in lower:
+            q = u.split("watch?v=", 1)[1]
+            vid = q.split("&", 1)[0].split("#", 1)[0]
+            return f"https://www.youtube.com/watch?v={vid}" if vid else u
+        # /shorts/ID
+        if "/shorts/" in lower:
+            vid = u.split("/shorts/", 1)[1].split("?", 1)[0].split("#", 1)[0]
+            return f"https://www.youtube.com/watch?v={vid}" if vid else u
+
+    # Not a YouTube URL — store trimmed as-is (frontend won’t try to embed if it isn’t YouTube)
+    return u
+
+
+# -----------------------------------------
+# Schema safety: ensure youtube_url column
+# -----------------------------------------
+def _ensure_houses_has_youtube(conn) -> None:
+    """
+    Adds houses.youtube_url TEXT if it does not exist.
+    Safe to call on every request.
+    """
+    try:
+        conn.execute("ALTER TABLE houses ADD COLUMN youtube_url TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Column already exists, ignore
+        pass
+
+
 # -------------------------------------------------------
 # Parser wrapper (uses house_form.parse_house_form if set)
 # -------------------------------------------------------
@@ -77,7 +126,9 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
     # ---- Fallback parser ----
     fget = lambda k, default="": (form.get(k) or default).strip()
 
-    title = fget("title")
+    title_raw = fget("title")
+    title     = _title_case_wordish(title_raw)  # server-side safety for title casing
+
     city_raw = fget("city")
     letting_type = fget("letting_type")
     gender_pref = fget("gender_preference")
@@ -120,11 +171,13 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
     epc_rating_raw = (form.get("epc_rating") or "").strip().upper()
     epc_rating = epc_rating_raw if epc_rating_raw in ("A", "B", "C", "D", "E", "F", "G") else ""
 
+    # YouTube (optional)
+    youtube_url = _normalize_youtube_url(fget("youtube_url"))
+
     # If address missing: on edit keep existing; on new error
     if not address:
         if mode == "edit" and existing_address:
             address = _normalize_full_address(existing_address)
-        # else leave empty; validator below will catch it
 
     payload = {
         "title": title,
@@ -161,6 +214,7 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
         "cleaning_service": (form.get("cleaning_service") or "none").strip(),
         "listing_type": listing_type,
         "epc_rating": epc_rating,
+        "youtube_url": youtube_url,  # NEW
     }
     payload.update(bills_util)
 
@@ -216,6 +270,7 @@ def house_new():
     cities = get_active_cities_safe()
 
     conn = get_db()
+    _ensure_houses_has_youtube(conn)  # ensure schema
     default_listing_type = house_form.get_default_listing_type(conn, lid)
 
     if request.method == "POST":
@@ -251,6 +306,8 @@ def house_edit(hid):
     lid = current_landlord_id()
     cities = get_active_cities_safe()
     conn = get_db()
+    _ensure_houses_has_youtube(conn)  # ensure schema
+
     house_row = owned_house_or_none(conn, hid, lid)
     if not house_row:
         conn.close()
