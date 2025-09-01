@@ -94,11 +94,13 @@
   <select name="gender_preference" required>
     <option value="" {% if not g %}selected{% endif %}>Please choose one</option>
 
-    <option value="Male"   {% if g in ['Male','Male Only'] %}selected{% endif %}>Male Only</option>
-    <option value="Female" {% if g in ['Female','Female Only'] %}selected{% endif %}>Female Only</option>
-
-    {# Value changed to 'Either' to satisfy backend; still shows Anyone/Mixed #}
-    <option value="Either" {% if g in ['Either','Mixed','Anyone/Mixed'] %}selected{% endif %}>
+    <option value="Male"   {% if g in ['Male','Male Only'] %}selected{% endif %}>
+      Male Only
+    </option>
+    <option value="Female" {% if g in ['Female','Female Only'] %}selected{% endif %}>
+      Female Only
+    </option>
+    <option value="Mixed"  {% if g in ['Mixed','Anyone/Mixed','Either'] %}selected{% endif %}>
       Anyone/Mixed
     </option>
   </select>
