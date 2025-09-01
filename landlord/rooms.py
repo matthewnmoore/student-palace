@@ -54,12 +54,18 @@ def room_new(hid):
             conn.close()
             return render_template("room_form.html", house=house, form=vals, mode="new")
         conn.execute("""
-          INSERT INTO rooms(house_id,name,ensuite,bed_size,tv,desk_chair,wardrobe,chest_drawers,lockable_door,wired_internet,room_size,created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+          INSERT INTO rooms(
+            house_id, name, ensuite, bed_size, tv, desk_chair, wardrobe, chest_drawers,
+            lockable_door, wired_internet, room_size,
+            price_pcm, safe, dressing_table, mirror,
+            created_at
+          )
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             hid, vals["name"], vals["ensuite"], vals["bed_size"], vals["tv"],
             vals["desk_chair"], vals["wardrobe"], vals["chest_drawers"],
             vals["lockable_door"], vals["wired_internet"], vals["room_size"],
+            vals["price_pcm"], vals["safe"], vals["dressing_table"], vals["mirror"],
             dt.utcnow().isoformat()
         ))
         conn.commit()
@@ -94,12 +100,15 @@ def room_edit(hid, rid):
             return render_template("room_form.html", house=house, form=vals, mode="edit", room=room)
         conn.execute("""
           UPDATE rooms SET
-            name=?, ensuite=?, bed_size=?, tv=?, desk_chair=?, wardrobe=?, chest_drawers=?, lockable_door=?, wired_internet=?, room_size=?
+            name=?, ensuite=?, bed_size=?, tv=?, desk_chair=?, wardrobe=?, chest_drawers=?, lockable_door=?, wired_internet=?, room_size=?,
+            price_pcm=?, safe=?, dressing_table=?, mirror=?
           WHERE id=? AND house_id=?
         """, (
             vals["name"], vals["ensuite"], vals["bed_size"], vals["tv"], vals["desk_chair"],
             vals["wardrobe"], vals["chest_drawers"], vals["lockable_door"], vals["wired_internet"],
-            vals["room_size"], rid, hid
+            vals["room_size"],
+            vals["price_pcm"], vals["safe"], vals["dressing_table"], vals["mirror"],
+            rid, hid
         ))
         conn.commit()
         conn.close()
