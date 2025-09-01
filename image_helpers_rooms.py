@@ -33,6 +33,16 @@ def static_rel_path(filename: str) -> str:
 def file_abs_path(filename: str) -> str:
     return os.path.join(UPLOAD_DIR, filename)
 
+# Back-compat aliases expected by routes
+def ensure_upload_dir_room() -> None:
+    ensure_upload_dir()
+
+def static_rel_path_room(filename: str) -> str:
+    return static_rel_path(filename)
+
+def file_abs_path_room(filename: str) -> str:
+    return file_abs_path(filename)
+
 # ------------ Image helpers ------------
 
 def _rand_token(n: int = 6) -> str:
@@ -108,7 +118,8 @@ def process_image(buf: bytes) -> Image.Image:
 def save_jpeg(im: Image.Image, abs_path: str) -> Tuple[int, int, int]:
     im.save(abs_path, format="JPEG", quality=85, optimize=True, progressive=True)
     w, h = im.size
-    byt = os.path.getsize(abs_path)
+    byt = os.path.getsize(abs_path
+    )
     return w, h, byt
 
 # ------------ DB schema guard (rooms) ------------
@@ -149,7 +160,7 @@ def assert_room_images_schema(conn) -> None:
     for col_sql in [
         "file_name TEXT NOT NULL DEFAULT ''",
         "filename TEXT NOT NULL DEFAULT ''",
-        "file_path TEXT NOT NULL DEFAULT ''",
+        "file_path TEXT NOT NULL DEFAULT 0",  # string column; using default 0 is tolerated by SQLite but you can change to '' if preferred
         "width INTEGER NOT NULL DEFAULT 0",
         "height INTEGER NOT NULL DEFAULT 0",
         "bytes INTEGER NOT NULL DEFAULT 0",
