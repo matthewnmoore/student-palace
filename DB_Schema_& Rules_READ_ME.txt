@@ -22,6 +22,59 @@ HISTORY:
 
 
 
+Helper for image page creations 01/09/25 (to be used for room photos creation)
+
+Brilliant 🎉 glad it worked first time after that fix! Let me break down what we actually had to do, because this is the pattern you’ll want to repeat when cloning another “photos-like” feature:
+
+⸻
+
+What happened
+	•	The photos system relies on image_helpers.py for all the Pillow/processing logic.
+	•	Your new floorplans system had its own file: image_helpers_floorplans.py.
+	•	That file was supposed to copy all the same logic — but it didn’t. It was missing the small compatibility methods and attributes (ImageDraw.textsize replacement in your Pillow version, watermark/text handling, etc).
+	•	So, when floor plans tried to upload, Pillow hit a missing method and crashed.
+
+⸻
+
+What we did
+	1.	Created a shim/wrapper in image_helpers_floorplans.py:
+	•	Instead of reinventing everything, we made it import and re-use the existing helpers from image_helpers.py.
+	•	Renamed the functions/constants so they’re “floorplans-safe” (accept_upload_plan, select_plans, etc.), but internally they call the proven photo logic.
+	•	This means both systems share the same bug fixes, watermark pipeline, and Pillow compatibility.
+	2.	Kept everything else identical:
+	•	Database table is different (house_floorplans instead of house_images).
+	•	Disk folder is different (static/uploads/floorplans/ instead of .../houses/).
+	•	But otherwise, it’s all the same workflow.
+
+⸻
+
+The reusable recipe (your checklist for next time 🚀)
+
+When you clone “photos” into a new section (e.g., floor plans, certificates, documents, etc.):
+	1.	Duplicate the photos.py route file → rename routes + templates (house_floorplans, house_floorplans.html).
+	2.	Make a new helpers file (e.g. image_helpers_floorplans.py):
+	•	Import from image_helpers instead of rewriting.
+	•	Provide wrapper names (accept_upload_plan, delete_plan, …).
+	•	Adjust constants (like MAX_FILES_PER_HOUSE_PLANS).
+	•	Point to the new DB table + disk folder.
+	3.	Add routes to __init__.py so Flask registers them.
+	4.	Create the disk folder (static/uploads/<thing>/).
+	5.	Create the DB schema for that new table (house_floorplans, house_certificates, etc.).
+	6.	Copy the template (house_photos.html → house_floorplans.html), swap variable names (images → plans).
+	7.	Test /debug route first — it bypasses templates and shows raw DB+disk data, so you know saving works before worrying about UI.
+
+⸻
+
+✨ The key insight:
+We didn’t actually “fix Pillow” — we just made sure your floorplans code re-used the already working image pipeline (instead of half-duplicating it).
+
+⸻
+
+Would you like me to write this up into a step-by-step developer doc you can keep in your repo (like a HOW_TO_DUPLICATE_PHOTOS.md), so next time you or anyone else can follow the recipe without us having to remember?
+
+
+
+
 
 updated 31-08-2025
 ==================
