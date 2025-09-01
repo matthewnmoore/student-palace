@@ -1,106 +1,110 @@
 {% extends "base.html" %}
-{% block title %}Edit House{% endblock %}
 {% block content %}
-<section class="wrap">
 
-  <!-- BASICS -->
-  <div class="card card--accent-edges">
-    <h2 class="mt-0">Basics</h2>
-    <div class="grid grid-2">
-      <label class="field">
-        <span class="label">House title</span>
-        <input type="text" name="title" value="{{ house.title|e }}" required>
-      </label>
+<div class="page-header">
+  <h1>Edit house<br>{{ house.title }} • {{ house.city }}</h1>
+</div>
 
-      <label class="field">
-        <span class="label">City</span>
-        <select name="city" required>
-          {% for c in cities %}
-            <option value="{{ c }}" {% if house.city == c %}selected{% endif %}>{{ c }}</option>
-          {% endfor %}
-        </select>
-      </label>
+<form method="post" class="form-grid">
 
-      <label class="field" style="grid-column:1/-1">
-        <span class="label">Address</span>
-        <input type="text" name="address" value="{{ house.address|e }}" required>
-      </label>
-
-      <label class="field">
-        <span class="label">Bedrooms total</span>
-        <input type="number" name="bedrooms_total" value="{{ house.bedrooms_total }}" required>
-      </label>
-
-      <label class="field">
-        <span class="label">Rooms available</span>
-        <input type="number" name="rooms_available" value="{{ house.rooms_available }}">
-      </label>
-
-      <label class="field">
-        <span class="label">Price (pppw)</span>
-        <input type="number" step="1" name="price_pppw" value="{{ house.price_pppw }}">
-      </label>
-
-      <label class="field">
-        <span class="label">Bills included</span>
-        <select name="bills_included">
-          <option value="yes" {% if house.bills_included %}selected{% endif %}>Yes</option>
-          <option value="no" {% if not house.bills_included %}selected{% endif %}>No</option>
-        </select>
-      </label>
-
-      <label class="field">
-        <span class="label">Available from</span>
-        <input type="date" name="available_from" value="{{ house.available_from }}">
-      </label>
-
-      <label class="field">
-        <span class="label">Letting type</span>
-        <select name="letting_type">
-          <option value="whole" {% if house.letting_type == 'whole' %}selected{% endif %}>Whole property</option>
-          <option value="share" {% if house.letting_type == 'share' %}selected{% endif %}>Room only</option>
-        </select>
-      </label>
-
-      <label class="field">
-        <span class="label">Gender preference</span>
-        <select name="gender_preference">
-          <option value="Either" {% if house.gender_preference == 'Either' %}selected{% endif %}>Either</option>
-          <option value="Male" {% if house.gender_preference == 'Male' %}selected{% endif %}>Male</option>
-          <option value="Female" {% if house.gender_preference == 'Female' %}selected{% endif %}>Female</option>
-          <option value="Mixed" {% if house.gender_preference == 'Mixed' %}selected{% endif %}>Mixed</option>
-        </select>
-      </label>
+  <!-- Basics -->
+  <div class="card">
+    <h2 class="card-title accent">Basics</h2>
+    <div class="form-row">
+      <label>House title</label>
+      <input type="text" name="title" value="{{ form.title or '' }}" required>
+    </div>
+    <div class="form-row">
+      <label>City</label>
+      <select name="city" required>
+        <option value="">-- select --</option>
+        {% for c in cities %}
+          <option value="{{ c }}" {% if form.city==c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Address</label>
+      <input type="text" name="address" value="{{ form.address or '' }}" required>
+    </div>
+    <div class="form-row">
+      <label>Letting type</label>
+      <select name="letting_type" required>
+        <option value="whole" {% if form.letting_type=="whole" %}selected{% endif %}>Whole property</option>
+        <option value="share" {% if form.letting_type=="share" %}selected{% endif %}>Room only</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Total bedrooms</label>
+      <input type="number" name="bedrooms_total" value="{{ form.bedrooms_total or '' }}" min="1" required>
+    </div>
+    <div class="form-row">
+      <label>Gender preference</label>
+      <select name="gender_preference" required>
+        {% for g in ["Male","Female","Mixed","Either"] %}
+          <option value="{{ g }}" {% if form.gender_preference==g %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row grouped">
+      <label>Bills included</label>
+      <select name="bills_option">
+        <option value="yes" {% if form.bills_option=="yes" %}selected{% endif %}>Yes</option>
+        <option value="no" {% if form.bills_option=="no" %}selected{% endif %}>No</option>
+        <option value="some" {% if form.bills_option=="some" %}selected{% endif %}>Some</option>
+      </select>
+      <label>EPC rating</label>
+      <select name="epc_rating">
+        <option value="">--</option>
+        {% for r in ["A","B","C","D","E","F","G"] %}
+          <option value="{{ r }}" {% if form.epc_rating==r %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+      <label>Cleaning</label>
+      <select name="cleaning_service">
+        {% for c in ["none","weekly","fortnightly","monthly"] %}
+          <option value="{{ c }}" {% if form.cleaning_service==c %}selected{% endif %}>{{ c|capitalize }}</option>
+        {% endfor %}
+      </select>
     </div>
   </div>
 
-  <!-- DESCRIPTION -->
-  <div class="card card--accent-edges">
-    <h2 class="mt-0">Description</h2>
-    <textarea name="description" rows="5">{{ house.description|e }}</textarea>
-  </div>
-
-  <!-- MEDIA -->
-  <div class="card card--accent-edges">
-    <h2 class="mt-0">Media</h2>
-    <label class="field">
-      <span class="label">YouTube link</span>
-      <input type="url" name="youtube_url" value="{{ house.youtube_url|e }}">
-    </label>
-    <p class="help">Paste a full YouTube URL (e.g. https://youtube.com/watch?v=xxxx).</p>
-    <div style="margin-top:10px">
-      <a class="btn" href="{{ url_for('landlord.house_photos', house_id=house.id) }}">Manage photos</a>
-      <a class="btn" href="{{ url_for('landlord.manage_epc', house_id=house.id) }}">Manage EPC</a>
+  <!-- Amenities -->
+  <div class="card">
+    <h2 class="card-title accent">Amenities</h2>
+    <div class="form-row checkbox-grid">
+      {% for f in [
+        "washing_machine","tumble_dryer","dishwasher","cooker","microwave","coffee_maker",
+        "central_heating","air_con","vacuum","wifi","wired_internet","common_area_tv",
+        "cctv","video_door_entry","fob_entry","off_street_parking","local_parking",
+        "garden","roof_terrace","bike_storage","games_room","cinema_room"
+      ] %}
+        <label>
+          <input type="checkbox" name="{{ f }}" value="1" {% if form[f] %}checked{% endif %}>
+          {{ f.replace("_"," ")|capitalize }}
+        </label>
+      {% endfor %}
     </div>
   </div>
 
-  <!-- ACTIONS -->
-  <div class="card card--accent-edges">
-    <div class="inline-actions">
-      <button type="submit" class="btn btn-accent">Save</button>
-      <a class="btn btn-outline" href="{{ url_for('landlord.houses') }}">Cancel</a>
+  <!-- Media -->
+  <div class="card">
+    <h2 class="card-title accent">Media</h2>
+    {% if mode=="edit" and house and house.id %}
+      <a class="btn" href="{{ url_for('landlord.house_photos', hid=house.id) }}">Manage photos</a>
+      <a class="btn" href="#">Manage EPC</a>
+    {% endif %}
+    <div class="form-row">
+      <label>YouTube link</label>
+      <input type="url" name="youtube_url" value="{{ form.youtube_url or '' }}" placeholder="https://youtube.com/...">
     </div>
   </div>
 
-</section>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{{ url_for('landlord.landlord_houses') }}" class="btn">Cancel</a>
+  </div>
+
+</form>
+
 {% endblock %}
