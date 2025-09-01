@@ -1,6 +1,29 @@
 # landlord/floorplans.py
 from __future__ import annotations
 
+# --- Pillow compatibility shim (keeps requirements and helpers unchanged) ---
+# Some Pillow builds removed ImageDraw.textsize in favor of textbbox.
+# We reintroduce textsize at runtime so downstream code continues to work.
+try:
+    from PIL import ImageDraw, __version__ as _PIL_VERSION
+    if not hasattr(ImageDraw.ImageDraw, "textsize"):
+        def _compat_textsize(self, text, font=None, *args, **kwargs):
+            bbox = self.textbbox((0, 0), text, font=font, *args, **kwargs)
+            return (bbox[2] - bbox[0], bbox[3] - bbox[1])
+        ImageDraw.ImageDraw.textsize = _compat_textsize  # monkey-patch
+    # Optional: one-time log for visibility
+    try:
+        import logging as _logging
+        _logging.getLogger("student_palace.floorplans").info(
+            f"[PIL] version={_PIL_VERSION} textsize={'present' if hasattr(ImageDraw.ImageDraw, 'textsize') else 'shimmed'}"
+        )
+    except Exception:
+        pass
+except Exception:
+    # If PIL import fails here, your helper will raise its own error later.
+    pass
+# ---------------------------------------------------------------------------
+
 import time, logging, os
 from flask import render_template, request, redirect, url_for, flash
 from db import get_db
