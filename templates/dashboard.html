@@ -77,8 +77,9 @@
                   <div class="inline-actions">
                     <a class="btn btn-outline" href="{{ url_for('landlord.house_edit', hid=h.id) }}">Edit</a>
                     <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=h.id) }}">Rooms</a>
-                    <!-- NEW: Photos button -->
                     <a class="btn btn-outline" href="{{ url_for('landlord.house_photos', hid=h.id) }}">Photos</a>
+                    <!-- NEW: Floor plans button -->
+                    <a class="btn btn-outline" href="{{ url_for('landlord.house_floorplans', hid=h.id) }}">Floor plans</a>
                   </div>
                 </td>
               </tr>
