@@ -1,79 +1,106 @@
 {% extends "base.html" %}
-{% block title %}Edit House – Student Palace{% endblock %}
+{% block title %}Edit House{% endblock %}
 {% block content %}
 <section class="wrap">
 
   <!-- BASICS -->
-  <form method="post" action="" class="grid grid-2 form-compact-labels">
+  <div class="card card--accent-edges">
+    <h2 class="mt-0">Basics</h2>
+    <div class="grid grid-2">
+      <label class="field">
+        <span class="label">House title</span>
+        <input type="text" name="title" value="{{ house.title|e }}" required>
+      </label>
 
-    <!-- Basics card -->
-    <div class="card card--accent-edges">
-      <h2 class="mt-0">Basics</h2>
-      {{ form_field("title", "House title", house.title) }}
-      {{ form_field("city", "City", house.city, type="select", options=cities) }}
-      {{ form_field("address", "Address", house.address) }}
-      <div class="grid grid-3">
-        {{ form_field("letting_type", "Letting type", house.letting_type, type="select", options=["whole","share"]) }}
-        {{ form_field("bedrooms_total", "Bedrooms", house.bedrooms_total, type="number") }}
-        {{ form_field("gender_preference", "Gender preference", house.gender_preference, type="select", options=["Male","Female","Mixed","Either"]) }}
-      </div>
-      <div class="grid grid-3">
-        {{ form_field("bills_included", "Bills included", house.bills_option, type="select", options=["yes","no","some"]) }}
-        {{ form_field("epc_rating", "EPC rating", house.epc_rating, type="select", options=["","A","B","C","D","E","F","G"]) }}
-        {{ form_field("listing_type", "Listed as", house.listing_type, type="select", options=["owner","agent"]) }}
-      </div>
-    </div>
+      <label class="field">
+        <span class="label">City</span>
+        <select name="city" required>
+          {% for c in cities %}
+            <option value="{{ c }}" {% if house.city == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </label>
 
-    <!-- Bathrooms -->
-    <div class="card card--accent-edges">
-      <h2 class="mt-0">Bathrooms</h2>
-      {{ form_field("shared_bathrooms", "Shared bathrooms", house.shared_bathrooms, type="number") }}
-    </div>
+      <label class="field" style="grid-column:1/-1">
+        <span class="label">Address</span>
+        <input type="text" name="address" value="{{ house.address|e }}" required>
+      </label>
 
-    <!-- Amenities -->
-    <div class="card card--accent-edges">
-      <h2 class="mt-0">Amenities</h2>
-      <div class="grid grid-3">
-        {{ checkbox("washing_machine", "Washing machine", house.washing_machine) }}
-        {{ checkbox("tumble_dryer", "Tumble dryer", house.tumble_dryer) }}
-        {{ checkbox("dishwasher", "Dishwasher", house.dishwasher) }}
-        {{ checkbox("cooker", "Cooker", house.cooker) }}
-        {{ checkbox("microwave", "Microwave", house.microwave) }}
-        {{ checkbox("coffee_maker", "Coffee maker", house.coffee_maker) }}
-        {{ checkbox("central_heating", "Central heating", house.central_heating) }}
-        {{ checkbox("air_conditioning", "Air conditioning", house.air_con) }}
-        {{ checkbox("vacuum", "Vacuum cleaner", house.vacuum) }}
-        {{ checkbox("wifi", "Wi-Fi", house.wifi) }}
-        {{ checkbox("wired_internet", "Wired internet", house.wired_internet) }}
-        {{ checkbox("common_area_tv", "Common area TV", house.common_area_tv) }}
-        {{ checkbox("cctv", "CCTV", house.cctv) }}
-        {{ checkbox("video_door_entry", "Video door entry", house.video_door_entry) }}
-        {{ checkbox("fob_entry", "Fob entry system", house.fob_entry) }}
-        {{ checkbox("off_street_parking", "Off-street parking", house.off_street_parking) }}
-        {{ checkbox("local_parking", "Local parking", house.local_parking) }}
-        {{ checkbox("garden", "Garden", house.garden) }}
-        {{ checkbox("roof_terrace", "Roof terrace", house.roof_terrace) }}
-        {{ checkbox("bike_storage", "Bike storage", house.bike_storage) }}
-        {{ checkbox("games_room", "Games room", house.games_room) }}
-        {{ checkbox("cinema_room", "Cinema room", house.cinema_room) }}
-      </div>
-      {{ form_field("cleaning_service", "Cleaning service", house.cleaning_service, type="select", options=["none","weekly","fortnightly","monthly"]) }}
-    </div>
+      <label class="field">
+        <span class="label">Bedrooms total</span>
+        <input type="number" name="bedrooms_total" value="{{ house.bedrooms_total }}" required>
+      </label>
 
-    <!-- Media / Actions -->
-    <div class="card card--accent-edges">
-      <h2 class="mt-0">Media & Actions</h2>
-      <div class="inline-actions">
-        <a class="btn" href="{{ url_for('landlord.house_photos', hid=house.id) }}">Manage photos</a>
-        <a class="btn" href="{{ url_for('landlord.house_epc', hid=house.id) }}">Manage EPC</a>
-        <a class="btn" href="{{ url_for('landlord.house_youtube', hid=house.id) }}">YouTube video</a>
-      </div>
-    </div>
+      <label class="field">
+        <span class="label">Rooms available</span>
+        <input type="number" name="rooms_available" value="{{ house.rooms_available }}">
+      </label>
 
-    <!-- Save -->
-    <div style="grid-column:1/-1; text-align:center">
-      <button type="submit" class="btn btn-accent">Save changes</button>
+      <label class="field">
+        <span class="label">Price (pppw)</span>
+        <input type="number" step="1" name="price_pppw" value="{{ house.price_pppw }}">
+      </label>
+
+      <label class="field">
+        <span class="label">Bills included</span>
+        <select name="bills_included">
+          <option value="yes" {% if house.bills_included %}selected{% endif %}>Yes</option>
+          <option value="no" {% if not house.bills_included %}selected{% endif %}>No</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="label">Available from</span>
+        <input type="date" name="available_from" value="{{ house.available_from }}">
+      </label>
+
+      <label class="field">
+        <span class="label">Letting type</span>
+        <select name="letting_type">
+          <option value="whole" {% if house.letting_type == 'whole' %}selected{% endif %}>Whole property</option>
+          <option value="share" {% if house.letting_type == 'share' %}selected{% endif %}>Room only</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="label">Gender preference</span>
+        <select name="gender_preference">
+          <option value="Either" {% if house.gender_preference == 'Either' %}selected{% endif %}>Either</option>
+          <option value="Male" {% if house.gender_preference == 'Male' %}selected{% endif %}>Male</option>
+          <option value="Female" {% if house.gender_preference == 'Female' %}selected{% endif %}>Female</option>
+          <option value="Mixed" {% if house.gender_preference == 'Mixed' %}selected{% endif %}>Mixed</option>
+        </select>
+      </label>
     </div>
-  </form>
+  </div>
+
+  <!-- DESCRIPTION -->
+  <div class="card card--accent-edges">
+    <h2 class="mt-0">Description</h2>
+    <textarea name="description" rows="5">{{ house.description|e }}</textarea>
+  </div>
+
+  <!-- MEDIA -->
+  <div class="card card--accent-edges">
+    <h2 class="mt-0">Media</h2>
+    <label class="field">
+      <span class="label">YouTube link</span>
+      <input type="url" name="youtube_url" value="{{ house.youtube_url|e }}">
+    </label>
+    <p class="help">Paste a full YouTube URL (e.g. https://youtube.com/watch?v=xxxx).</p>
+    <div style="margin-top:10px">
+      <a class="btn" href="{{ url_for('landlord.house_photos', house_id=house.id) }}">Manage photos</a>
+      <a class="btn" href="{{ url_for('landlord.manage_epc', house_id=house.id) }}">Manage EPC</a>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="card card--accent-edges">
+    <div class="inline-actions">
+      <button type="submit" class="btn btn-accent">Save</button>
+      <a class="btn btn-outline" href="{{ url_for('landlord.houses') }}">Cancel</a>
+    </div>
+  </div>
+
 </section>
 {% endblock %}
