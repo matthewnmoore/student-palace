@@ -1,196 +1,352 @@
-# admin/landlords.py
 from __future__ import annotations
 
 from flask import render_template, request, redirect, url_for, flash
-from werkzeug.security import generate_password_hash
-from models import get_db
-from . import bp, _is_admin
+from datetime import datetime as dt
+from db import get_db
+from utils import (
+    current_landlord_id, require_landlord, get_active_cities_safe,
+    owned_house_or_none, validate_city_active, clean_bool, valid_choice
+)
+from . import bp
+from . import house_form, house_repo
 
-def _ensure_landlord_profiles_table(conn) -> None:
-    """
-    Create landlord_profiles if it doesn't exist.
-    Safe to call on every request.
-    """
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS landlord_profiles (
-            landlord_id   INTEGER PRIMARY KEY,
-            display_name  TEXT,
-            public_slug   TEXT UNIQUE,
-            phone         TEXT,
-            website       TEXT,
-            bio           TEXT,
-            profile_views INTEGER NOT NULL DEFAULT 0,
-            is_verified   INTEGER NOT NULL DEFAULT 0,
-            FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE
-        );
-    """)
 
-# List landlords
-@bp.route("/landlords", methods=["GET"])
-def admin_landlords():
-    if not _is_admin():
-        return redirect(url_for("admin.admin_login"))
-
-    q = (request.args.get("q") or "").strip().lower()
-    conn = get_db()
-    try:
-        _ensure_landlord_profiles_table(conn)
-
-        if q:
-            rows = conn.execute("""
-                SELECT l.id,
-                       l.email,
-                       l.created_at,
-                       COALESCE(p.display_name,'') AS display_name,
-                       COALESCE(p.public_slug,'')  AS public_slug,
-                       COALESCE(p.profile_views,0) AS profile_views,
-                       COALESCE(p.is_verified,0)   AS is_verified
-                  FROM landlords l
-             LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
-                 WHERE LOWER(l.email) LIKE ? OR LOWER(COALESCE(p.display_name,'')) LIKE ?
-              ORDER BY l.created_at DESC
-            """, (f"%{q}%", f"%{q}%")).fetchall()
+# -----------------------------
+# Normalisation helpers
+# -----------------------------
+def _title_case_wordish(s: str) -> str:
+    s = (s or "").strip()
+    if not s:
+        return ""
+    s = s.lower()
+    out = []
+    cap_next = True
+    for ch in s:
+        if cap_next and ch.isalpha():
+            out.append(ch.upper())
+            cap_next = False
         else:
-            rows = conn.execute("""
-                SELECT l.id,
-                       l.email,
-                       l.created_at,
-                       COALESCE(p.display_name,'') AS display_name,
-                       COALESCE(p.public_slug,'')  AS public_slug,
-                       COALESCE(p.profile_views,0) AS profile_views,
-                       COALESCE(p.is_verified,0)   AS is_verified
-                  FROM landlords l
-             LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
-              ORDER BY l.created_at DESC
-            """).fetchall()
-        return render_template("admin_landlords.html", landlords=rows, q=q)
-    finally:
-        conn.close()
+            out.append(ch)
+        if ch in (" ", "-", "’", "'"):
+            cap_next = True
+    return "".join(out)
 
-# Landlord detail / edit / delete
-@bp.route("/landlord/<int:lid>", methods=["GET", "POST"])
-def admin_landlord_detail(lid: int):
-    if not _is_admin():
-        return redirect(url_for("admin.admin_login"))
+
+def _normalize_postcode(pc: str) -> str:
+    pc = (pc or "").strip().upper()
+    if not pc:
+        return ""
+    if " " not in pc and len(pc) > 3:
+        pc = pc[:-3] + " " + pc[-3:]
+    return pc
+
+
+def _normalize_full_address(s: str) -> str:
+    """
+    Normalize the one-line preview address:
+    - Title-case non-postcode parts split by commas
+    - Uppercase and space the final postcode (if present)
+    """
+    s = (s or "").strip()
+    if not s:
+        return ""
+    bits = [b.strip() for b in s.split(",") if b.strip()]
+    if not bits:
+        return ""
+    # assume last is postcode
+    last = _normalize_postcode(bits[-1])
+    prior = [_title_case_wordish(b) for b in bits[:-1]]
+    if last:
+        return ", ".join(prior + [last])
+    return ", ".join(prior)  # no obvious postcode; just title-case parts
+
+
+def _normalize_youtube_url(u: str) -> str:
+    """
+    Accept empty, youtube.com/watch?v=..., youtu.be/..., shorts/...
+    Return a standard full watch URL (https://www.youtube.com/watch?v=VIDEOID)
+    if recognisable; otherwise return the original string trimmed.
+    """
+    u = (u or "").strip()
+    if not u:
+        return ""
+    lower = u.lower()
+    # Be forgiving about missing scheme
+    if lower.startswith("youtu.be/") or lower.startswith("www.youtu.be/"):
+        # extract after last slash
+        vid = u.split("/")[-1].split("?")[0].split("#")[0]
+        return f"https://www.youtube.com/watch?v={vid}" if vid else u
+    if "youtube.com" in lower:
+        # /watch?v=ID
+        if "watch?v=" in u:
+            # keep as-is but normalise scheme
+            q = u.split("watch?v=", 1)[1]
+            vid = q.split("&", 1)[0].split("#", 1)[0]
+            return f"https://www.youtube.com/watch?v={vid}" if vid else u
+        # /shorts/ID
+        if "/shorts/" in lower:
+            vid = u.split("/shorts/", 1)[1].split("?", 1)[0].split("#", 1)[0]
+            return f"https://www.youtube.com/watch?v={vid}" if vid else u
+    # If it contains neither youtube nor youtu.be, allow storing raw but trimmed
+    return u
+
+
+# -------------------------------------------------------
+# Parser wrapper (uses house_form.parse_house_form if set)
+# -------------------------------------------------------
+def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_address: str | None = None):
+    """
+    STRICT RULE: Save ONLY the hidden preview address (name='address').
+    - If provided, normalize and use it.
+    - If empty in EDIT mode, keep existing DB value.
+    - If empty in NEW mode, error: address is required.
+    """
+    if hasattr(house_form, "parse_house_form"):
+        return house_form.parse_house_form(form, mode=mode, default_listing_type=default_listing_type)
+
+    # ---- Fallback parser ----
+    fget = lambda k, default="": (form.get(k) or default).strip()
+
+    title_raw = fget("title")
+    title     = _title_case_wordish(title_raw)  # server-side safety for title casing
+
+    city_raw = fget("city")
+    letting_type = fget("letting_type")
+    gender_pref = fget("gender_preference")
+
+    # Address: ONLY take hidden preview field
+    address_hidden = fget("address")
+    address = _normalize_full_address(address_hidden) if address_hidden else ""
+
+    # Bills dropdown -> houses.bills_option (+ legacy flag)
+    bills_option = (form.get("bills_included") or "no").strip().lower()
+    if bills_option not in ("yes", "no", "some"):
+        bills_option = "no"
+    bills_included_legacy = 1 if bills_option == "yes" else 0
+
+    # Detailed utilities
+    if bills_option == "yes":
+        bills_util = dict(
+            bills_util_gas=1, bills_util_electric=1, bills_util_water=1,
+            bills_util_broadband=1, bills_util_tv=1
+        )
+    elif bills_option == "some":
+        bills_util = dict(
+            bills_util_gas=clean_bool("bills_util_gas"),
+            bills_util_electric=clean_bool("bills_util_electric"),
+            bills_util_water=clean_bool("bills_util_water"),
+            bills_util_broadband=clean_bool("bills_util_broadband"),
+            bills_util_tv=clean_bool("bills_util_tv"),
+        )
+    else:
+        bills_util = dict(
+            bills_util_gas=0, bills_util_electric=0, bills_util_water=0,
+            bills_util_broadband=0, bills_util_tv=0
+        )
+
+    shared_bathrooms = int(form.get("shared_bathrooms") or 0)
+    bedrooms_total = int(form.get("bedrooms_total") or 0)
+    listing_type = (form.get("listing_type") or default_listing_type or "owner").strip()
+
+    # EPC rating (optional A–G).
+    epc_rating_raw = (form.get("epc_rating") or "").strip().upper()
+    epc_rating = epc_rating_raw if epc_rating_raw in ("A", "B", "C", "D", "E", "F", "G") else ""
+
+    # YouTube URL (optional)
+    youtube_url = _normalize_youtube_url(fget("youtube_url"))
+
+    # If address missing: on edit keep existing; on new error
+    if not address:
+        if mode == "edit" and existing_address:
+            address = _normalize_full_address(existing_address)
+
+    payload = {
+        "title": title,
+        "city": _title_case_wordish(city_raw),  # keep city tidy
+        "address": address,
+        "letting_type": letting_type,
+        "bedrooms_total": bedrooms_total,
+        "gender_preference": gender_pref,
+        "bills_included": bills_included_legacy,
+        "bills_option": bills_option,
+        "shared_bathrooms": shared_bathrooms,
+        "washing_machine": clean_bool("washing_machine"),
+        "tumble_dryer": clean_bool("tumble_dryer"),
+        "dishwasher": clean_bool("dishwasher"),
+        "cooker": clean_bool("cooker"),
+        "microwave": clean_bool("microwave"),
+        "coffee_maker": clean_bool("coffee_maker"),
+        "central_heating": clean_bool("central_heating"),
+        "air_con": clean_bool("air_conditioning"),
+        "vacuum": clean_bool("vacuum"),
+        "wifi": clean_bool("wifi"),
+        "wired_internet": clean_bool("wired_internet"),
+        "common_area_tv": clean_bool("common_area_tv"),
+        "cctv": clean_bool("cctv"),
+        "video_door_entry": clean_bool("video_door_entry"),
+        "fob_entry": clean_bool("fob_entry"),
+        "off_street_parking": clean_bool("off_street_parking"),
+        "local_parking": clean_bool("local_parking"),
+        "garden": clean_bool("garden"),
+        "roof_terrace": clean_bool("roof_terrace"),
+        "bike_storage": clean_bool("bike_storage"),
+        "games_room": clean_bool("games_room"),
+        "cinema_room": clean_bool("cinema_room"),
+        "cleaning_service": (form.get("cleaning_service") or "none").strip(),
+        "listing_type": listing_type,
+        "epc_rating": epc_rating,
+        "youtube_url": youtube_url,
+    }
+    payload.update(bills_util)
+
+    # Validation
+    errors = []
+    if not title:
+        errors.append("Title is required.")
+    if not payload["address"]:
+        errors.append("Address is required.")
+    if bedrooms_total < 1:
+        errors.append("Bedrooms must be at least 1.")
+    if not validate_city_active(city_raw):
+        errors.append("Please choose a valid active city.")
+    if not valid_choice(letting_type, ("whole", "share")):
+        errors.append("Invalid letting type.")
+    if not valid_choice(gender_pref, ("Male", "Female", "Mixed", "Either")):
+        errors.append("Invalid gender preference.")
+    if not valid_choice(payload["cleaning_service"], ("none", "weekly", "fortnightly", "monthly")):
+        errors.append("Invalid cleaning service value.")
+    if not valid_choice(listing_type, ("owner", "agent")):
+        errors.append("Invalid listing type.")
+    if epc_rating_raw and epc_rating == "":
+        errors.append("Invalid EPC rating (choose A, B, C, D, E, F or G).")
+
+    return payload, errors
+    # ---- End fallback ----
+
+
+@bp.route("/landlord/houses")
+def landlord_houses():
+    r = require_landlord()
+    if r:
+        return r
+    lid = current_landlord_id()
+    conn = get_db()
+    prof = conn.execute(
+        "SELECT is_verified FROM landlord_profiles WHERE landlord_id=?", (lid,)
+    ).fetchone()
+    rows = conn.execute(
+        "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC", (lid,)
+    ).fetchall()
+    conn.close()
+    is_verified = int(prof["is_verified"]) if (prof and "is_verified" in prof.keys()) else 0
+    return render_template("houses_list.html", houses=rows, is_verified=is_verified)
+
+
+@bp.route("/landlord/houses/new", methods=["GET", "POST"])
+def house_new():
+    r = require_landlord()
+    if r:
+        return r
+    lid = current_landlord_id()
+    cities = get_active_cities_safe()
 
     conn = get_db()
-    try:
-        _ensure_landlord_profiles_table(conn)
+    default_listing_type = house_form.get_default_listing_type(conn, lid)
 
-        if request.method == "POST":
-            action = request.form.get("action") or ""
+    if request.method == "POST":
+        payload, errors = _parse_or_delegate(request.form, mode="new", default_listing_type=default_listing_type)
 
-            if action == "update_email":
-                new_email = (request.form.get("email") or "").strip().lower()
-                if new_email:
-                    try:
-                        conn.execute(
-                            "UPDATE landlords SET email=? WHERE id=?",
-                            (new_email, lid)
-                        )
-                        conn.commit()
-                        flash("Email updated.", "ok")
-                    except Exception:
-                        flash("That email is already taken.", "error")
+        if errors:
+            for e in errors:
+                flash(e, "error")
+            conn.close()
+            return render_template(
+                "house_form.html",
+                cities=cities,
+                form=request.form,
+                mode="new",
+                default_listing_type=default_listing_type,
+            )
 
-            elif action == "reset_password":
-                new_pw = (request.form.get("new_password") or "").strip()
-                if not new_pw:
-                    import secrets
-                    new_pw = secrets.token_urlsafe(8)
-                    flash(f"Generated temporary password: {new_pw}", "ok")
-                ph = generate_password_hash(new_pw)
-                conn.execute(
-                    "UPDATE landlords SET password_hash=? WHERE id=?",
-                    (ph, lid)
-                )
-                conn.commit()
-                flash("Password reset.", "ok")
-
-            elif action == "set_verified":
-                # Ensure profile row exists, then set flag from checkbox
-                conn.execute(
-                    "INSERT OR IGNORE INTO landlord_profiles(landlord_id) VALUES(?)",
-                    (lid,)
-                )
-                is_verified = 1 if request.form.get("is_verified") == "on" else 0
-                conn.execute(
-                    "UPDATE landlord_profiles SET is_verified=? WHERE landlord_id=?",
-                    (is_verified, lid)
-                )
-                conn.commit()
-                flash("Verification status updated.", "ok")
-
-            elif action == "update_profile":
-                display_name = (request.form.get("display_name") or "").strip()
-                phone        = (request.form.get("phone") or "").strip()
-                website      = (request.form.get("website") or "").strip()
-                bio          = (request.form.get("bio") or "").strip()
-
-                # Ensure profile row
-                conn.execute(
-                    "INSERT OR IGNORE INTO landlord_profiles(landlord_id) VALUES(?)",
-                    (lid,)
-                )
-                prof = conn.execute(
-                    "SELECT * FROM landlord_profiles WHERE landlord_id=?",
-                    (lid,)
-                ).fetchone()
-
-                # Auto-generate slug if missing and we have a display name
-                slug = prof["public_slug"] if prof else None
-                if not slug and display_name:
-                    s = (display_name or "").strip().lower()
-                    out = []
-                    for ch in s:
-                        if ch.isalnum():
-                            out.append(ch)
-                        elif ch in " -_":
-                            out.append("-")
-                    base = "".join(out).strip("-") or "landlord"
-                    candidate = base
-                    i = 2
-                    while conn.execute(
-                        "SELECT 1 FROM landlord_profiles WHERE public_slug=?",
-                        (candidate,)
-                    ).fetchone():
-                        candidate = f"{base}-{i}"
-                        i += 1
-                    slug = candidate
-
-                conn.execute("""
-                    UPDATE landlord_profiles
-                       SET display_name=?,
-                           phone=?,
-                           website=?,
-                           bio=?,
-                           public_slug=COALESCE(?, public_slug)
-                     WHERE landlord_id=?
-                """, (display_name, phone, website, bio, slug, lid))
-                conn.commit()
-                flash("Profile updated.", "ok")
-
-            elif action == "delete_landlord":
-                conn.execute("DELETE FROM landlord_profiles WHERE landlord_id=?", (lid,))
-                conn.execute("DELETE FROM landlords WHERE id=?", (lid,))
-                conn.commit()
-                flash("Landlord deleted.", "ok")
-                return redirect(url_for("admin.admin_landlords"))
-
-        landlord = conn.execute(
-            "SELECT * FROM landlords WHERE id=?", (lid,)
-        ).fetchone()
-        profile = conn.execute(
-            "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
-        ).fetchone()
-        houses = conn.execute(
-            "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC",
-            (lid,)
-        ).fetchall()
-
-        return render_template(
-            "admin_landlord_view.html",
-            landlord=landlord, profile=profile, houses=houses
-        )
-    finally:
+        payload["created_at"] = dt.utcnow().isoformat()
+        house_repo.insert_house(conn, lid, payload)
         conn.close()
+        flash("House added.", "ok")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    conn.close()
+    return render_template("house_form.html", cities=cities, form={}, mode="new", default_listing_type=default_listing_type)
+
+
+@bp.route("/landlord/houses/<int:hid>/edit", methods=["GET", "POST"])
+def house_edit(hid):
+    r = require_landlord()
+    if r:
+        return r
+    lid = current_landlord_id()
+    cities = get_active_cities_safe()
+    conn = get_db()
+    house_row = owned_house_or_none(conn, hid, lid)
+    if not house_row:
+        conn.close()
+        flash("House not found.", "error")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    house = dict(house_row)
+    default_listing_type = house_form.get_default_listing_type(conn, lid, existing=house)
+
+    if request.method == "POST":
+        payload, errors = _parse_or_delegate(
+            request.form, mode="edit",
+            default_listing_type=default_listing_type,
+            existing_address=house.get("address")
+        )
+
+        if errors:
+            for e in errors:
+                flash(e, "error")
+            conn.close()
+            return render_template(
+                "house_form.html",
+                cities=cities,
+                form=request.form,
+                mode="edit",
+                house=house,
+                default_listing_type=default_listing_type,
+            )
+
+        house_repo.update_house(conn, lid, hid, payload)
+        conn.close()
+        flash("House updated.", "ok")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    # GET
+    form = dict(house)
+    form.setdefault("bills_option", house.get("bills_option") or ("yes" if (house.get("bills_included") == 1) else "no"))
+    conn.close()
+    return render_template(
+        "house_form.html",
+        cities=cities,
+        form=form,
+        mode="edit",
+        house=house,
+        default_listing_type=default_listing_type,
+    )
+
+
+@bp.route("/landlord/houses/<int:hid>/delete", methods=["POST"])
+def house_delete(hid):
+    r = require_landlord()
+    if r:
+        return r
+    lid = current_landlord_id()
+    conn = get_db()
+    conn.execute(
+        "DELETE FROM rooms WHERE house_id=(SELECT id FROM houses WHERE id=? AND landlord_id=?)",
+        (hid, lid),
+    )
+    conn.execute("DELETE FROM houses WHERE id=? AND landlord_id=?", (hid, lid))
+    conn.commit()
+    conn.close()
+    flash("House deleted.", "ok")
+    return redirect(url_for("landlord.landlord_houses"))
