@@ -80,7 +80,7 @@
           <span>Wired internet</span>
         </label>
 
-        <!-- NEW FIELDS -->
+        <!-- EXISTING NEW FIELDS -->
         <label class="field checkbox" style="align-self:end">
           <input type="checkbox" name="safe" {% if form and form.safe in ['1',1,'on',True] %}checked{% endif %}>
           <span>Safe</span>
@@ -94,6 +94,27 @@
         <label class="field checkbox" style="align-self:end">
           <input type="checkbox" name="mirror" {% if form and form.mirror in ['1',1,'on',True] %}checked{% endif %}>
           <span>Mirror</span>
+        </label>
+
+        <!-- NEW NON-SEARCHABLE FIELDS -->
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="bedside_table" {% if form and form.bedside_table in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Bedside table</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="blinds" {% if form and form.blinds in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Blinds</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="curtains" {% if form and form.curtains in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Curtains</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="sofa" {% if form and form.sofa in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Sofa</span>
         </label>
       </div>
     </div>
