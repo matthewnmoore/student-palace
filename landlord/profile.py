@@ -274,3 +274,29 @@ def debug_fix_profile_paths():
     ).fetchall()
     conn.close()
     return "<pre>fixed\n" + "\n".join([str(dict(r)) for r in rows]) + "</pre>"
+
+@bp.route("/debug/profile-files")
+def debug_profile_files():
+    """
+    Confirms whether the expected files exist on disk for the current landlord (or ?lid=).
+    Helpful when images show as broken/question-mark in the browser.
+    """
+    # Allow override via querystring for quick checks, else use current landlord
+    lid_param = request.args.get("lid")
+    try:
+        lid = int(lid_param) if lid_param is not None else (current_landlord_id() or 0)
+    except ValueError:
+        lid = current_landlord_id() or 0
+
+    lines = []
+    for kind in ("logo", "photo"):
+        rel = f"uploads/landlords/{lid}/{kind}.jpg"
+        abs_path = Path("static") / rel
+        exists = abs_path.exists()
+        try:
+            size = abs_path.stat().st_size if exists else 0
+        except Exception:
+            size = 0
+        lines.append(f"{kind}: exists={exists} size={size} rel={rel} abs={abs_path.resolve()}")
+
+    return "<pre>" + "\n".join(lines) + "</pre>"
