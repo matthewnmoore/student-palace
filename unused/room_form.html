@@ -12,35 +12,31 @@
 
       <!-- Row 1: Room name, Price per month, Price per week (readonly), Approx. room size -->
       <div class="grid" style="grid-template-columns:repeat(4,minmax(180px,1fr)); gap:14px; align-items:end">
-        <!-- Room name -->
         <label class="field">
           <span class="label">Room name</span>
           <input type="text" name="name" value="{{ (form.name or '') if form else '' }}" required placeholder="e.g., Room 1, Attic room">
         </label>
 
-        <!-- Price per month -->
         <label class="field">
           <span class="label">Price per month (£)</span>
           <input type="number" id="price_pcm" name="price_pcm" value="{{ (form.price_pcm or '') if form else '' }}" min="0" step="1" inputmode="numeric" placeholder="e.g., 650">
         </label>
 
-        <!-- Price per week (calculated, not saved) -->
         <label class="field">
           <span class="label">Price per week (£)</span>
           <input type="text" id="price_ppw" value="" readonly>
         </label>
 
-        <!-- Approx. room size -->
         <label class="field">
           <span class="label">Approx. room size</span>
           <input type="text" name="room_size" value="{{ (form.room_size or '') if form else '' }}" placeholder="e.g., 10 m²">
         </label>
       </div>
 
-      <!-- Row 2: Bed size + inline checkboxes (spread nicely across remaining width) -->
-      <div class="grid" style="grid-template-columns:repeat(4,minmax(180px,1fr)); gap:14px; margin-top:10px; align-items:end">
-        <!-- Bed size (same visual size/height as text inputs) -->
-        <label class="field" style="grid-column:1 / span 1">
+      <!-- Row 2: Bed size + checkboxes inline -->
+      <div class="grid" style="grid-template-columns:1fr 2fr; gap:30px; margin-top:10px; align-items:end">
+        <!-- Bed size -->
+        <label class="field">
           <span class="label">Bed size</span>
           {% set bed = (form.bed_size or '') if form else '' %}
           <select name="bed_size" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px; font-size:14px; min-height:44px; background:#fff">
@@ -52,16 +48,16 @@
           </select>
         </label>
 
-        <!-- Flex row spanning columns 2-4 so checkboxes aren't aligned with boxes above -->
-        <div style="grid-column:2 / span 3; display:flex; justify-content:space-between; gap:20px; align-items:center; flex-wrap:wrap">
-          <label class="check" style="display:flex; align-items:center; gap:10px; margin:0; white-space:nowrap">
-            <span class="label-inline" style="margin-bottom:0">Accessible for disabled people</span>
+        <!-- Checkboxes side-by-side -->
+        <div style="display:flex; align-items:center; gap:40px; flex-wrap:wrap; padding-top:22px">
+          <label class="check" style="display:flex; align-items:center; gap:8px; margin:0; white-space:nowrap">
             <input type="checkbox" name="disabled_ok" {% if form and form.disabled_ok in ['1', 1, 'on', True] %}checked{% endif %}>
+            <span class="label-inline">Accessible for disabled people</span>
           </label>
 
-          <label class="check" style="display:flex; align-items:center; gap:10px; margin:0; white-space:nowrap">
-            <span class="label-inline" style="margin-bottom:0">Suitable for couples</span>
+          <label class="check" style="display:flex; align-items:center; gap:8px; margin:0; white-space:nowrap">
             <input type="checkbox" name="couples_ok" {% if form and form.couples_ok in ['1', 1, 'on', True] %}checked{% endif %}>
+            <span class="label-inline">Suitable for couples</span>
           </label>
         </div>
       </div>
@@ -175,9 +171,17 @@
     <!-- ACTIONS -->
     <div class="card actions card--accent-lr">
       <div class="actions-row">
-        <button class="btn" type="submit" name="action" value="save_only">Save</button>
-        <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
-        <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
+        <!-- Left group -->
+        <div class="btn-group-left" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+          <button class="btn" type="submit" name="action" value="save_only">Save</button>
+          <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
+          <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
+        </div>
+
+        <!-- Spacer pushes delete to the far right -->
+        <div style="flex-grow:1"></div>
+
+        <!-- Right group (Delete) -->
         {% if mode == 'edit' and room %}
           <form method="post" action="{{ url_for('landlord.room_delete', hid=house.id, rid=room.id) }}" onsubmit="return confirm('Delete this room?');" style="display:inline">
             <button class="btn btn-admin" type="submit">Delete room</button>
@@ -198,7 +202,6 @@
 <!-- Behaviour -->
 <script>
 (function(){
-  // Availability behaviour
   var isLet = document.getElementById('is_let');
   var rowLetUntil = document.getElementById('row_let_until');
   var letUntil = document.getElementById('let_until');
@@ -237,7 +240,6 @@
   syncVisibility();
   wireAutoNextDay();
 
-  // Weekly rent auto-calc
   var pcmInput = document.getElementById('price_pcm');
   var ppwInput = document.getElementById('price_ppw');
 
