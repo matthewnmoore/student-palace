@@ -176,6 +176,10 @@
           <button class="btn" type="submit" name="action" value="save_only">Save</button>
           <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
           <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
+
+          {% if mode == 'edit' and room %}
+            <a class="btn btn-outline" href="{{ url_for('landlord.room_photos', hid=house.id, rid=room.id) }}">Manage photos</a>
+          {% endif %}
         </div>
 
         <!-- Spacer pushes delete to the far right -->
