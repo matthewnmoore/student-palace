@@ -21,6 +21,110 @@ HISTORY:
 
 
 
+updated scheme basis - not checked
+==================================
+
+Student Palace – Current Build Breakdown
+
+1. Core Entities
+
+We are working with Houses and Rooms.
+Each has its own fields, forms, and rules.
+
+⸻
+
+2. House (Property) Data Fields
+	•	id → internal primary key
+	•	title → property title (free text)
+	•	city_id → dropdown, chosen from admin-managed list of cities
+	•	address → text field
+	•	bedrooms_total → total bedrooms in the house
+	•	rooms_available → auto-calculated (if letting type = “Room only”)
+	•	price_pppw → price per person per week (if whole property)
+	•	bills_included → checkbox
+	•	available_from → date field
+	•	letting_type → dropdown (“Whole property” or “Room only”)
+	•	gender_preference → dropdown (“Male / Female / Mixed / Either”)
+	•	description → rich text area
+	•	images → up to 5 images max (extra trimmed, watermarked, error message shown)
+
+⸻
+
+3. Room Data Fields
+	•	id → internal primary key
+	•	house_id → foreign key linking to parent house
+	•	price_pcm → numeric, price per calendar month
+	•	price_ppw → auto-calculated, not stored (shown read-only)
+	•	name → free text, e.g. “Room 1”, “Attic Room”
+	•	bed_size → dropdown (“Single”, “Small double”, “Double”, “King”)
+	•	room_size → free text, e.g. “10 m²”
+
+Room Availability
+	•	is_let → checkbox: “Currently let (not available now)”
+	•	let_until → date field, shown only if “is_let” is ticked
+	•	available_from → date field, always present
+	•	Auto-set to the day after let_until when “let until” is changed.
+
+Room Suitability
+	•	couples_ok → checkbox: “Suitable for couples”
+	•	disabled_ok → checkbox: “Accessible for disabled people”
+
+Room Features (all checkboxes)
+	•	ensuite → Ensuite / own bathroom
+	•	tv → TV in room
+	•	desk_chair → Desk & chair
+	•	wardrobe → Wardrobe
+	•	chest_drawers → Chest of drawers
+	•	lockable_door → Lockable door
+	•	wired_internet → Wired internet
+	•	safe → Safe
+	•	dressing_table → Dressing table
+	•	mirror → Mirror
+	•	bedside_table → Bedside table
+	•	blinds → Blinds
+	•	curtains → Curtains
+	•	sofa → Sofa
+
+⸻
+
+4. Business Rules & Behaviours
+	•	Cities: Admin-only, landlords pick from dropdown.
+	•	Rooms Available: For “room only” houses, automatically calculated.
+	•	Academic Year Search: Year runs 1 Aug – 31 Jul, property/room must be available within that window.
+	•	Let Until Auto-Hide:
+	•	If is_let is ticked → show “Let until” + “Available from” fields.
+	•	If unticked → hide “Let until”, only show “Available from”.
+	•	When “Let until” changes → “Available from” defaults to the following day.
+	•	Weekly Rent Calculation:
+	•	Price per week = (pcm * 12) ÷ 52, rounded to nearest £.
+	•	Auto-updates live as landlord types in PCM.
+	•	Images: Strictly max 5 per property or room; system trims extras and warns landlord.
+	•	Accent Style: Cards use card--accent-lr purple stripe left/right.
+
+⸻
+
+5. Completed Page Types
+	•	Landlord
+	•	Signup / Login
+	•	Dashboard overview
+	•	Add/Edit House (with all above fields)
+	•	Add/Edit Room (with availability rules, checkboxes, PCM → PPW auto-calc, features)
+	•	Rooms tab (manage multiple rooms, image limits)
+	•	Student
+	•	Homepage (search hero, featured cities/properties)
+	•	Property Search Results (filters: city, group size, letting type, max price, bills included, academic year)
+	•	Property Detail (gallery up to 5, description, badges, room list with availability)
+	•	Room Detail (gallery up to 5, availability date + academic year, request viewing button)
+	•	Admin
+	•	Manage landlords, cities, houses, rooms, and images.
+	•	Admin counters (working as of stable baseline).
+
+
+
+
+
+
+
 
 Helper for image page creations 01/09/25 (to be used for room photos creation)
 
