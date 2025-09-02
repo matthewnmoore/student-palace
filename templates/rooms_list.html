@@ -25,10 +25,11 @@
         <thead>
           <tr>
             <th>Name</th>
-            <th>Price per month (£)</th>
+            <th>£ PPM</th>
+            <th>£ PPW</th>
             <th>Bed size</th>
-            <th>Currently available</th>
-            <th style="width:260px">Actions</th>
+            <th>Availability</th>
+            <th style="width:300px">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -36,12 +37,19 @@
           <tr>
             <td><strong>{{ r.name }}</strong></td>
             <td>{{ r.price_pcm or '—' }}</td>
+            <td>
+              {% if r.price_pcm %}
+                {{ ((r.price_pcm * 12) // 52)|int }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
             <td>{{ r.bed_size or '—' }}</td>
             <td>
               {% if not r.is_let %}
                 Yes
               {% elif r.let_until %}
-                Not until {{ r.let_until }}
+                Not until {{ r.let_until.strftime("%d/%m/%Y") }}
               {% else %}
                 Not available
               {% endif %}
