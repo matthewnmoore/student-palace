@@ -64,6 +64,10 @@ def room_form_values(request):
     errors = []
     if not name:
         errors.append("Room name is required.")
+    if len(name) > 20:
+        errors.append("Room name cannot be longer than 20 characters.")
+    if len(description) > 1200:
+        errors.append("Room description cannot be longer than 1200 characters.")
     if bed_size not in ("Single","Small double","Double","King"):
         errors.append("Please choose a valid bed size.")
 
