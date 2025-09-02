@@ -63,6 +63,16 @@
       </div>
     </div>
 
+    <!-- DESCRIPTION (new) -->
+    <div class="card card--accent-lr">
+      <h2 class="card-title">Description</h2>
+      <div class="field">
+        <span class="label">Room description</span>
+        <textarea name="description" rows="5" placeholder="Describe the room, furnishings, outlook, any quirks, etc.">{{ (form.description or '') if form else '' }}</textarea>
+        <div class="help">Add helpful details students should know (condition, furnishings, outlook, storage, etc.).</div>
+      </div>
+    </div>
+
     <!-- AVAILABILITY -->
     <div class="card card--accent-lr">
       <h2 class="card-title">Availability</h2>
