@@ -1,27 +1,87 @@
 {% extends "base.html" %}
-{% block title %}Landlord – Student Palace{% endblock %}
+{% block title %}{{ (profile.display_name or 'Landlord') ~ ' – Student Palace' if profile else 'Landlord – Student Palace' }}{% endblock %}
 {% block content %}
 <section class="wrap">
   {% if not profile %}
     <h1>Landlord not found</h1>
-    <div class="card"><p class="help">This profile doesn’t exist.</p></div>
+    <div class="card card--accent-lr"><p class="help">This profile doesn’t exist.</p></div>
   {% else %}
-    <h1>{{ profile.display_name or 'Landlord' }}</h1>
-    <div class="card">
-      <p>{{ profile.bio or 'No bio provided yet.' }}</p>
-      <div class="grid grid-2" style="margin-top:12px">
-        <div>
-          <p><strong>Phone:</strong> {{ profile.phone or '—' }}</p>
-          <p><strong>Email:</strong> {{ contact_email or '—' }}</p>
-          <p><strong>Website:</strong>
-            {% if profile.website %}<a href="{{ profile.website }}" target="_blank" rel="noopener">{{ profile.website }}</a>{% else %}—{% endif %}
-          </p>
+
+    {# Header with name + verified status #}
+    <div class="card card--accent-lr" style="display:flex; align-items:center; gap:12px; margin-top:14px">
+      <div style="flex:1">
+        <h1 style="margin:0">{{ profile.display_name or 'Landlord' }}</h1>
+      </div>
+      {% if profile.is_verified|default(0, true) %}
+        <div class="badge" style="display:inline-flex; align-items:center; gap:8px">
+          <span aria-hidden="true" style="font-size:18px; color:#22c55e">✔️</span>
+          <span>Verified</span>
         </div>
-        <div>
-          <p><strong>Profile views:</strong> {{ profile.profile_views or 0 }}</p>
-          <p class="help">Views count increases each time this page is opened.</p>
+      {% else %}
+        <div class="badge" style="display:inline-flex; align-items:center; gap:8px; background:#fff8e6; border-color:#facc15">
+          <span aria-hidden="true" style="font-size:18px; color:#f59e0b">❌</span>
+          <span>Not verified</span>
+        </div>
+      {% endif %}
+    </div>
+
+    {# Two-column layout: left info, right media #}
+    <div class="grid" style="grid-template-columns: 1fr 320px; gap:16px; align-items:start">
+
+      {# LEFT: Bio + contact #}
+      <div class="card card--accent-lr">
+        <h2 style="margin-top:0">About</h2>
+        <p style="white-space:pre-wrap">{{ profile.bio or 'This landlord has not added a bio yet.' }}</p>
+
+        <hr style="border:0; border-top:1px solid var(--border); margin:16px 0">
+
+        <div class="grid grid-2">
+          <div>
+            <p><strong>Phone:</strong> {{ profile.phone or '—' }}</p>
+            <p><strong>Email:</strong> {{ contact_email or '—' }}</p>
+          </div>
+          <div>
+            <p><strong>Website:</strong>
+              {% if profile.website %}
+                <a href="{{ profile.website }}" target="_blank" rel="noopener">{{ profile.website }}</a>
+              {% else %}—{% endif %}
+            </p>
+            <p><strong>Profile views:</strong> {{ profile.profile_views or 0 }}</p>
+          </div>
         </div>
       </div>
+
+      {# RIGHT: Logo + Photo stacked #}
+      <div style="display:flex; flex-direction:column; gap:16px">
+        <div class="card card--accent-lr">
+          <h3 style="margin-top:0">Logo</h3>
+          <div style="width:100%; display:flex; gap:12px; align-items:flex-start">
+            <div style="width:160px; height:160px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff; flex:0 0 auto;">
+              {% set logo_src = profile.logo_path and url_for('static', filename=profile.logo_path) %}
+              {% if logo_src %}
+                <img src="{{ logo_src }}" alt="Landlord logo" style="width:100%; height:100%; object-fit:cover">
+              {% else %}
+                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#b9a6ff;font-weight:700">LOGO</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="card card--accent-lr">
+          <h3 style="margin-top:0">Profile photo</h3>
+          <div style="width:100%; display:flex; gap:12px; align-items:flex-start">
+            <div style="width:160px; height:160px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff; flex:0 0 auto;">
+              {% set photo_src = profile.photo_path and url_for('static', filename=profile.photo_path) %}
+              {% if photo_src %}
+                <img src="{{ photo_src }}" alt="Landlord photo" style="width:100%; height:100%; object-fit:cover">
+              {% else %}
+                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#b9a6ff;font-weight:700">PHOTO</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   {% endif %}
 </section>
