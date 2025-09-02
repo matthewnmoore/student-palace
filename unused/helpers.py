@@ -32,6 +32,9 @@ def room_form_values(request):
     wired_internet = clean_bool("wired_internet")
     room_size = (request.form.get("room_size") or "").strip()
 
+    # NEW FIELD: description
+    description = (request.form.get("description") or "").strip()
+
     # NEW FIELDS
     raw_price = (request.form.get("price_pcm") or "").strip()
     try:
@@ -76,6 +79,7 @@ def room_form_values(request):
 
     return ({
         "name": name,
+        "description": description,
         "ensuite": ensuite,
         "bed_size": bed_size,
         "tv": tv,
@@ -104,7 +108,14 @@ def room_form_values(request):
     }, errors)
 
 def room_counts(conn, hid):
-    row = conn.execute("SELECT bedrooms_total FROM houses WHERE id=?", (hid,)).fetchone()
+    """Return (max_rooms, current_count) for a given house."""
+    row = conn.execute(
+        "SELECT bedrooms_total FROM houses WHERE id=?",
+        (hid,)
+    ).fetchone()
     max_rooms = int(row["bedrooms_total"]) if row else 0
-    cnt = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
+    cnt = conn.execute(
+        "SELECT COUNT(*) AS c FROM rooms WHERE house_id=?",
+        (hid,)
+    ).fetchone()["c"]
     return max_rooms, int(cnt)
