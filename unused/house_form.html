@@ -5,6 +5,7 @@
 
   <form method="post" id="house-form">
 
+  
     <!-- BASICS -->
     <div class="card card--accent-edges">
       <h2 class="mt-0">Basics</h2>
@@ -92,16 +93,20 @@
   {% set g = (form.gender_preference or '') if form else '' %}
   <select name="gender_preference" required>
     <option value="" {% if not g %}selected{% endif %}>Please choose one</option>
-    <option value="Male Only" {% if g=='Male Only' %}selected{% endif %}>Male Only</option>
-    <option value="Female Only" {% if g=='Female Only' %}selected{% endif %}>Female Only</option>
-    <option value="Anyone/Mixed" {% if g=='Anyone/Mixed' %}selected{% endif %}>Anyone/Mixed</option>
+
+    <option value="Male"   {% if g in ['Male','Male Only'] %}selected{% endif %}>
+      Male Only
+    </option>
+    <option value="Female" {% if g in ['Female','Female Only'] %}selected{% endif %}>
+      Female Only
+    </option>
+    <option value="Mixed"  {% if g in ['Mixed','Anyone/Mixed','Either'] %}selected{% endif %}>
+      Anyone/Mixed
+    </option>
   </select>
 </label>
 
-        
 
-
-        
       </div>
     </div>
 
@@ -272,7 +277,8 @@
         <div class="inline-actions" style="grid-column:1 / -1; display:flex; gap:8px; flex-wrap:wrap">
           {% if mode=='edit' and house and house.id %}
             <a class="btn" href="{{ url_for('landlord.house_photos', hid=house.id) }}">Manage photos</a>
-            <a class="btn btn-outline" href="/landlord/houses/{{ house.id }}/floor-plans">Manage floor plans</a>
+            <!-- CHANGED: real link to floor plans -->
+            <a class="btn btn-outline" href="{{ url_for('landlord.house_floorplans', hid=house.id) }}">Manage floor plans</a>
             <a class="btn btn-outline" href="/landlord/houses/{{ house.id }}/epc">Manage EPC PDF</a>
           {% else %}
             <span class="muted">Save the house first to manage photos, floor plans and EPC.</span>
