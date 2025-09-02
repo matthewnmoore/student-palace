@@ -5,6 +5,17 @@ I’ve written it in a way you can copy/paste into your notes and repeat back to
 
 Student Palace – Room Availability Field (Design Spec)
 
+
+
+added 02-09-2025
+================
+
+Notes for later when you wire templates:
+	•	Keep the inputs named exactly available_from and let_until.
+	•	The helper accepts either DD/MM/YYYY or the native <input type="date"> value (YYYY-MM-DD), and normalizes to ISO for DB.
+	•	We only enforce ordering when both dates are supplied.
+
+
 1. Database Schema (rooms table)
 
 We need two new columns in the rooms table:
