@@ -37,13 +37,13 @@
         </label>
       </div>
 
-      <!-- Row 2: Bed size (same width/column as Room name), Accessibility checkbox heading, Suitable checkbox heading -->
+      <!-- Row 2: Bed size (same visual size as Room name), “Accessible for disabled people” checkbox, “Suitable for couples” checkbox -->
       <div class="grid" style="grid-template-columns:repeat(4,minmax(180px,1fr)); gap:14px; margin-top:10px; align-items:end">
-        <!-- Bed size (placed under Room name to match its width) -->
+        <!-- Bed size (placed under Room name to match its column; make select same height/width) -->
         <label class="field" style="grid-column:1 / span 1">
           <span class="label">Bed size</span>
           {% set bed = (form.bed_size or '') if form else '' %}
-          <select name="bed_size" required style="width:100%">
+          <select name="bed_size" required style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px; font-size:14px; min-height:44px; background:#fff">
             <option value="" {% if not bed %}selected{% endif %}>Choose bed size</option>
             <option value="Single" {% if bed=='Single' %}selected{% endif %}>Single</option>
             <option value="Small double" {% if bed=='Small double' %}selected{% endif %}>Small double</option>
@@ -52,23 +52,17 @@
           </select>
         </label>
 
-        <!-- Accessibility (checkbox next to heading) -->
-        <div class="field" style="grid-column:2 / span 1; display:flex; align-items:center; gap:10px">
-          <span class="label-inline" style="margin-bottom:0">Accessibility</span>
-          <label class="check" style="margin:0; display:flex; align-items:center; gap:6px">
-            <input type="checkbox" name="disabled_ok" {% if form and form.disabled_ok in ['1', 1, 'on', True] %}checked{% endif %}>
-            <span class="help" style="margin:0">Accessible</span>
-          </label>
-        </div>
+        <!-- Accessible for disabled people (checkbox next to heading text) -->
+        <label class="check" style="grid-column:2 / span 1; display:flex; align-items:center; gap:10px; margin:0">
+          <span class="label-inline" style="margin-bottom:0">Accessible for disabled people</span>
+          <input type="checkbox" name="disabled_ok" {% if form and form.disabled_ok in ['1', 1, 'on', True] %}checked{% endif %}>
+        </label>
 
-        <!-- Suitable (checkbox next to heading) -->
-        <div class="field" style="grid-column:3 / span 1; display:flex; align-items:center; gap:10px">
-          <span class="label-inline" style="margin-bottom:0">Suitable</span>
-          <label class="check" style="margin:0; display:flex; align-items:center; gap:6px">
-            <input type="checkbox" name="couples_ok" {% if form and form.couples_ok in ['1', 1, 'on', True] %}checked{% endif %}>
-            <span class="help" style="margin:0">For couples</span>
-          </label>
-        </div>
+        <!-- Suitable for couples (checkbox next to heading text) -->
+        <label class="check" style="grid-column:3 / span 1; display:flex; align-items:center; gap:10px; margin:0">
+          <span class="label-inline" style="margin-bottom:0">Suitable for couples</span>
+          <input type="checkbox" name="couples_ok" {% if form and form.couples_ok in ['1', 1, 'on', True] %}checked{% endif %}>
+        </label>
 
         <!-- Spacer to keep 4-column alignment -->
         <div style="grid-column:4 / span 1"></div>
@@ -227,7 +221,7 @@
   function syncVisibility(){
     var checked = isLet && isLet.checked;
     if (rowLetUntil) rowLetUntil.style.display = checked ? 'block' : 'none';
-    if (!checked and letUntil) letUntil.value = '';
+    if (!checked && letUntil) letUntil.value = '';
   }
 
   function wireAutoNextDay(){
