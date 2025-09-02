@@ -13,13 +13,13 @@
   </div>
 
   {% if not can_add %}
-    <div class="card" style="border-left:6px solid var(--accent)">
+    <div class="card card--accent-lr">
       <strong>Limit reached:</strong> This house has {{ max_rooms }} bedrooms, so you can’t add more than {{ max_rooms }} rooms.
       To add more rooms, increase the “Bedrooms (total)” on the house and save, then return here.
     </div>
   {% endif %}
 
-  <div class="card">
+  <div class="card card--accent-lr">
     {% if rooms and rooms|length %}
       <table class="table">
         <thead>
