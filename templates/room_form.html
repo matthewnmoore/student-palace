@@ -37,9 +37,8 @@
         </label>
       </div>
 
-      <!-- Row 2: Bed size (same visual size as Room name), “Accessible for disabled people” checkbox, “Suitable for couples” checkbox -->
+      <!-- Row 2A: Bed size (same visual size/height as Room name) -->
       <div class="grid" style="grid-template-columns:repeat(4,minmax(180px,1fr)); gap:14px; margin-top:10px; align-items:end">
-        <!-- Bed size (placed under Room name to match its column; make select same height/width) -->
         <label class="field" style="grid-column:1 / span 1">
           <span class="label">Bed size</span>
           {% set bed = (form.bed_size or '') if form else '' %}
@@ -51,21 +50,21 @@
             <option value="King" {% if bed=='King' %}selected{% endif %}>King</option>
           </select>
         </label>
+        <!-- keep other three columns empty to preserve alignment with the row above -->
+        <div></div><div></div><div></div>
+      </div>
 
-        <!-- Accessible for disabled people (checkbox next to heading text) -->
-        <label class="check" style="grid-column:2 / span 1; display:flex; align-items:center; gap:10px; margin:0">
-          <span class="label-inline" style="margin-bottom:0">Accessible for disabled people</span>
+      <!-- Row 2B: Accessibility & Suitable labels with checkboxes, spread across full width (not aligned to boxes above) -->
+      <div style="display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-top:8px">
+        <label class="check" style="display:flex; align-items:center; gap:10px; margin:0; white-space:nowrap">
+          <span class="label-inline" style="margin-bottom:0; white-space:nowrap">Accessible for disabled people</span>
           <input type="checkbox" name="disabled_ok" {% if form and form.disabled_ok in ['1', 1, 'on', True] %}checked{% endif %}>
         </label>
 
-        <!-- Suitable for couples (checkbox next to heading text) -->
-        <label class="check" style="grid-column:3 / span 1; display:flex; align-items:center; gap:10px; margin:0">
-          <span class="label-inline" style="margin-bottom:0">Suitable for couples</span>
+        <label class="check" style="display:flex; align-items:center; gap:10px; margin:0; white-space:nowrap">
+          <span class="label-inline" style="margin-bottom:0; white-space:nowrap">Suitable for couples</span>
           <input type="checkbox" name="couples_ok" {% if form and form.couples_ok in ['1', 1, 'on', True] %}checked{% endif %}>
         </label>
-
-        <!-- Spacer to keep 4-column alignment -->
-        <div style="grid-column:4 / span 1"></div>
       </div>
     </div>
 
