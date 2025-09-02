@@ -5,6 +5,7 @@ from typing import Dict, Any, Sequence
 # Columns we set on both INSERT and UPDATE (excluding landlord_id / created_at / id filters)
 _COMMON_COLS: Sequence[str] = (
     "title",
+    "description",   # <-- NEW: persist description
     "city",
     "address",
     "letting_type",
