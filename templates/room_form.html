@@ -13,7 +13,7 @@
       <div class="grid" style="grid-template-columns:repeat(4,minmax(180px,1fr)); gap:14px; align-items:end">
         <label class="field">
           <span class="label">Room name</span>
-          <input type="text" name="name" value="{{ (form.name or '') if form else '' }}" required placeholder="e.g., Room 1, Attic room">
+          <input type="text" name="name" value="{{ (form.name or '') if form else '' }}" required placeholder="e.g., Room 1, Attic room" maxlength="20">
         </label>
 
         <label class="field">
@@ -110,7 +110,7 @@
       <h2 class="card-title">Description</h2>
       <div class="field">
         <span class="label">Room description</span>
-        <textarea name="description" rows="5" placeholder="Describe the room, furnishings, outlook, any quirks, etc.">{{ (form.description or '') if form else '' }}</textarea>
+        <textarea name="description" rows="5" placeholder="Describe the room, furnishings, outlook, any quirks, etc." maxlength="1200">{{ (form.description or '') if form else '' }}</textarea>
         <div class="help">Add helpful details students should know (condition, furnishings, outlook, storage, etc.).</div>
       </div>
     </div>
