@@ -44,27 +44,35 @@
     <!-- AVAILABILITY -->
     <div class="card">
       <h2 class="card-title">Availability</h2>
-      <div class="grid grid-2">
+
+      <!-- Make all three controls sit on one row and a bit larger -->
+      <div class="grid grid-3" style="align-items:end">
         <!-- Currently let -->
-        <label class="field checkbox" style="grid-column:1 / -1">
+        <label class="field checkbox"
+               style="align-self:end; padding:12px; border:1px solid var(--border); border-radius:10px; min-height:54px; display:flex; gap:10px; justify-content:flex-start">
           <input type="checkbox" name="is_let" id="is_let"
+                 style="transform:scale(1.15)"
                  {% if form and form.is_let in ['1',1,'on',True] %}checked{% endif %}>
           <span>Currently let (not available now)</span>
         </label>
 
-        <!-- Let until (shown only when currently let) -->
+        <!-- Let until (only when currently let) -->
         {% set let_until_val = (form.let_until or '') if form else '' %}
         <label class="field" id="row_let_until" style="display:none">
           <span class="label">Let until</span>
-          <input type="date" name="let_until" id="let_until" value="{{ let_until_val }}">
+          <input type="date" name="let_until" id="let_until"
+                 value="{{ let_until_val }}"
+                 style="padding:12px; font-size:16px; min-height:44px">
         </label>
 
         <!-- Available from (always shown; auto-fills to next day when 'let until' changes) -->
         {% set available_from_val = (form.available_from or '') if form else '' %}
         <label class="field" id="row_available_from">
           <span class="label">Available from</span>
-          <input type="date" name="available_from" id="available_from" value="{{ available_from_val }}">
-          <span class="help">Dates display in UK format on-screen; safely stored for search.</span>
+          <input type="date" name="available_from" id="available_from"
+                 value="{{ available_from_val }}"
+                 style="padding:12px; font-size:16px; min-height:44px">
+          <span class="help" style="margin-top:6px">Dates display in UK format on-screen; safely stored for search.</span>
         </label>
       </div>
     </div>
