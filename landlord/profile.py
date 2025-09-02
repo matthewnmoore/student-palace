@@ -183,8 +183,13 @@ def landlord_profile():
         conn.close()
         return redirect(url_for("landlord.landlord_profile"))
 
+    # GET: also fetch landlord email so the template can show it
+    ll = conn.execute(
+        "SELECT email FROM landlords WHERE id=?", (lid,)
+    ).fetchone()
+    email = ll["email"] if ll else ""
     conn.close()
-    return render_template("landlord_profile_edit.html", profile=prof)
+    return render_template("landlord_profile_edit.html", profile=prof, email=email)
 
 # Public profile views
 @bp.route("/l/<slug>")
