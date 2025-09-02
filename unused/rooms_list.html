@@ -36,10 +36,16 @@
           {% for r in rooms %}
           <tr>
             <td><strong>{{ r.name }}</strong></td>
-            <td>{{ r.price_pcm or '—' }}</td>
             <td>
               {% if r.price_pcm %}
-                {{ ((r.price_pcm * 12) // 52)|int }}
+                £{{ r.price_pcm }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if r.price_pcm %}
+                £{{ ((r.price_pcm * 12) // 52)|int }}
               {% else %}
                 —
               {% endif %}
@@ -49,7 +55,6 @@
               {% if not r.is_let %}
                 Yes
               {% elif r.let_until %}
-                {# Format YYYY-MM-DD -> DD/MM/YYYY safely as a string #}
                 {% set d = r.let_until %}
                 {% if d and '-' in d and d|length >= 10 %}
                   Not until {{ d[8:10] }}/{{ d[5:7] }}/{{ d[0:4] }}
