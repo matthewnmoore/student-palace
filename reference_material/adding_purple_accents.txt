@@ -2,7 +2,15 @@
 
 
 
+To add the purple accents to a landlord form page:
+	1.	Identify each <div class="card"> block in the template. These are the sections such as Basics, Availability, Features, and Actions.
+	2.	Add the extra class card--accent-lr to each of these <div> elements so they become <div class="card card--accent-lr">.
+	•	This class is already defined in the CSS file, so you don’t need to touch the CSS.
+	•	It applies the purple accent border/line consistent with the Student Palace design.
+	3.	Leave all other HTML, styling, scripts, and CSS untouched. No need to change form inputs, labels, or button code.
+	4.	Repeat this on every page where you want purple accents around the main cards.
 
+In short: the only edit is adding card--accent-lr to every card div in the template file.
 
 
 
