@@ -124,6 +124,8 @@ Room availabe flow chart
 when the date is reached that was automatically created mark the room as available
 if the tick box was left empty then do nothing, tickbox default is no
 
+NOTE: if a house is set to whole house only, show room as available if changed in room setting (to replace a missing tenant)
+
 
 
 
