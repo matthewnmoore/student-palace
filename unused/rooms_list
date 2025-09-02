@@ -25,21 +25,41 @@
         <thead>
           <tr>
             <th>Name</th>
-            <th>Ensuite</th>
-            <th>Bed</th>
-            <th>Wired internet</th>
-            <th>Size</th>
-            <th style="width:260px">Actions</th>
+            <th>£ PPM</th>
+            <th>£ PPW</th>
+            <th>Bed size</th>
+            <th>Availability</th>
+            <th style="width:300px">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for r in rooms %}
           <tr>
             <td><strong>{{ r.name }}</strong></td>
-            <td>{{ 'Yes' if r.ensuite else 'No' }}</td>
-            <td>{{ r.bed_size }}</td>
-            <td>{{ 'Yes' if r.wired_internet else 'No' }}</td>
-            <td>{{ r.room_size or '—' }}</td>
+            <td>{{ r.price_pcm or '—' }}</td>
+            <td>
+              {% if r.price_pcm %}
+                {{ ((r.price_pcm * 12) // 52)|int }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>{{ r.bed_size or '—' }}</td>
+            <td>
+              {% if not r.is_let %}
+                Yes
+              {% elif r.let_until %}
+                {# Format YYYY-MM-DD -> DD/MM/YYYY safely as a string #}
+                {% set d = r.let_until %}
+                {% if d and '-' in d and d|length >= 10 %}
+                  Not until {{ d[8:10] }}/{{ d[5:7] }}/{{ d[0:4] }}
+                {% else %}
+                  Not until {{ d }}
+                {% endif %}
+              {% else %}
+                Not available
+              {% endif %}
+            </td>
             <td>
               <div class="inline-actions" style="display:flex; gap:8px; align-items:center;">
                 <a class="btn" href="{{ url_for('landlord.room_photos', hid=house.id, rid=r.id) }}">
