@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Admin: Landlords – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1>Landlords</h1>
+
+  <div class="card" style="margin-bottom:12px">
+    <form method="get" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" name="q" value="{{ q or '' }}" placeholder="Search by email or display name"
+             style="flex:1 1 280px;background:#fff;border:1px solid var(--line);color:var(--text);
+                    border-radius:10px;padding:10px 12px">
+      <button class="btn" type="submit">Search</button>
+      <a class="btn" href="{{ url_for('admin_landlords') }}">Clear</a>
+    </form>
+  </div>
+
+  <div class="card">
+    {% if landlords %}
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="text-align:left;border-bottom:1px solid var(--line)">
+            <th style="padding:10px">ID</th>
+            <th style="padding:10px">Email</th>
+            <th style="padding:10px">Display name</th>
+            <th style="padding:10px">Verified</th>
+            <th style="padding:10px">Public</th>
+            <th style="padding:10px">Views</th>
+            <th style="padding:10px">Created</th>
+            <th style="padding:10px">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in landlords %}
+          <tr style="border-top:1px solid var(--line)">
+            <td style="padding:10px">{{ r.id }}</td>
+            <td style="padding:10px">{{ r.email }}</td>
+            <td style="padding:10px">{{ r.display_name or '—' }}</td>
+            <td style="padding:10px">
+              {% if r.is_verified %}
+                <span class="badge" style="background:#e5f9f5; color:#0f5132">✅ Verified</span>
+              {% else %}
+                <span class="badge" style="background:#fff6f6; color:#7f1d1d; border:1px solid #f7caca;">Not verified</span>
+              {% endif %}
+            </td>
+            <td style="padding:10px">
+              {% if r.public_slug %}
+                <a href="/l/{{ r.public_slug }}" target="_blank" rel="noopener">/l/{{ r.public_slug }}</a>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td style="padding:10px">{{ r.profile_views }}</td>
+            <td style="padding:10px">{{ r.created_at }}</td>
+            <td style="padding:10px">
+              <a class="btn" href="{{ url_for('admin_landlord_detail', lid=r.id) }}">Open</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="help">No landlords found.</p>
+    {% endif %}
+  </div>
+
+  <p style="margin-top:12px">
+    <a class="btn" href="{{ url_for('admin_cities') }}">Manage cities</a>
+    <a class="btn" href="{{ url_for('admin_logout') }}">Log out</a>
+  </p>
+</section>
+{% endblock %}
