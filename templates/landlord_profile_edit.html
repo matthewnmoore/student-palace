@@ -6,24 +6,18 @@
 
   {# Status banner (verified / not verified) #}
   {% if profile and (profile.is_verified|default(0, true)) %}
-    <div class="card" style="display:flex;align-items:center;gap:16px; padding:14px 16px; border-left:6px solid #22c55e; margin-bottom:14px">
-      <span aria-hidden="true" style="font-size:22px">✅</span>
-      <div style="flex:1">
-        <div style="font-weight:600">You’re verified</div>
-        <div class="muted">Your listings will display a verified badge to tenants.</div>
-      </div>
+    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:12px; padding:14px 16px; margin-bottom:14px">
+      <span aria-hidden="true" style="font-size:22px; color:#22c55e">✔️</span>
+      <div style="flex:1; font-weight:600">You’re verified – Your listings will display a verified badge to tenants.</div>
     </div>
   {% else %}
-    <div class="card" style="display:flex;align-items:center;gap:16px; padding:14px 16px; border-left:6px solid #f59e0b; margin-bottom:14px">
-      <span aria-hidden="true" style="font-size:22px">⚠️</span>
-      <div style="flex:1">
-        <div style="font-weight:600">Not verified</div>
-        <div class="muted">Get verified to boost renter trust.</div>
-      </div>
+    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:12px; padding:14px 16px; margin-bottom:14px">
+      <span aria-hidden="true" style="font-size:22px; color:#f59e0b">❌</span>
+      <div style="flex:1; font-weight:600">Not verified – Get verified to boost renter trust.</div>
     </div>
   {% endif %}
 
-  <div class="card" style="max-width:720px">
+  <div class="card card--accent-lr" style="max-width:720px">
     <!-- Current role + email -->
     <p class="muted" style="margin:0 0 10px">
       Account role:
