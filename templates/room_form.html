@@ -137,7 +137,7 @@
         </label>
 
         <label class="field checkbox" style="align-self:end">
-          <input type="checkbox" name="blinds" {% if form and form.blinds in ['1',1,'on',True] %}checked{% endif %}>
+          <input type="checkbox" name="blinds" {% if form and form.blinds in ['1',1,'on,True] %}checked{% endif %}>
           <span>Blinds</span>
         </label>
 
@@ -172,7 +172,7 @@
 <style>
   .page-title { margin-bottom: 8px; }
   .form-stacked .card { margin-bottom: 14px; }
-  .card-title { margin: 0 0 10px 0; }
+  <span class="card-title">{ margin: 0 0 10px 0; }</span>
   .actions .actions-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 </style>
 
