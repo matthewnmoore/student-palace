@@ -53,7 +53,8 @@ def room_new(hid):
             for e in errors: flash(e, "error")
             conn.close()
             return render_template("room_form.html", house=house, form=vals, mode="new")
-        conn.execute("""
+
+        cur = conn.execute("""
           INSERT INTO rooms(
             house_id, name, ensuite, bed_size, tv, desk_chair, wardrobe, chest_drawers,
             lockable_door, wired_internet, room_size,
@@ -74,10 +75,16 @@ def room_new(hid):
             vals["is_let"], vals["available_from"], vals["let_until"],
             dt.utcnow().isoformat()
         ))
+        rid = cur.lastrowid
         conn.commit()
         conn.close()
         flash("Room added.", "ok")
-        return redirect(url_for("landlord.rooms_list", hid=hid))
+
+        action = request.form.get("action")
+        if action == "save_only":
+            return redirect(url_for("landlord.room_edit", hid=hid, rid=rid))
+        else:
+            return redirect(url_for("landlord.rooms_list", hid=hid))
 
     conn.close()
     return render_template("room_form.html", house=house, form={}, mode="new")
@@ -125,7 +132,12 @@ def room_edit(hid, rid):
         conn.commit()
         conn.close()
         flash("Room updated.", "ok")
-        return redirect(url_for("landlord.rooms_list", hid=hid))
+
+        action = request.form.get("action")
+        if action == "save_only":
+            return redirect(url_for("landlord.room_edit", hid=hid, rid=rid))
+        else:
+            return redirect(url_for("landlord.rooms_list", hid=hid))
 
     form = dict(room)
     conn.close()
