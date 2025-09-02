@@ -37,8 +37,9 @@
         </label>
       </div>
 
-      <!-- Row 2A: Bed size (same visual size/height as Room name) -->
+      <!-- Row 2: Bed size + inline checkboxes (spread nicely across remaining width) -->
       <div class="grid" style="grid-template-columns:repeat(4,minmax(180px,1fr)); gap:14px; margin-top:10px; align-items:end">
+        <!-- Bed size (same visual size/height as text inputs) -->
         <label class="field" style="grid-column:1 / span 1">
           <span class="label">Bed size</span>
           {% set bed = (form.bed_size or '') if form else '' %}
@@ -50,21 +51,19 @@
             <option value="King" {% if bed=='King' %}selected{% endif %}>King</option>
           </select>
         </label>
-        <!-- keep other three columns empty to preserve alignment with the row above -->
-        <div></div><div></div><div></div>
-      </div>
 
-      <!-- Row 2B: Accessibility & Suitable labels with checkboxes, spread across full width (not aligned to boxes above) -->
-      <div style="display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-top:8px">
-        <label class="check" style="display:flex; align-items:center; gap:10px; margin:0; white-space:nowrap">
-          <span class="label-inline" style="margin-bottom:0; white-space:nowrap">Accessible for disabled people</span>
-          <input type="checkbox" name="disabled_ok" {% if form and form.disabled_ok in ['1', 1, 'on', True] %}checked{% endif %}>
-        </label>
+        <!-- Flex row spanning columns 2-4 so checkboxes aren't aligned with boxes above -->
+        <div style="grid-column:2 / span 3; display:flex; justify-content:space-between; gap:20px; align-items:center; flex-wrap:wrap">
+          <label class="check" style="display:flex; align-items:center; gap:10px; margin:0; white-space:nowrap">
+            <span class="label-inline" style="margin-bottom:0">Accessible for disabled people</span>
+            <input type="checkbox" name="disabled_ok" {% if form and form.disabled_ok in ['1', 1, 'on', True] %}checked{% endif %}>
+          </label>
 
-        <label class="check" style="display:flex; align-items:center; gap:10px; margin:0; white-space:nowrap">
-          <span class="label-inline" style="margin-bottom:0; white-space:nowrap">Suitable for couples</span>
-          <input type="checkbox" name="couples_ok" {% if form and form.couples_ok in ['1', 1, 'on', True] %}checked{% endif %}>
-        </label>
+          <label class="check" style="display:flex; align-items:center; gap:10px; margin:0; white-space:nowrap">
+            <span class="label-inline" style="margin-bottom:0">Suitable for couples</span>
+            <input type="checkbox" name="couples_ok" {% if form and form.couples_ok in ['1', 1, 'on', True] %}checked{% endif %}>
+          </label>
+        </div>
       </div>
     </div>
 
