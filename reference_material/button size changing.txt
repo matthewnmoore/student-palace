@@ -1,0 +1,103 @@
+Here’s a single, plain-text guide you can keep and paste elsewhere later. It explains exactly how we added a second “Save” button (that stays on the page) alongside “Save & Exit”, and how to wire it in Flask. It includes the tiny HTML/CSS edits plus the route logic.
+
+————————————————————————————————————
+Student Palace – Pattern: “Save” (stay) + “Save & Exit” (redirect)
+Last updated: 02-Sep-2025
+
+Goal
+Add a second submit button to forms so landlords can either:
+• Save (stay on the same page so they can keep editing)
+• Save & Exit (save and return to the rooms list)
+
+We keep both buttons the same visual size using the existing .btn class and a tiny CSS helper in the template.
+	1.	Template changes (room_form.html)
+a) Add two submit buttons with different “name=value” pairs so the server can tell which one was clicked.
+
+Inside the ACTIONS card, replace the existing single submit button with:
+Save
+{{ ‘Create room’ if mode==‘new’ else ‘Save & Exit’ }}
+Cancel
+{% if mode == ‘edit’ and room %}
+
+
+
+
+
+
+  <div>
+    <form method="post" action="{{ url_for('landlord.room_delete', hid=house.id, rid=room.id) }}" onsubmit="return confirm('Delete this room?');">
+      <button class="btn btn-admin" type="submit">Delete room</button>
+    </form>
+  </div>
+{% endif %}
+
+
+
+
+
+
+
+
+b) Ensure consistent sizing so both “Save” and “Save & Exit” look the same.
+Add (or keep) this tiny style block in the same template (it doesn’t touch your global CSS file):
+.actions .actions-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.actions .btn { flex: 0 0 auto; min-width:120px; text-align:center; }
+
+Note: We wrapped the inline delete form in a  so it doesn’t collapse spacing in the flex row. The delete button keeps its .btn-admin style, but width is aligned by the min-width rule above.
+	2.	Flask route changes (landlord/rooms.py)
+Read the “action” field on POST to decide what to do after saving.
+
+For “new”:
+• If action == “save_exit”: save then redirect back to rooms list
+• Else (save_only or default): save then redirect back to the same edit page for the newly created room
+
+In room_new(hid):
+action = request.form.get(“action”, “save_exit”)
+… do validation and INSERT …
+conn.commit()
+new_id = conn.execute(“SELECT last_insert_rowid() AS id”).fetchone()[“id”]
+if action == “save_only”:
+flash(“Room saved.”, “ok”)
+conn.close()
+return redirect(url_for(“landlord.room_edit”, hid=hid, rid=new_id))
+else:
+flash(“Room added.”, “ok”)
+conn.close()
+return redirect(url_for(“landlord.rooms_list”, hid=hid))
+
+For “edit”:
+• If action == “save_exit”: save then go back to rooms list
+• Else: save then stay on the same edit page
+
+In room_edit(hid, rid):
+action = request.form.get(“action”, “save_exit”)
+… do validation and UPDATE …
+conn.commit()
+if action == “save_only”:
+flash(“Room saved.”, “ok”)
+conn.close()
+return redirect(url_for(“landlord.room_edit”, hid=hid, rid=rid))
+else:
+flash(“Room updated.”, “ok”)
+conn.close()
+return redirect(url_for(“landlord.rooms_list”, hid=hid))
+
+Notes:
+• We default action to “save_exit” so existing behavior is unchanged if the form is posted without the new field.
+• We use redirect after POST in both cases to avoid form re-submissions.
+• For “save_only”, we redirect back to the same edit URL so the user remains on the page with a fresh, clean URL (PRG pattern).
+• The flash messages differ slightly (“saved” vs “added/updated”) so users can tell what happened.
+• No changes to your global CSS file; only a minimal per-page style to harmonize button widths.
+• The delete button stays in its own POST form (safer), but visually aligns thanks to the flex row and min-width.
+	3.	Minimal “one-liner” you need to remember
+In each POST handler:
+action = request.form.get(“action”, “save_exit”)
+… save …
+return redirect(url_for(“landlord.room_edit”, …)) if action == “save_only” else redirect(url_for(“landlord.rooms_list”, …))
+	4.	Common pitfalls avoided
+• Different button sizes: fixed with .actions .btn { min-width:120px } and keeping both as .btn, not mixing .btn and plain anchors for primary actions.
+• Inline delete form breaking the row: wrapped it in a  inside the flex container.
+• Double submit detection: handled via the “action” name/value on buttons (no JS needed).
+• Redirect loops: “save_only” redirects to edit; “save_exit” redirects to list.
+
+That’s it. Keep this pattern handy and you can drop it into other admin forms exactly the same way.
