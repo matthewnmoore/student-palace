@@ -83,7 +83,7 @@ def _normalize_youtube_url(u: str) -> str:
         # /watch?v=ID
         if "watch?v=" in lower:
             q = u.split("watch?v=", 1)[1]
-            vid = q.split("&", 1)[0].split("#", 1)[0]
+            vid = q.split("&", 1)[0].split("#,")[0].split("#")[0] if "watch?v=" in u else q.split("&", 1)[0]
             return f"https://www.youtube.com/watch?v={vid}" if vid else u
         # /shorts/ID
         if "/shorts/" in lower:
@@ -127,7 +127,12 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
     fget = lambda k, default="": (form.get(k) or default).strip()
 
     title_raw = fget("title")
-    title     = _title_case_wordish(title_raw)  # server-side safety for title casing
+    # limit title to 20 chars (server-side safety)
+    title     = _title_case_wordish(title_raw)[:20]
+
+    # NEW: description with 1200-char limit
+    description_raw = fget("description")
+    description = description_raw[:1200]
 
     city_raw = fget("city")
     letting_type = fget("letting_type")
@@ -181,6 +186,7 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
 
     payload = {
         "title": title,
+        "description": description,  # NEW
         "city": _title_case_wordish(city_raw),  # keep city tidy
         "address": address,
         "letting_type": letting_type,
