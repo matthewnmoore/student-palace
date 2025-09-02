@@ -25,10 +25,9 @@
         <thead>
           <tr>
             <th>Name</th>
-            <th>Ensuite</th>
-            <th>Bed</th>
-            <th>Wired internet</th>
-            <th>Size</th>
+            <th>Price per month (£)</th>
+            <th>Bed size</th>
+            <th>Currently available</th>
             <th style="width:260px">Actions</th>
           </tr>
         </thead>
@@ -36,10 +35,17 @@
           {% for r in rooms %}
           <tr>
             <td><strong>{{ r.name }}</strong></td>
-            <td>{{ 'Yes' if r.ensuite else 'No' }}</td>
-            <td>{{ r.bed_size }}</td>
-            <td>{{ 'Yes' if r.wired_internet else 'No' }}</td>
-            <td>{{ r.room_size or '—' }}</td>
+            <td>{{ r.price_pcm or '—' }}</td>
+            <td>{{ r.bed_size or '—' }}</td>
+            <td>
+              {% if not r.is_let %}
+                Yes
+              {% elif r.let_until %}
+                Not until {{ r.let_until }}
+              {% else %}
+                Not available
+              {% endif %}
+            </td>
             <td>
               <div class="inline-actions" style="display:flex; gap:8px; align-items:center;">
                 <a class="btn" href="{{ url_for('landlord.room_photos', hid=house.id, rid=r.id) }}">
