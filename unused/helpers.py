@@ -1,6 +1,24 @@
-
 from utils import clean_bool
 from db import get_db
+from datetime import datetime as dt
+
+def _parse_uk_date(value: str) -> str:
+    """
+    Accepts 'DD/MM/YYYY' (UK) or 'YYYY-MM-DD' (HTML date input) and returns ISO 'YYYY-MM-DD'.
+    Returns '' if empty or invalid.
+    """
+    if not value:
+        return ""
+    value = value.strip()
+    if not value:
+        return ""
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            d = dt.strptime(value, fmt).date()
+            return d.isoformat()
+        except Exception:
+            continue
+    return ""
 
 def room_form_values(request):
     name = (request.form.get("name") or "").strip()
@@ -32,11 +50,29 @@ def room_form_values(request):
     couples_ok = clean_bool("couples_ok")
     disabled_ok = clean_bool("disabled_ok")
 
+    # NEW AVAILABILITY FIELDS
+    is_let = clean_bool("is_let")
+    available_from_in = (request.form.get("available_from") or "").strip()
+    let_until_in = (request.form.get("let_until") or "").strip()
+
+    available_from = _parse_uk_date(available_from_in)
+    let_until = _parse_uk_date(let_until_in)
+
     errors = []
     if not name:
         errors.append("Room name is required.")
     if bed_size not in ("Single","Small double","Double","King"):
         errors.append("Please choose a valid bed size.")
+
+    # Correct ordering: available_from must be AFTER let_until (strictly >)
+    try:
+        if available_from and let_until:
+            af = dt.strptime(available_from, "%Y-%m-%d").date()
+            lu = dt.strptime(let_until, "%Y-%m-%d").date()
+            if af <= lu:
+                errors.append("‘Available from’ must be after ‘Let until’ (usually the next day).")
+    except Exception:
+        errors.append("Invalid dates provided. Please use DD/MM/YYYY.")
 
     return ({
         "name": name,
@@ -61,6 +97,10 @@ def room_form_values(request):
         # NEW SEARCHABLE FIELDS
         "couples_ok": couples_ok,
         "disabled_ok": disabled_ok,
+        # NEW AVAILABILITY FIELDS
+        "is_let": is_let,
+        "available_from": available_from,
+        "let_until": let_until,
     }, errors)
 
 def room_counts(conn, hid):
