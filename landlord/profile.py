@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from PIL import Image
 from werkzeug.utils import secure_filename
+import glob
 
 UPLOAD_ROOT = "static/uploads/landlords"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
@@ -13,26 +14,45 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 def _allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def _purge_previous(dir_path: Path, stem: str) -> None:
+    """
+    Remove any existing files for this asset (e.g., logo.* or photo.*) in the landlord folder.
+    This keeps only the newest upload.
+    """
+    try:
+        for p in dir_path.glob(f"{stem}.*"):
+            try:
+                p.unlink()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
 def _save_image(file_storage, dest_path: Path, size=(512, 512), quality=85):
     """
     Save an uploaded image with resizing and compression so it stays small (~150–250 KB).
     Always re-encodes as JPEG for consistency.
+    Returns the final Path written.
     """
     dest_path.parent.mkdir(parents=True, exist_ok=True)
+    # Ensure .jpg extension and purge any older variants first
+    final_path = dest_path.with_suffix(".jpg")
+    _purge_previous(final_path.parent, final_path.stem)
+
     try:
         img = Image.open(file_storage)
         img = img.convert("RGB")  # ensure safe for JPEG
         img.thumbnail(size)
-
-        # Force .jpg extension
-        dest_path = dest_path.with_suffix(".jpg")
-
-        img.save(dest_path, "JPEG", quality=quality, optimize=True)
-        return dest_path
+        img.save(final_path, "JPEG", quality=quality, optimize=True)
+        return final_path
     except Exception as e:
         print("[ERROR] processing image:", e)
-        file_storage.save(dest_path)  # fallback raw save
-        return dest_path
+        # Fallback raw save (still enforce .jpg name)
+        try:
+            file_storage.save(final_path)
+        except Exception:
+            pass
+        return final_path
 
 @bp.route("/landlord/profile", methods=["GET","POST"])
 def landlord_profile():
@@ -77,9 +97,11 @@ def landlord_profile():
             old = prof["logo_path"] if prof and "logo_path" in prof.keys() else None
             if old:
                 try:
-                    os.remove(Path("static") / old)
+                    (Path("static") / old).unlink(missing_ok=True)
                 except Exception:
                     pass
+            # Also purge any lingering legacy logo.* files
+            _purge_previous(Path(UPLOAD_ROOT) / str(lid), "logo")
             conn.execute("UPDATE landlord_profiles SET logo_path=NULL WHERE landlord_id=?", (lid,))
             conn.commit()
             flash("Logo removed.", "ok")
@@ -107,9 +129,11 @@ def landlord_profile():
             old = prof["photo_path"] if prof and "photo_path" in prof.keys() else None
             if old:
                 try:
-                    os.remove(Path("static") / old)
+                    (Path("static") / old).unlink(missing_ok=True)
                 except Exception:
                     pass
+            # Also purge any lingering legacy photo.* files
+            _purge_previous(Path(UPLOAD_ROOT) / str(lid), "photo")
             conn.execute("UPDATE landlord_profiles SET photo_path=NULL WHERE landlord_id=?", (lid,))
             conn.commit()
             flash("Profile photo removed.", "ok")
