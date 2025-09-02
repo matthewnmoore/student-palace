@@ -56,7 +56,7 @@ def room_new(hid):
 
         cur = conn.execute("""
           INSERT INTO rooms(
-            house_id, name, ensuite, bed_size, tv, desk_chair, wardrobe, chest_drawers,
+            house_id, name, description, ensuite, bed_size, tv, desk_chair, wardrobe, chest_drawers,
             lockable_door, wired_internet, room_size,
             price_pcm, safe, dressing_table, mirror,
             bedside_table, blinds, curtains, sofa,
@@ -64,9 +64,9 @@ def room_new(hid):
             is_let, available_from, let_until,
             created_at
           )
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
-            hid, vals["name"], vals["ensuite"], vals["bed_size"], vals["tv"],
+            hid, vals["name"], vals["description"], vals["ensuite"], vals["bed_size"], vals["tv"],
             vals["desk_chair"], vals["wardrobe"], vals["chest_drawers"],
             vals["lockable_door"], vals["wired_internet"], vals["room_size"],
             vals["price_pcm"], vals["safe"], vals["dressing_table"], vals["mirror"],
@@ -113,14 +113,15 @@ def room_edit(hid, rid):
             return render_template("room_form.html", house=house, form=vals, mode="edit", room=room)
         conn.execute("""
           UPDATE rooms SET
-            name=?, ensuite=?, bed_size=?, tv=?, desk_chair=?, wardrobe=?, chest_drawers=?, lockable_door=?, wired_internet=?, room_size=?,
+            name=?, description=?, ensuite=?, bed_size=?, tv=?, desk_chair=?, wardrobe=?, chest_drawers=?, 
+            lockable_door=?, wired_internet=?, room_size=?,
             price_pcm=?, safe=?, dressing_table=?, mirror=?,
             bedside_table=?, blinds=?, curtains=?, sofa=?,
             couples_ok=?, disabled_ok=?,
             is_let=?, available_from=?, let_until=?
           WHERE id=? AND house_id=?
         """, (
-            vals["name"], vals["ensuite"], vals["bed_size"], vals["tv"], vals["desk_chair"],
+            vals["name"], vals["description"], vals["ensuite"], vals["bed_size"], vals["tv"], vals["desk_chair"],
             vals["wardrobe"], vals["chest_drawers"], vals["lockable_door"], vals["wired_internet"],
             vals["room_size"],
             vals["price_pcm"], vals["safe"], vals["dressing_table"], vals["mirror"],
