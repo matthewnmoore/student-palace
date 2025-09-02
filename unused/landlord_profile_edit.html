@@ -4,40 +4,77 @@
 <section class="wrap">
   <h1>Edit your profile</h1>
 
-  <div class="card" style="max-width:720px">
-    {% if profile and (profile.is_verified|default(0, true)) %}
-      <div class="badge" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span aria-hidden="true">✔️</span> You are verified
+  {# Status banner (verified / not verified) #}
+  {% if profile and (profile.is_verified|default(0, true)) %}
+    <div class="card" style="display:flex;align-items:center;gap:16px; padding:14px 16px; border-left:6px solid #22c55e; margin-bottom:14px">
+      <span aria-hidden="true" style="font-size:22px">✅</span>
+      <div style="flex:1">
+        <div style="font-weight:600">You’re verified</div>
+        <div class="muted">Your listings will display a verified badge to tenants.</div>
       </div>
-    {% else %}
-      <p class="help" style="margin:0 0 10px">Get verified to boost renter trust.</p>
-    {% endif %}
+    </div>
+  {% else %}
+    <div class="card" style="display:flex;align-items:center;gap:16px; padding:14px 16px; border-left:6px solid #f59e0b; margin-bottom:14px">
+      <span aria-hidden="true" style="font-size:22px">⚠️</span>
+      <div style="flex:1">
+        <div style="font-weight:600">Not verified</div>
+        <div class="muted">Get verified to boost renter trust.</div>
+      </div>
+    </div>
+  {% endif %}
 
-    <!-- Current role indicator -->
+  <div class="card" style="max-width:720px">
+    <!-- Current role + email -->
     <p class="muted" style="margin:0 0 10px">
-      Account role: <strong>{{ (profile.role if profile and profile.role else 'owner') | replace('owner','Owner') | replace('agent','Agent') }}</strong>
+      Account role:
+      <strong>{{ (profile.role if profile and profile.role else 'owner') | replace('owner','Owner') | replace('agent','Agent') }}</strong>
+      {% if email or contact_email %}
+        &nbsp;•&nbsp; Email: <code>{{ email or contact_email }}</code>
+      {% endif %}
     </p>
 
     <form method="post">
       <div class="grid grid-2">
         <label class="field">
           <span class="label">Display name (shown publicly)</span>
-          <input type="text" name="display_name" value="{{ profile.display_name or '' }}" placeholder="e.g., Oak Properties">
+          <input
+            type="text"
+            name="display_name"
+            value="{{ profile.display_name or '' }}"
+            placeholder="e.g., Oak Properties"
+            maxlength="20"
+            required
+            id="display_name_input">
+          <div class="help"><span id="display_name_counter">0</span>/20 characters.</div>
         </label>
+
         <label class="field">
           <span class="label">Phone</span>
-          <input type="text" name="phone" value="{{ profile.phone or '' }}" placeholder="+44...">
+          <input type="text" name="phone" value="{{ profile.phone or '' }}" placeholder="+44…">
+          <div class="help">Optional. We’ll tidy the format on save.</div>
         </label>
       </div>
 
       <label class="field">
         <span class="label">Website</span>
-        <input type="url" name="website" value="{{ profile.website or '' }}" placeholder="https://example.com" style="height:42px; line-height:42px;">
+        <input
+          type="url"
+          name="website"
+          value="{{ profile.website or '' }}"
+          placeholder="https://example.com"
+          style="height:42px; line-height:42px;">
+        <div class="help">Optional. We’ll normalize to https:// on save.</div>
       </label>
 
       <label class="field">
         <span class="label">Bio</span>
-        <textarea name="bio" rows="6" placeholder="Tell students about you and your properties">{{ profile.bio or '' }}</textarea>
+        <textarea
+          name="bio"
+          rows="6"
+          maxlength="1200"
+          id="bio_input"
+          placeholder="Tell students about you and your properties">{{ profile.bio or '' }}</textarea>
+        <div class="help">Maximum 1200 characters. <span id="bio_counter">0</span>/1200.</div>
       </label>
 
       <label class="field">
@@ -63,4 +100,20 @@
     </p>
   </div>
 </section>
+
+<script>
+  (function(){
+    const dn = document.getElementById('display_name_input');
+    const dc = document.getElementById('display_name_counter');
+    const bio = document.getElementById('bio_input');
+    const bc = document.getElementById('bio_counter');
+    function setCount(input, counter, max){
+      if (!input || !counter) return;
+      const len = (input.value || '').length;
+      counter.textContent = Math.min(len, max);
+    }
+    if (dn && dc){ setCount(dn, dc, 20); dn.addEventListener('input', () => setCount(dn, dc, 20)); }
+    if (bio && bc){ setCount(bio, bc, 1200); bio.addEventListener('input', () => setCount(bio, bc, 1200)); }
+  })();
+</script>
 {% endblock %}
