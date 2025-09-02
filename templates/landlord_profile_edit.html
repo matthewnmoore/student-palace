@@ -105,12 +105,7 @@
         <h3 class="mt-0" style="margin-top:0">Logo</h3>
         <div style="display:flex; gap:12px; align-items:flex-start">
           <div style="width:96px; height:96px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff; flex:0 0 auto;">
-            {% set logo_src = None %}
-            {% if profile and profile.logo_path %}
-              {% set logo_src = url_for('static', filename=profile.logo_path) %}
-            {% elif profile and profile.logo_url %}
-              {% set logo_src = profile.logo_url %}
-            {% endif %}
+            {% set logo_src = profile.logo_path and url_for('static', filename=profile.logo_path) %}
             {% if logo_src %}
               <img src="{{ logo_src }}" alt="Current logo" style="width:100%; height:100%; object-fit:cover">
             {% else %}
@@ -120,7 +115,6 @@
           <div style="flex:1">
             <form method="post" enctype="multipart/form-data">
               <input type="file" name="logo" accept="image/*">
-              <p class="help" style="margin-top:6px">Square works best. Same rules as photos (resize), but no watermark.</p>
               <div style="margin-top:8px">
                 <button class="btn btn-outline" type="submit" name="action" value="upload_logo">Upload logo</button>
                 {% if logo_src %}
@@ -137,12 +131,7 @@
         <h3 class="mt-0" style="margin-top:0">Profile photo</h3>
         <div style="display:flex; gap:12px; align-items:flex-start">
           <div style="width:96px; height:96px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff; flex:0 0 auto;">
-            {% set photo_src = None %}
-            {% if profile and profile.photo_path %}
-              {% set photo_src = url_for('static', filename=profile.photo_path) %}
-            {% elif profile and profile.photo_url %}
-              {% set photo_src = profile.photo_url %}
-            {% endif %}
+            {% set photo_src = profile.photo_path and url_for('static', filename=profile.photo_path) %}
             {% if photo_src %}
               <img src="{{ photo_src }}" alt="Current photo" style="width:100%; height:100%; object-fit:cover">
             {% else %}
@@ -152,7 +141,6 @@
           <div style="flex:1">
             <form method="post" enctype="multipart/form-data">
               <input type="file" name="photo" accept="image/*">
-              <p class="help" style="margin-top:6px">JPG/PNG/WebP. Same rules as photos (resize), but no watermark.</p>
               <div style="margin-top:8px">
                 <button class="btn btn-outline" type="submit" name="action" value="upload_photo">Upload photo</button>
                 {% if photo_src %}
