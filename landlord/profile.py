@@ -2,6 +2,26 @@ from flask import render_template, request, redirect, url_for, flash
 from db import get_db
 from utils import current_landlord_id, require_landlord
 from . import bp
+import os
+from pathlib import Path
+from PIL import Image
+from werkzeug.utils import secure_filename
+
+UPLOAD_ROOT = "static/uploads/landlords"
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
+
+def _allowed_file(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def _save_image(file_storage, dest_path: Path, size=(512, 512)):
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    file_storage.save(dest_path)  # save original
+    try:
+        img = Image.open(dest_path)
+        img.thumbnail(size)
+        img.save(dest_path)
+    except Exception as e:
+        print("[ERROR] processing image:", e)
 
 @bp.route("/landlord/profile", methods=["GET","POST"])
 def landlord_profile():
@@ -23,6 +43,69 @@ def landlord_profile():
         ).fetchone()
 
     if request.method == "POST":
+        action = request.form.get("action") or "save"
+
+        # --- Upload logo ---
+        if action == "upload_logo":
+            f = request.files.get("logo")
+            if f and _allowed_file(f.filename):
+                fn = secure_filename(f"logo.{f.filename.rsplit('.',1)[1].lower()}")
+                dest = Path(UPLOAD_ROOT) / str(lid) / fn
+                _save_image(f, dest)
+                rel_path = str(dest.relative_to("static"))
+                conn.execute("UPDATE landlord_profiles SET logo_path=? WHERE landlord_id=?", (rel_path, lid))
+                conn.commit()
+                flash("Logo uploaded.", "ok")
+            else:
+                flash("Invalid logo file.", "error")
+            conn.close()
+            return redirect(url_for("landlord.landlord_profile"))
+
+        # --- Remove logo ---
+        if action == "remove_logo":
+            old = prof["logo_path"] if prof and "logo_path" in prof.keys() else None
+            if old:
+                try:
+                    os.remove(Path("static") / old)
+                except Exception:
+                    pass
+            conn.execute("UPDATE landlord_profiles SET logo_path=NULL WHERE landlord_id=?", (lid,))
+            conn.commit()
+            flash("Logo removed.", "ok")
+            conn.close()
+            return redirect(url_for("landlord.landlord_profile"))
+
+        # --- Upload photo ---
+        if action == "upload_photo":
+            f = request.files.get("photo")
+            if f and _allowed_file(f.filename):
+                fn = secure_filename(f"photo.{f.filename.rsplit('.',1)[1].lower()}")
+                dest = Path(UPLOAD_ROOT) / str(lid) / fn
+                _save_image(f, dest)
+                rel_path = str(dest.relative_to("static"))
+                conn.execute("UPDATE landlord_profiles SET photo_path=? WHERE landlord_id=?", (rel_path, lid))
+                conn.commit()
+                flash("Profile photo uploaded.", "ok")
+            else:
+                flash("Invalid photo file.", "error")
+            conn.close()
+            return redirect(url_for("landlord.landlord_profile"))
+
+        # --- Remove photo ---
+        if action == "remove_photo":
+            old = prof["photo_path"] if prof and "photo_path" in prof.keys() else None
+            if old:
+                try:
+                    os.remove(Path("static") / old)
+                except Exception:
+                    pass
+            conn.execute("UPDATE landlord_profiles SET photo_path=NULL WHERE landlord_id=?", (lid,))
+            conn.commit()
+            flash("Profile photo removed.", "ok")
+            conn.close()
+            return redirect(url_for("landlord.landlord_profile"))
+
+        # --- Save text fields (default action) ---
         try:
             from utils import slugify
             display_name = (request.form.get("display_name") or "").strip()
@@ -52,17 +135,12 @@ def landlord_profile():
                  WHERE landlord_id=?
             """, (display_name, phone, website, bio, role, slug, lid))
             conn.commit()
-            prof = conn.execute(
-                "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
-            ).fetchone()
-            conn.close()
             flash("Profile saved.", "ok")
-            return redirect(url_for("landlord.landlord_profile"))
         except Exception as e:
-            conn.close()
             print("[ERROR] landlord_profile POST:", e)
             flash("Could not save profile.", "error")
-            return redirect(url_for("landlord.landlord_profile"))
+        conn.close()
+        return redirect(url_for("landlord.landlord_profile"))
 
     conn.close()
     return render_template("landlord_profile_edit.html", profile=prof)
