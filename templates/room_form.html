@@ -171,9 +171,17 @@
     <!-- ACTIONS -->
     <div class="card actions card--accent-lr">
       <div class="actions-row">
-        <button class="btn" type="submit" name="action" value="save_only">Save</button>
-        <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
-        <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
+        <!-- Left group -->
+        <div class="btn-group-left" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+          <button class="btn" type="submit" name="action" value="save_only">Save</button>
+          <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
+          <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
+        </div>
+
+        <!-- Spacer pushes delete to the far right -->
+        <div style="flex-grow:1"></div>
+
+        <!-- Right group (Delete) -->
         {% if mode == 'edit' and room %}
           <form method="post" action="{{ url_for('landlord.room_delete', hid=house.id, rid=room.id) }}" onsubmit="return confirm('Delete this room?');" style="display:inline">
             <button class="btn btn-admin" type="submit">Delete room</button>
