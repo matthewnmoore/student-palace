@@ -156,7 +156,8 @@
     <!-- ACTIONS -->
     <div class="card actions">
       <div class="actions-row">
-        <button class="btn" type="submit">{{ 'Create room' if mode=='new' else 'Save changes' }}</button>
+        <button class="btn" type="submit" name="action" value="save_only">Save</button>
+        <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
         <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
         {% if mode == 'edit' and room %}
           <form method="post" action="{{ url_for('landlord.room_delete', hid=house.id, rid=room.id) }}" onsubmit="return confirm('Delete this room?');" style="display:inline">
