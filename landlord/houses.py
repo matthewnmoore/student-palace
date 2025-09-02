@@ -95,7 +95,7 @@ def _normalize_youtube_url(u: str) -> str:
 
 
 # -----------------------------------------
-# Schema safety: ensure youtube_url column
+# Schema safety: ensure columns exist
 # -----------------------------------------
 def _ensure_houses_has_youtube(conn) -> None:
     """
@@ -104,6 +104,19 @@ def _ensure_houses_has_youtube(conn) -> None:
     """
     try:
         conn.execute("ALTER TABLE houses ADD COLUMN youtube_url TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Column already exists, ignore
+        pass
+
+
+def _ensure_houses_has_description(conn) -> None:
+    """
+    Adds houses.description TEXT NOT NULL DEFAULT '' if it does not exist.
+    Safe to call on every request.
+    """
+    try:
+        conn.execute("ALTER TABLE houses ADD COLUMN description TEXT NOT NULL DEFAULT ''")
         conn.commit()
     except sqlite3.OperationalError:
         # Column already exists, ignore
@@ -276,7 +289,8 @@ def house_new():
     cities = get_active_cities_safe()
 
     conn = get_db()
-    _ensure_houses_has_youtube(conn)  # ensure schema
+    _ensure_houses_has_youtube(conn)       # ensure schema
+    _ensure_houses_has_description(conn)   # ensure schema
     default_listing_type = house_form.get_default_listing_type(conn, lid)
 
     if request.method == "POST":
@@ -312,7 +326,8 @@ def house_edit(hid):
     lid = current_landlord_id()
     cities = get_active_cities_safe()
     conn = get_db()
-    _ensure_houses_has_youtube(conn)  # ensure schema
+    _ensure_houses_has_youtube(conn)       # ensure schema
+    _ensure_houses_has_description(conn)   # ensure schema
 
     house_row = owned_house_or_none(conn, hid, lid)
     if not house_row:
