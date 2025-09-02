@@ -59,15 +59,17 @@ def room_new(hid):
             lockable_door, wired_internet, room_size,
             price_pcm, safe, dressing_table, mirror,
             bedside_table, blinds, curtains, sofa,
+            couples_ok, disabled_ok,
             created_at
           )
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             hid, vals["name"], vals["ensuite"], vals["bed_size"], vals["tv"],
             vals["desk_chair"], vals["wardrobe"], vals["chest_drawers"],
             vals["lockable_door"], vals["wired_internet"], vals["room_size"],
             vals["price_pcm"], vals["safe"], vals["dressing_table"], vals["mirror"],
             vals["bedside_table"], vals["blinds"], vals["curtains"], vals["sofa"],
+            vals["couples_ok"], vals["disabled_ok"],
             dt.utcnow().isoformat()
         ))
         conn.commit()
@@ -104,7 +106,8 @@ def room_edit(hid, rid):
           UPDATE rooms SET
             name=?, ensuite=?, bed_size=?, tv=?, desk_chair=?, wardrobe=?, chest_drawers=?, lockable_door=?, wired_internet=?, room_size=?,
             price_pcm=?, safe=?, dressing_table=?, mirror=?,
-            bedside_table=?, blinds=?, curtains=?, sofa=?
+            bedside_table=?, blinds=?, curtains=?, sofa=?,
+            couples_ok=?, disabled_ok=?
           WHERE id=? AND house_id=?
         """, (
             vals["name"], vals["ensuite"], vals["bed_size"], vals["tv"], vals["desk_chair"],
@@ -112,6 +115,7 @@ def room_edit(hid, rid):
             vals["room_size"],
             vals["price_pcm"], vals["safe"], vals["dressing_table"], vals["mirror"],
             vals["bedside_table"], vals["blinds"], vals["curtains"], vals["sofa"],
+            vals["couples_ok"], vals["disabled_ok"],
             rid, hid
         ))
         conn.commit()
