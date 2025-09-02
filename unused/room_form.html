@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add room' if mode=='new' else 'Edit room' }} – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1 class="page-title">{{ 'Add a room' if mode=='new' else 'Edit room' }}</h1>
+  <p class="muted" style="margin-top:-6px">{{ house.title }} • {{ house.city }}</p>
+
+  <form method="post" class="form-stacked">
+    <!-- BASICS -->
+    <div class="card">
+      <h2 class="card-title">Basics</h2>
+      <div class="grid grid-2">
+
+        <!-- NEW: Price per month -->
+        <label class="field" style="grid-column:1 / -1">
+          <span class="label">Price per month (£)</span>
+          <input type="number" name="price_pcm" value="{{ (form.price_pcm or '') if form else '' }}" min="0" step="1" inputmode="numeric" placeholder="e.g., 650">
+        </label>
+
+        <label class="field" style="grid-column:1 / -1">
+          <span class="label">Room name</span>
+          <input type="text" name="name" value="{{ (form.name or '') if form else '' }}" required placeholder="e.g., Room 1, Attic room">
+        </label>
+
+        <label class="field">
+          <span class="label">Bed size</span>
+          {% set bed = (form.bed_size or '') if form else '' %}
+          <select name="bed_size" required>
+            <option value="" {% if not bed %}selected{% endif %}>Choose bed size</option>
+            <option value="Single" {% if bed=='Single' %}selected{% endif %}>Single</option>
+            <option value="Small double" {% if bed=='Small double' %}selected{% endif %}>Small double</option>
+            <option value="Double" {% if bed=='Double' %}selected{% endif %}>Double</option>
+            <option value="King" {% if bed=='King' %}selected{% endif %}>King</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label">Approx. room size</span>
+          <input type="text" name="room_size" value="{{ (form.room_size or '') if form else '' }}" placeholder="e.g., 10 m²">
+        </label>
+      </div>
+    </div>
+
+    <!-- FEATURES -->
+    <div class="card">
+      <h2 class="card-title">Features</h2>
+      <div class="grid grid-3">
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="ensuite" {% if form and form.ensuite in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Ensuite / own bathroom</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="tv" {% if form and form.tv in ['1',1,'on',True] %}checked{% endif %}>
+          <span>TV in room</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="desk_chair" {% if form and form.desk_chair in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Desk & chair</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="wardrobe" {% if form and form.wardrobe in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Wardrobe</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="chest_drawers" {% if form and form.chest_drawers in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Chest of drawers</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="lockable_door" {% if form and form.lockable_door in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Lockable door</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="wired_internet" {% if form and form.wired_internet in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Wired internet</span>
+        </label>
+
+        <!-- EXISTING NEW FIELDS -->
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="safe" {% if form and form.safe in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Safe</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="dressing_table" {% if form and form.dressing_table in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Dressing table</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="mirror" {% if form and form.mirror in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Mirror</span>
+        </label>
+
+        <!-- NEW NON-SEARCHABLE FIELDS -->
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="bedside_table" {% if form and form.bedside_table in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Bedside table</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="blinds" {% if form and form.blinds in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Blinds</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="curtains" {% if form and form.curtains in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Curtains</span>
+        </label>
+
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="sofa" {% if form and form.sofa in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Sofa</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="card actions">
+      <div class="actions-row">
+        <button class="btn" type="submit">{{ 'Create room' if mode=='new' else 'Save changes' }}</button>
+        <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
+        {% if mode == 'edit' and room %}
+          <form method="post" action="{{ url_for('landlord.room_delete', hid=house.id, rid=room.id) }}" onsubmit="return confirm('Delete this room?');" style="display:inline">
+            <button class="btn btn-admin" type="submit">Delete room</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+</section>
+
+<style>
+  .page-title { margin-bottom: 8px; }
+  .form-stacked .card { margin-bottom: 14px; }
+  .card-title { margin: 0 0 10px 0; }
+  .actions .actions-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+</style>
+{% endblock %}
