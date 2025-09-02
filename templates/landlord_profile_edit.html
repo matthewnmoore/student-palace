@@ -1,293 +1,186 @@
-# landlord/profile.py
-from __future__ import annotations
+{% extends "base.html" %}
+{% block title %}Edit profile – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1>Edit your profile</h1>
 
-import io
-import os
-import re
-import sqlite3
-from datetime import datetime as dt
-from pathlib import Path
-from typing import Optional, Tuple
+  {# Status banner (verified / not verified) #}
+  {% if profile and (profile.is_verified|default(0, true)) %}
+    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:12px; padding:14px 16px; margin-bottom:14px">
+      <span aria-hidden="true" style="font-size:22px; color:#22c55e">✔️</span>
+      <div style="flex:1; font-weight:600">You’re verified – Your listings will display a verified badge to tenants.</div>
+    </div>
+  {% else %}
+    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:12px; padding:14px 16px; margin-bottom:14px">
+      <span aria-hidden="true" style="font-size:22px; color:#f59e0b">❌</span>
+      <div style="flex:1; font-weight:600">Not verified – Get verified to boost renter trust.</div>
+    </div>
+  {% endif %}
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from PIL import Image
+  {# Two-column layout: left form, right uploads #}
+  <div class="grid" style="grid-template-columns: 1fr 320px; gap:16px; align-items:start">
 
-from db import get_db
-from utils import require_landlord, current_landlord_id
+    {# LEFT: main form #}
+    <div class="card card--accent-lr" style="max-width:100%">
+      <!-- Current role + email -->
+      <p class="muted" style="margin:0 0 10px">
+        Account role:
+        <strong>{{ (profile.role if profile and profile.role else 'owner') | replace('owner','Owner') | replace('agent','Agent') }}</strong>
+        {% if email or contact_email %}
+          &nbsp;•&nbsp; Email: <code>{{ email or contact_email }}</code>
+        {% endif %}
+      </p>
 
-bp = Blueprint("landlord", __name__)  # keep your existing import/registration if different
+      <form method="post" enctype="multipart/form-data">
+        <div class="grid grid-2">
+          <label class="field">
+            <span class="label">Display name (shown publicly)</span>
+            <input
+              type="text"
+              name="display_name"
+              value="{{ profile.display_name or '' }}"
+              placeholder="e.g., Oak Properties"
+              maxlength="20"
+              required
+              id="display_name_input">
+            <div class="help"><span id="display_name_counter">0</span>/20 characters.</div>
+          </label>
 
-# -------------------------------------------------------------------
-# Config
-# -------------------------------------------------------------------
-STATIC_ROOT = Path("/opt/render/project/src/static")
-LANDLORD_UPLOADS = STATIC_ROOT / "uploads" / "landlords"   # /static/uploads/landlords/<lid>/
-LANDLORD_UPLOADS.mkdir(parents=True, exist_ok=True)
+          <label class="field">
+            <span class="label">Phone</span>
+            <input type="text" name="phone" value="{{ profile.phone or '' }}" placeholder="+44…">
+            <div class="help">Optional. We’ll tidy the format on save.</div>
+          </label>
+        </div>
 
-ALLOWED_IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-MAX_SIDE = 1600  # same as photos cap; safe + light
-JPEG_QUALITY = 85
+        <label class="field">
+          <span class="label">Website</span>
+          <input
+            type="url"
+            name="website"
+            value="{{ profile.website or '' }}"
+            placeholder="https://example.com"
+            style="height:42px; line-height:42px;">
+          <div class="help">Optional. We’ll normalize to https:// on save.</div>
+        </label>
 
-# -------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------
-def _norm_display_name(s: str) -> str:
-    s = (s or "").strip()
-    return s[:20]  # hard cap per spec
+        <label class="field">
+          <span class="label">Bio</span>
+          <textarea
+            name="bio"
+            rows="6"
+            maxlength="1200"
+            id="bio_input"
+            placeholder="Tell students about you and your properties">{{ profile.bio or '' }}</textarea>
+          <div class="help">Maximum 1200 characters. <span id="bio_counter">0</span>/1200.</div>
+        </label>
 
-def _norm_phone(s: str) -> str:
-    s = (s or "").strip()
-    if not s:
-        return ""
-    # simple tidy: keep digits and leading +
-    s = re.sub(r"[^\d+]", "", s)
-    # collapse multiple +'s
-    s = re.sub(r"\++", "+", s)
-    # if it starts with 00, make it + (e.g., 0044 -> +44)
-    if s.startswith("00"):
-        s = "+" + s[2:]
-    return s[:32]
+        <label class="field">
+          <span class="label">I am an…</span>
+          {% set r = (profile.role if profile and profile.role else 'owner') %}
+          <select name="role" required style="height:42px; line-height:42px;">
+            <option value="owner" {% if r == 'owner' %}selected{% endif %}>Owner / Landlord</option>
+            <option value="agent" {% if r == 'agent' %}selected{% endif %}>Letting Agent / Manager</option>
+          </select>
+        </label>
 
-def _norm_website(u: str) -> str:
-    u = (u or "").strip()
-    if not u:
-        return ""
-    if not re.match(r"^https?://", u, flags=re.I):
-        u = "https://" + u
-    # very light sanity check: must contain at least one dot
-    if "." not in u.split("://", 1)[-1]:
-        return ""
-    return u[:200]
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn primary" type="submit">Save profile</button>
+          <a class="btn" href="{{ url_for('landlord.dashboard') }}">Back to dashboard</a>
+          {% if profile.public_slug %}
+            <a class="btn" href="/l/{{ profile.public_slug }}" target="_blank" rel="noopener">View public page</a>
+          {% endif %}
+        </div>
+      </form>
 
-def _norm_bio(s: str) -> str:
-    s = (s or "").strip()
-    return s[:1200]
+      <p class="help" style="margin-top:10px">
+        A public link (e.g. <code>/l/your-name</code>) is generated automatically the first time you save a Display name.
+      </p>
+    </div>
 
-def _allowed_file_ext(filename: str) -> bool:
-    ext = os.path.splitext(filename or "")[1].lower()
-    return ext in ALLOWED_IMAGE_EXT
+    {# RIGHT: uploads (stacked) #}
+    <div style="display:flex; flex-direction:column; gap:16px">
+      {# Logo upload #}
+      <div class="card card--accent-lr">
+        <h3 class="mt-0" style="margin-top:0">Logo</h3>
+        <div style="display:flex; gap:12px; align-items:flex-start">
+          <div style="width:96px; height:96px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff; flex:0 0 auto;">
+            {% set logo_src = None %}
+            {% if profile and profile.logo_path %}
+              {% set logo_src = url_for('static', filename=profile.logo_path) %}
+            {% elif profile and profile.logo_url %}
+              {% set logo_src = profile.logo_url %}
+            {% endif %}
+            {% if logo_src %}
+              <img src="{{ logo_src }}" alt="Current logo" style="width:100%; height:100%; object-fit:cover">
+            {% else %}
+              <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#b9a6ff;font-weight:700">LOGO</div>
+            {% endif %}
+          </div>
+          <div style="flex:1">
+            <form method="post" enctype="multipart/form-data">
+              <input type="file" name="logo" accept="image/*">
+              <p class="help" style="margin-top:6px">Square works best. Same rules as photos (resize), but no watermark.</p>
+              <div style="margin-top:8px">
+                <button class="btn btn-outline" type="submit" name="action" value="upload_logo">Upload logo</button>
+                {% if logo_src %}
+                  <button class="btn btn-outline" type="submit" name="action" value="remove_logo">Remove</button>
+                {% endif %}
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
 
-def _ensure_dir(p: Path) -> None:
-    p.mkdir(parents=True, exist_ok=True)
+      {# Profile photo upload #}
+      <div class="card card--accent-lr">
+        <h3 class="mt-0" style="margin-top:0">Profile photo</h3>
+        <div style="display:flex; gap:12px; align-items:flex-start">
+          <div style="width:96px; height:96px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff; flex:0 0 auto;">
+            {% set photo_src = None %}
+            {% if profile and profile.photo_path %}
+              {% set photo_src = url_for('static', filename=profile.photo_path) %}
+            {% elif profile and profile.photo_url %}
+              {% set photo_src = profile.photo_url %}
+            {% endif %}
+            {% if photo_src %}
+              <img src="{{ photo_src }}" alt="Current photo" style="width:100%; height:100%; object-fit:cover">
+            {% else %}
+              <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#b9a6ff;font-weight:700">PHOTO</div>
+            {% endif %}
+          </div>
+          <div style="flex:1">
+            <form method="post" enctype="multipart/form-data">
+              <input type="file" name="photo" accept="image/*">
+              <p class="help" style="margin-top:6px">JPG/PNG/WebP. Same rules as photos (resize), but no watermark.</p>
+              <div style="margin-top:8px">
+                <button class="btn btn-outline" type="submit" name="action" value="upload_photo">Upload photo</button>
+                {% if photo_src %}
+                  <button class="btn btn-outline" type="submit" name="action" value="remove_photo">Remove</button>
+                {% endif %}
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
 
-def _process_image_no_watermark(stream: io.BytesIO, out_path: Path) -> Tuple[int, int, int]:
-    """
-    Open image, auto-rotate via EXIF, convert to RGB,
-    resize longest side = MAX_SIDE, save JPEG @ QUALITY.
-    Return (width, height, bytes).
-    """
-    stream.seek(0)
-    with Image.open(stream) as im:
-        try:
-            im = ImageOps.exif_transpose(im)  # type: ignore
-        except Exception:
-            pass
-        if im.mode not in ("RGB", "L"):
-            im = im.convert("RGB")
-        else:
-            im = im.convert("RGB")
+  </div>
+</section>
 
-        w, h = im.size
-        scale = 1.0
-        if max(w, h) > MAX_SIDE:
-            scale = MAX_SIDE / float(max(w, h))
-            w = int(round(w * scale))
-            h = int(round(h * scale))
-            im = im.resize((w, h), Image.LANCZOS)
-
-        _ensure_dir(out_path.parent)
-        # save as JPEG
-        buf = io.BytesIO()
-        im.save(buf, format="JPEG", quality=JPEG_QUALITY, progressive=True, optimize=True)
-        data = buf.getvalue()
-        out_path.write_bytes(data)
-        return (w, h, len(data))
-
-def _get_profile(conn: sqlite3.Connection, landlord_id: int):
-    row = conn.execute("""
-        SELECT lp.*, l.email
-          FROM landlord_profiles lp
-          JOIN landlords l ON l.id = lp.landlord_id
-         WHERE lp.landlord_id=?
-    """, (landlord_id,)).fetchone()
-    if not row:
-        # seed a profile row if missing
-        conn.execute("""
-            INSERT OR IGNORE INTO landlord_profiles(landlord_id, display_name, phone, website, bio, public_slug, profile_views, is_verified, role)
-            VALUES (?, '', '', '', '', NULL, 0, 0, 'owner')
-        """, (landlord_id,))
-        conn.commit()
-        row = conn.execute("""
-            SELECT lp.*, l.email
-              FROM landlord_profiles lp
-              JOIN landlords l ON l.id = lp.landlord_id
-             WHERE lp.landlord_id=?
-        """, (landlord_id,)).fetchone()
-    return row
-
-def _slugify(name: str) -> str:
-    base = re.sub(r"[^A-Za-z0-9]+", "-", name.strip().lower()).strip("-")
-    return (base or "landlord")[:60]
-
-def _ensure_public_slug(conn: sqlite3.Connection, landlord_id: int, display_name: str) -> None:
-    if not display_name:
-        return
-    row = conn.execute(
-        "SELECT public_slug FROM landlord_profiles WHERE landlord_id=?",
-        (landlord_id,)
-    ).fetchone()
-    if row and row["public_slug"]:
-        return
-    slug = _slugify(display_name)
-    # ensure unique
-    unique = slug
-    n = 1
-    while conn.execute("SELECT 1 FROM landlord_profiles WHERE public_slug=?", (unique,)).fetchone():
-        n += 1
-        unique = f"{slug}-{n}"
-    conn.execute("UPDATE landlord_profiles SET public_slug=? WHERE landlord_id=?", (unique, landlord_id))
-    conn.commit()
-
-# -------------------------------------------------------------------
-# Route: Edit profile (GET + POST, plus upload actions)
-# -------------------------------------------------------------------
-@bp.route("/landlord/profile", methods=["GET", "POST"])
-def landlord_profile_edit():
-    r = require_landlord()
-    if r:
-        return r
-    lid = current_landlord_id()
-    conn = get_db()
-
-    profile = _get_profile(conn, lid)
-
-    # Distinguish actions:
-    action = (request.form.get("action") or "").strip()
-
-    # ---------------------------------------
-    # Upload/Remove: LOGO
-    # ---------------------------------------
-    if request.method == "POST" and action in ("upload_logo", "remove_logo"):
-        if action == "remove_logo":
-            conn.execute(
-                "UPDATE landlord_profiles SET logo_path='' WHERE landlord_id=?",
-                (lid,)
-            )
-            conn.commit()
-            flash("Logo removed.", "ok")
-            conn.close()
-            return redirect(url_for("landlord.landlord_profile_edit"))
-
-        file = request.files.get("logo")
-        if not file or not file.filename:
-            flash("Please choose a logo file to upload.", "error")
-            conn.close()
-            return redirect(url_for("landlord.landlord_profile_edit"))
-        if not _allowed_file_ext(file.filename):
-            flash("Unsupported logo format. Please upload JPG/PNG/WebP/GIF.", "error")
-            conn.close()
-            return redirect(url_for("landlord.landlord_profile_edit"))
-
-        # Process → save to /static/uploads/landlords/<lid>/logo.jpg
-        lid_dir = LANDLORD_UPLOADS / str(lid)
-        out_path = lid_dir / "logo.jpg"
-        try:
-            data = io.BytesIO(file.read())
-            _process_image_no_watermark(data, out_path)
-        except Exception as e:
-            flash("Could not process logo. Please try a different image.", "error")
-            conn.close()
-            return redirect(url_for("landlord.landlord_profile_edit"))
-
-        rel_path = str(out_path.relative_to(STATIC_ROOT)).replace("\\", "/")  # e.g., uploads/landlords/12/logo.jpg
-        conn.execute("UPDATE landlord_profiles SET logo_path=? WHERE landlord_id=?", (rel_path, lid))
-        conn.commit()
-        flash("Logo uploaded.", "ok")
-        conn.close()
-        return redirect(url_for("landlord.landlord_profile_edit"))
-
-    # ---------------------------------------
-    # Upload/Remove: PHOTO
-    # ---------------------------------------
-    if request.method == "POST" and action in ("upload_photo", "remove_photo"):
-        if action == "remove_photo":
-            conn.execute(
-                "UPDATE landlord_profiles SET photo_path='' WHERE landlord_id=?",
-                (lid,)
-            )
-            conn.commit()
-            flash("Profile photo removed.", "ok")
-            conn.close()
-            return redirect(url_for("landlord.landlord_profile_edit"))
-
-        file = request.files.get("photo")
-        if not file or not file.filename:
-            flash("Please choose a photo to upload.", "error")
-            conn.close()
-            return redirect(url_for("landlord.landlord_profile_edit"))
-        if not _allowed_file_ext(file.filename):
-            flash("Unsupported photo format. Please upload JPG/PNG/WebP/GIF.", "error")
-            conn.close()
-            return redirect(url_for("landlord.landlord_profile_edit"))
-
-        # Process → save to /static/uploads/landlords/<lid>/photo.jpg
-        lid_dir = LANDLORD_UPLOADS / str(lid)
-        out_path = lid_dir / "photo.jpg"
-        try:
-            data = io.BytesIO(file.read())
-            _process_image_no_watermark(data, out_path)
-        except Exception:
-            flash("Could not process photo. Please try a different image.", "error")
-            conn.close()
-            return redirect(url_for("landlord.landlord_profile_edit"))
-
-        rel_path = str(out_path.relative_to(STATIC_ROOT)).replace("\\", "/")
-        conn.execute("UPDATE landlord_profiles SET photo_path=? WHERE landlord_id=?", (rel_path, lid))
-        conn.commit()
-        flash("Profile photo uploaded.", "ok")
-        conn.close()
-        return redirect(url_for("landlord.landlord_profile_edit"))
-
-    # ---------------------------------------
-    # Standard profile SAVE (left-hand form)
-    # ---------------------------------------
-    if request.method == "POST" and not action:
-        display_name = _norm_display_name(request.form.get("display_name", ""))
-        phone        = _norm_phone(request.form.get("phone", ""))
-        website      = _norm_website(request.form.get("website", ""))
-        bio          = _norm_bio(request.form.get("bio", ""))
-        role_raw     = (request.form.get("role") or "owner").strip().lower()
-        role         = role_raw if role_raw in ("owner", "agent") else "owner"
-
-        if not display_name:
-            flash("Display name is required.", "error")
-            conn.close()
-            return redirect(url_for("landlord.landlord_profile_edit"))
-
-        conn.execute("""
-            UPDATE landlord_profiles
-               SET display_name=?,
-                   phone=?,
-                   website=?,
-                   bio=?,
-                   role=?
-             WHERE landlord_id=?
-        """, (display_name, phone, website, bio, role, lid))
-        conn.commit()
-
-        # ensure public slug exists after first valid display name
-        _ensure_public_slug(conn, lid, display_name)
-
-        flash("Profile saved.", "ok")
-        conn.close()
-        return redirect(url_for("landlord.landlord_profile_edit"))
-
-    # GET:
-    profile = _get_profile(conn, lid)
-    conn.close()
-    return render_template(
-        "landlord_profile_edit.html",
-        profile=profile,
-        email=(profile["email"] if profile else None),
-        contact_email=(profile["email"] if profile else None),
-    )
+<script>
+  (function(){
+    const dn = document.getElementById('display_name_input');
+    const dc = document.getElementById('display_name_counter');
+    const bio = document.getElementById('bio_input');
+    const bc = document.getElementById('bio_counter');
+    function setCount(input, counter, max){
+      if (!input || !counter) return;
+      const len = (input.value || '').length;
+      counter.textContent = Math.min(len, max);
+    }
+    if (dn && dc){ setCount(dn, dc, 20); dn.addEventListener('input', () => setCount(dn, dc, 20)); }
+    if (bio && bc){ setCount(bio, bc, 1200); bio.addEventListener('input', () => setCount(bio, bc, 1200)); }
+  })();
+</script>
+{% endblock %}
