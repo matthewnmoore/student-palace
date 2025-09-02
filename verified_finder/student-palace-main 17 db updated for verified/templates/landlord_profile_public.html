@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Landlord – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  {% if not profile %}
+    <h1>Landlord not found</h1>
+    <div class="card"><p class="help">This profile doesn’t exist.</p></div>
+  {% else %}
+    <h1>{{ profile.display_name or 'Landlord' }}</h1>
+    <div class="card">
+      <p>{{ profile.bio or 'No bio provided yet.' }}</p>
+      <div class="grid grid-2" style="margin-top:12px">
+        <div>
+          <p><strong>Phone:</strong> {{ profile.phone or '—' }}</p>
+          <p><strong>Email:</strong> {{ contact_email or '—' }}</p>
+          <p><strong>Website:</strong>
+            {% if profile.website %}<a href="{{ profile.website }}" target="_blank" rel="noopener">{{ profile.website }}</a>{% else %}—{% endif %}
+          </p>
+        </div>
+        <div>
+          <p><strong>Profile views:</strong> {{ profile.profile_views or 0 }}</p>
+          <p class="help">Views count increases each time this page is opened.</p>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
