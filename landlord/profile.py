@@ -13,15 +13,26 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 def _allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def _save_image(file_storage, dest_path: Path, size=(512, 512)):
+def _save_image(file_storage, dest_path: Path, size=(512, 512), quality=85):
+    """
+    Save an uploaded image with resizing and compression so it stays small (~150–250 KB).
+    Always re-encodes as JPEG for consistency.
+    """
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    file_storage.save(dest_path)  # save original
     try:
-        img = Image.open(dest_path)
+        img = Image.open(file_storage)
+        img = img.convert("RGB")  # ensure safe for JPEG
         img.thumbnail(size)
-        img.save(dest_path)
+
+        # Force .jpg extension
+        dest_path = dest_path.with_suffix(".jpg")
+
+        img.save(dest_path, "JPEG", quality=quality, optimize=True)
+        return dest_path
     except Exception as e:
         print("[ERROR] processing image:", e)
+        file_storage.save(dest_path)  # fallback raw save
+        return dest_path
 
 @bp.route("/landlord/profile", methods=["GET","POST"])
 def landlord_profile():
@@ -49,10 +60,10 @@ def landlord_profile():
         if action == "upload_logo":
             f = request.files.get("logo")
             if f and _allowed_file(f.filename):
-                fn = secure_filename(f"logo.{f.filename.rsplit('.',1)[1].lower()}")
+                fn = secure_filename("logo.jpg")
                 dest = Path(UPLOAD_ROOT) / str(lid) / fn
-                _save_image(f, dest)
-                rel_path = str(dest.relative_to("static"))
+                saved_path = _save_image(f, dest)
+                rel_path = str(saved_path.relative_to("static"))
                 conn.execute("UPDATE landlord_profiles SET logo_path=? WHERE landlord_id=?", (rel_path, lid))
                 conn.commit()
                 flash("Logo uploaded.", "ok")
@@ -79,10 +90,10 @@ def landlord_profile():
         if action == "upload_photo":
             f = request.files.get("photo")
             if f and _allowed_file(f.filename):
-                fn = secure_filename(f"photo.{f.filename.rsplit('.',1)[1].lower()}")
+                fn = secure_filename("photo.jpg")
                 dest = Path(UPLOAD_ROOT) / str(lid) / fn
-                _save_image(f, dest)
-                rel_path = str(dest.relative_to("static"))
+                saved_path = _save_image(f, dest)
+                rel_path = str(saved_path.relative_to("static"))
                 conn.execute("UPDATE landlord_profiles SET photo_path=? WHERE landlord_id=?", (rel_path, lid))
                 conn.commit()
                 flash("Profile photo uploaded.", "ok")
