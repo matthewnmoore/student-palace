@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 from PIL import Image
 from werkzeug.utils import secure_filename
-import glob
 
 UPLOAD_ROOT = "static/uploads/landlords"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
@@ -17,7 +16,6 @@ def _allowed_file(filename: str) -> bool:
 def _purge_previous(dir_path: Path, stem: str) -> None:
     """
     Remove any existing files for this asset (e.g., logo.* or photo.*) in the landlord folder.
-    This keeps only the newest upload.
     """
     try:
         for p in dir_path.glob(f"{stem}.*"):
@@ -35,19 +33,17 @@ def _save_image(file_storage, dest_path: Path, size=(512, 512), quality=85):
     Returns the final Path written.
     """
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    # Ensure .jpg extension and purge any older variants first
     final_path = dest_path.with_suffix(".jpg")
     _purge_previous(final_path.parent, final_path.stem)
 
     try:
         img = Image.open(file_storage)
-        img = img.convert("RGB")  # ensure safe for JPEG
+        img = img.convert("RGB")
         img.thumbnail(size)
         img.save(final_path, "JPEG", quality=quality, optimize=True)
         return final_path
     except Exception as e:
         print("[ERROR] processing image:", e)
-        # Fallback raw save (still enforce .jpg name)
         try:
             file_storage.save(final_path)
         except Exception:
@@ -84,7 +80,10 @@ def landlord_profile():
                 dest = Path(UPLOAD_ROOT) / str(lid) / fn
                 saved_path = _save_image(f, dest)
                 rel_path = str(saved_path.relative_to("static"))
-                conn.execute("UPDATE landlord_profiles SET logo_path=? WHERE landlord_id=?", (rel_path, lid))
+                conn.execute(
+                    "UPDATE landlord_profiles SET logo_path=? WHERE landlord_id=?",
+                    (rel_path, lid)
+                )
                 conn.commit()
                 flash("Logo uploaded.", "ok")
             else:
@@ -100,9 +99,11 @@ def landlord_profile():
                     (Path("static") / old).unlink(missing_ok=True)
                 except Exception:
                     pass
-            # Also purge any lingering legacy logo.* files
             _purge_previous(Path(UPLOAD_ROOT) / str(lid), "logo")
-            conn.execute("UPDATE landlord_profiles SET logo_path=NULL WHERE landlord_id=?", (lid,))
+            conn.execute(
+                "UPDATE landlord_profiles SET logo_path=NULL WHERE landlord_id=?",
+                (lid,)
+            )
             conn.commit()
             flash("Logo removed.", "ok")
             conn.close()
@@ -116,7 +117,10 @@ def landlord_profile():
                 dest = Path(UPLOAD_ROOT) / str(lid) / fn
                 saved_path = _save_image(f, dest)
                 rel_path = str(saved_path.relative_to("static"))
-                conn.execute("UPDATE landlord_profiles SET photo_path=? WHERE landlord_id=?", (rel_path, lid))
+                conn.execute(
+                    "UPDATE landlord_profiles SET photo_path=? WHERE landlord_id=?",
+                    (rel_path, lid)
+                )
                 conn.commit()
                 flash("Profile photo uploaded.", "ok")
             else:
@@ -132,9 +136,11 @@ def landlord_profile():
                     (Path("static") / old).unlink(missing_ok=True)
                 except Exception:
                     pass
-            # Also purge any lingering legacy photo.* files
             _purge_previous(Path(UPLOAD_ROOT) / str(lid), "photo")
-            conn.execute("UPDATE landlord_profiles SET photo_path=NULL WHERE landlord_id=?", (lid,))
+            conn.execute(
+                "UPDATE landlord_profiles SET photo_path=NULL WHERE landlord_id=?",
+                (lid,)
+            )
             conn.commit()
             flash("Profile photo removed.", "ok")
             conn.close()
@@ -228,3 +234,38 @@ def landlord_public_by_id(lid):
         profile=prof,
         contact_email=ll["email"] if ll else ""
     )
+
+# -----------------------
+# Debug helpers
+# -----------------------
+@bp.route("/debug/profiles")
+def debug_profiles():
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT landlord_id, display_name, logo_path, photo_path FROM landlord_profiles LIMIT 20"
+    ).fetchall()
+    conn.close()
+    return "<pre>" + "\n".join([str(dict(r)) for r in rows]) + "</pre>"
+
+@bp.route("/debug/fix-profile-paths")
+def debug_fix_profile_paths():
+    conn = get_db()
+    # strip leading 'static/' if present
+    conn.execute("""
+        UPDATE landlord_profiles
+           SET logo_path = SUBSTR(logo_path, 8)
+         WHERE logo_path LIKE 'static/%'
+           AND LENGTH(logo_path) > 7
+    """)
+    conn.execute("""
+        UPDATE landlord_profiles
+           SET photo_path = SUBSTR(photo_path, 8)
+         WHERE photo_path LIKE 'static/%'
+           AND LENGTH(photo_path) > 7
+    """)
+    conn.commit()
+    rows = conn.execute(
+        "SELECT landlord_id, logo_path, photo_path FROM landlord_profiles ORDER BY landlord_id DESC LIMIT 20"
+    ).fetchall()
+    conn.close()
+    return "<pre>fixed\n" + "\n".join([str(dict(r)) for r in rows]) + "</pre>"
