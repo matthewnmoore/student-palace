@@ -45,13 +45,12 @@
     <div class="card">
       <h2 class="card-title">Availability</h2>
 
-      <!-- Make all three controls sit on one row and a bit larger -->
+      <!-- One row; uniform sizing; inline labels next to inputs -->
       <div class="grid grid-3" style="align-items:end">
-        <!-- Currently let -->
-        <label class="field checkbox"
-               style="align-self:end; padding:12px; border:1px solid var(--border); border-radius:10px; min-height:54px; display:flex; gap:10px; justify-content:flex-start">
+
+        <!-- Currently let (simple inline, no box) -->
+        <label class="check" style="align-self:end">
           <input type="checkbox" name="is_let" id="is_let"
-                 style="transform:scale(1.15)"
                  {% if form and form.is_let in ['1',1,'on',True] %}checked{% endif %}>
           <span>Currently let (not available now)</span>
         </label>
@@ -59,20 +58,19 @@
         <!-- Let until (only when currently let) -->
         {% set let_until_val = (form.let_until or '') if form else '' %}
         <label class="field" id="row_let_until" style="display:none">
-          <span class="label">Let until</span>
+          <span class="label-inline" style="margin-bottom:0">Let until</span>
           <input type="date" name="let_until" id="let_until"
                  value="{{ let_until_val }}"
-                 style="padding:12px; font-size:16px; min-height:44px">
+                 style="padding:12px; font-size:16px; min-height:44px; display:inline-block; width:100%">
         </label>
 
         <!-- Available from (always shown; auto-fills to next day when 'let until' changes) -->
         {% set available_from_val = (form.available_from or '') if form else '' %}
         <label class="field" id="row_available_from">
-          <span class="label">Available from</span>
+          <span class="label-inline" style="margin-bottom:0">Available from</span>
           <input type="date" name="available_from" id="available_from"
                  value="{{ available_from_val }}"
-                 style="padding:12px; font-size:16px; min-height:44px">
-          <span class="help" style="margin-top:6px">Dates display in UK format on-screen; safely stored for search.</span>
+                 style="padding:12px; font-size:16px; min-height:44px; display:inline-block; width:100%">
         </label>
       </div>
     </div>
@@ -191,7 +189,6 @@
     var d = new Date(iso);
     if (isNaN(d.getTime())) return '';
     d.setDate(d.getDate() + 1);
-    // format YYYY-MM-DD
     var y = d.getFullYear();
     var m = String(d.getMonth()+1).padStart(2,'0');
     var dd = String(d.getDate()).padStart(2,'0');
@@ -201,11 +198,9 @@
   function syncVisibility(){
     var checked = isLet && isLet.checked;
     if (rowLetUntil) rowLetUntil.style.display = checked ? 'block' : 'none';
-    // If unchecked, clear let_until to avoid saving stale values
     if (!checked && letUntil) letUntil.value = '';
   }
 
-  // Auto set available_from to next day after let_until
   function wireAutoNextDay(){
     if (!letUntil || !availFrom) return;
     letUntil.addEventListener('change', function(){
@@ -218,7 +213,6 @@
   if (isLet) {
     isLet.addEventListener('change', syncVisibility);
   }
-  // Initial state
   syncVisibility();
   wireAutoNextDay();
 })();
