@@ -29,7 +29,7 @@
             <th>Bed</th>
             <th>Wired internet</th>
             <th>Size</th>
-            <th style="width:380px">Actions</th>
+            <th style="width:260px">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -41,9 +41,9 @@
             <td>{{ 'Yes' if r.wired_internet else 'No' }}</td>
             <td>{{ r.room_size or '—' }}</td>
             <td>
-              <div class="inline-actions">
+              <div class="inline-actions" style="display:flex; gap:8px; align-items:center;">
                 <a class="btn" href="{{ url_for('landlord.room_photos', hid=house.id, rid=r.id) }}">
-                  Manage photos
+                  Photos
                 </a>
                 <a class="btn btn-outline" href="{{ url_for('landlord.room_edit', hid=house.id, rid=r.id) }}">
                   Edit
@@ -51,7 +51,7 @@
                 <form method="post"
                       action="{{ url_for('landlord.room_delete', hid=house.id, rid=r.id) }}"
                       onsubmit="return confirm('Delete this room?');"
-                      style="display:inline">
+                      style="margin:0; padding:0;">
                   <button class="btn btn-admin" type="submit">Delete</button>
                 </form>
               </div>
