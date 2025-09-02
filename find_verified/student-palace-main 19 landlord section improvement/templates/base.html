@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Student Palace{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2025-08-26-0900">
+</head>
+<body>
+
+<header class="navbar">
+  <div class="wrap flex-between">
+    <a class="logo" href="{{ url_for('public.index') }}">
+      <img class="logo-img" src="{{ url_for('static', filename='img/student-palace-logo.svg') }}" alt="Student Palace">
+    </a>
+    <nav class="nav-links">
+      <a class="btn btn-accent" href="{{ url_for('public.index') }}">Tenants</a>
+      <a class="btn" href="{{ url_for('auth.landlords_entry') }}">Landlords</a>
+      {% if session.get('is_admin') %}
+        <a class="btn btn-outline" href="{{ url_for('admin.admin_cities') }}">Admin</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <section class="wrap">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </section>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <div class="wrap flex-between">
+    <div>© 2025 Student Palace</div>
+    <div class="small">Build: {{ BUILD_VERSION|default('', true) }}</div>
+  </div>
+</footer>
+
+</body>
+</html>
