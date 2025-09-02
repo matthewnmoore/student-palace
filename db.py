@@ -281,6 +281,10 @@ def ensure_db():
     _safe_add_column(conn, "rooms", "ADD COLUMN description TEXT NOT NULL DEFAULT ''")
     _safe_add_column(conn, "houses", "ADD COLUMN description TEXT NOT NULL DEFAULT ''")
 
+    # --- NEW: Landlord profile media (logo & photo) ---
+    _safe_add_column(conn, "landlord_profiles", "ADD COLUMN logo_path TEXT")
+    _safe_add_column(conn, "landlord_profiles", "ADD COLUMN photo_path TEXT")
+
     # --- house_images add-only sync ---
     if table_exists(conn, "house_images"):
         _safe_add_column(conn, "house_images", "ADD COLUMN file_name TEXT NOT NULL DEFAULT ''")
