@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Edit profile – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1>Edit your profile</h1>
+
+  <div class="card" style="max-width:720px">
+    {% if profile and (profile.is_verified|default(0, true)) %}
+      <div class="badge" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span aria-hidden="true">✔️</span> You are verified
+      </div>
+    {% else %}
+      <p class="help" style="margin:0 0 10px">Get verified to boost renter trust.</p>
+    {% endif %}
+
+    <!-- Current role indicator -->
+    <p class="muted" style="margin:0 0 10px">
+      Account role: <strong>{{ (profile.role if profile and profile.role else 'owner') | replace('owner','Owner') | replace('agent','Agent') }}</strong>
+    </p>
+
+    <form method="post">
+      <div class="grid grid-2">
+        <label class="field">
+          <span class="label">Display name (shown publicly)</span>
+          <input type="text" name="display_name" value="{{ profile.display_name or '' }}" placeholder="e.g., Oak Properties">
+        </label>
+        <label class="field">
+          <span class="label">Phone</span>
+          <input type="text" name="phone" value="{{ profile.phone or '' }}" placeholder="+44...">
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="label">Website</span>
+        <input type="url" name="website" value="{{ profile.website or '' }}" placeholder="https://example.com" style="height:42px; line-height:42px;">
+      </label>
+
+      <label class="field">
+        <span class="label">Bio</span>
+        <textarea name="bio" rows="6" placeholder="Tell students about you and your properties">{{ profile.bio or '' }}</textarea>
+      </label>
+
+      <label class="field">
+        <span class="label">I am an…</span>
+        {% set r = (profile.role if profile and profile.role else 'owner') %}
+        <select name="role" required style="height:42px; line-height:42px;">
+          <option value="owner" {% if r == 'owner' %}selected{% endif %}>Owner / Landlord</option>
+          <option value="agent" {% if r == 'agent' %}selected{% endif %}>Letting Agent / Manager</option>
+        </select>
+      </label>
+
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <button class="btn primary" type="submit">Save profile</button>
+        <a class="btn" href="{{ url_for('landlord.dashboard') }}">Back to dashboard</a>
+        {% if profile.public_slug %}
+          <a class="btn" href="/l/{{ profile.public_slug }}" target="_blank" rel="noopener">View public page</a>
+        {% endif %}
+      </div>
+    </form>
+
+    <p class="help" style="margin-top:10px">
+      A public link (e.g. <code>/l/your-name</code>) is generated automatically the first time you save a Display name.
+    </p>
+  </div>
+</section>
+{% endblock %}
