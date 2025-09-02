@@ -44,7 +44,7 @@
           <p style="margin-top:6px">
             <strong>Website:</strong>
             {% if profile.website %}
-              <a href="{{ profile.website }}" target="_blank" rel="noopener">{{ profile.website }}</a>
+              <a href="{{ profile.website }}" target="_blank" rel="noopener"> {{ profile.website }} </a>
             {% else %}—{% endif %}
           </p>
           <p class="muted" style="margin-top:10px">Profile views: {{ profile.profile_views or 0 }}</p>
@@ -58,9 +58,10 @@
           <h3 style="margin-top:0">Logo</h3>
           <div style="width:100%; max-width:220px; aspect-ratio:1/1; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff">
             {% if profile.logo_path %}
-              <img src="{{ url_for('static', filename=profile.logo_path) }}"
-                   alt="Landlord logo"
-                   style="width:100%; height:100%; object-fit:cover">
+              <img
+                src="{{ url_for('static', filename=profile.logo_path) }}?v={{ profile.profile_views or 0 }}"
+                alt="Landlord logo"
+                style="width:100%; height:100%; object-fit:cover">
             {% else %}
               <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#b9a6ff; font-weight:700">
                 LOGO
@@ -74,9 +75,10 @@
           <h3 style="margin-top:0">Photo</h3>
           <div style="width:100%; max-width:220px; aspect-ratio:1/1; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff">
             {% if profile.photo_path %}
-              <img src="{{ url_for('static', filename=profile.photo_path) }}"
-                   alt="Landlord photo"
-                   style="width:100%; height:100%; object-fit:cover">
+              <img
+                src="{{ url_for('static', filename=profile.photo_path) }}?v={{ profile.profile_views or 0 }}"
+                alt="Landlord photo"
+                style="width:100%; height:100%; object-fit:cover">
             {% else %}
               <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#b9a6ff; font-weight:700">
                 PHOTO
