@@ -1,6 +1,7 @@
 # landlord/houses.py
 from __future__ import annotations
 
+import sqlite3
 from flask import render_template, request, redirect, url_for, flash
 from datetime import datetime as dt
 from db import get_db
@@ -12,25 +13,131 @@ from . import bp
 from . import house_form, house_repo
 
 
-def _parse_or_delegate(form, mode: str, default_listing_type: str):
+# -----------------------------
+# Normalisation helpers
+# -----------------------------
+def _title_case_wordish(s: str) -> str:
+    s = (s or "").strip()
+    if not s:
+        return ""
+    s = s.lower()
+    out = []
+    cap_next = True
+    for ch in s:
+        if cap_next and ch.isalpha():
+            out.append(ch.upper())
+            cap_next = False
+        else:
+            out.append(ch)
+        if ch in (" ", "-", "’", "'"):
+            cap_next = True
+    return "".join(out)
+
+
+def _normalize_postcode(pc: str) -> str:
+    pc = (pc or "").strip().upper()
+    if not pc:
+        return ""
+    if " " not in pc and len(pc) > 3:
+        pc = pc[:-3] + " " + pc[-3:]
+    return pc
+
+
+def _normalize_full_address(s: str) -> str:
     """
-    Use house_form.parse_house_form if available.
-    Fallback to an inline parser (mirrors previous working behaviour) so we never 500.
-    Returns: (payload: dict, errors: list[str])
+    Normalize the one-line preview address:
+    - Title-case non-postcode parts split by commas
+    - Uppercase and space the final postcode (if present)
+    """
+    s = (s or "").strip()
+    if not s:
+        return ""
+    bits = [b.strip() for b in s.split(",") if b.strip()]
+    if not bits:
+        return ""
+    # assume last is postcode
+    last = _normalize_postcode(bits[-1])
+    prior = [_title_case_wordish(b) for b in bits[:-1]]
+    if last:
+        return ", ".join(prior + [last])
+    return ", ".join(prior)  # no obvious postcode; just title-case parts
+
+
+def _normalize_youtube_url(u: str) -> str:
+    """
+    Accept empty, youtube.com/watch?v=..., youtu.be/..., shorts/...
+    Return a standard full watch URL (https://www.youtube.com/watch?v=VIDEOID)
+    if recognisable; otherwise return the original string trimmed.
+    """
+    u = (u or "").strip()
+    if not u:
+        return ""
+    lower = u.lower()
+
+    # Be forgiving about missing scheme (allow youtu.be/... or www.youtu.be/...)
+    if lower.startswith("youtu.be/") or lower.startswith("www.youtu.be/"):
+        vid = u.split("/")[-1].split("?")[0].split("#")[0]
+        return f"https://www.youtube.com/watch?v={vid}" if vid else u
+
+    if "youtube.com" in lower:
+        # /watch?v=ID
+        if "watch?v=" in lower:
+            q = u.split("watch?v=", 1)[1]
+            vid = q.split("&", 1)[0].split("#", 1)[0]
+            return f"https://www.youtube.com/watch?v={vid}" if vid else u
+        # /shorts/ID
+        if "/shorts/" in lower:
+            vid = u.split("/shorts/", 1)[1].split("?", 1)[0].split("#", 1)[0]
+            return f"https://www.youtube.com/watch?v={vid}" if vid else u
+
+    # Not a YouTube URL — store trimmed as-is (frontend won’t try to embed if it isn’t YouTube)
+    return u
+
+
+# -----------------------------------------
+# Schema safety: ensure youtube_url column
+# -----------------------------------------
+def _ensure_houses_has_youtube(conn) -> None:
+    """
+    Adds houses.youtube_url TEXT if it does not exist.
+    Safe to call on every request.
+    """
+    try:
+        conn.execute("ALTER TABLE houses ADD COLUMN youtube_url TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Column already exists, ignore
+        pass
+
+
+# -------------------------------------------------------
+# Parser wrapper (uses house_form.parse_house_form if set)
+# -------------------------------------------------------
+def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_address: str | None = None):
+    """
+    STRICT RULE: Save ONLY the hidden preview address (name='address').
+    - If provided, normalize and use it.
+    - If empty in EDIT mode, keep existing DB value.
+    - If empty in NEW mode, error: address is required.
     """
     if hasattr(house_form, "parse_house_form"):
         return house_form.parse_house_form(form, mode=mode, default_listing_type=default_listing_type)
 
-    # ---- Fallback parser (keeps prior behaviour) ----
+    # ---- Fallback parser ----
     fget = lambda k, default="": (form.get(k) or default).strip()
 
-    title = fget("title")
-    city = fget("city")
-    address = fget("address")
+    title_raw = fget("title")
+    title     = _title_case_wordish(title_raw)  # server-side safety for title casing
+
+    city_raw = fget("city")
     letting_type = fget("letting_type")
     gender_pref = fget("gender_preference")
 
-    # Bills dropdown (form field name 'bills_included') -> houses.bills_option (+ legacy flag)
+    # Address: ONLY take hidden preview field
+    address_hidden = fget("address")
+    address = _normalize_full_address(address_hidden) if address_hidden else ""
+
+    # Bills dropdown -> houses.bills_option (+ legacy flag)
     bills_option = (form.get("bills_included") or "no").strip().lower()
     if bills_option not in ("yes", "no", "some"):
         bills_option = "no"
@@ -60,10 +167,21 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
     bedrooms_total = int(form.get("bedrooms_total") or 0)
     listing_type = (form.get("listing_type") or default_listing_type or "owner").strip()
 
-    # Amenities (form names; air_conditioning maps to DB air_con)
+    # EPC rating (optional A–G). Store empty string if not valid/selected.
+    epc_rating_raw = (form.get("epc_rating") or "").strip().upper()
+    epc_rating = epc_rating_raw if epc_rating_raw in ("A", "B", "C", "D", "E", "F", "G") else ""
+
+    # YouTube (optional)
+    youtube_url = _normalize_youtube_url(fget("youtube_url"))
+
+    # If address missing: on edit keep existing; on new error
+    if not address:
+        if mode == "edit" and existing_address:
+            address = _normalize_full_address(existing_address)
+
     payload = {
         "title": title,
-        "city": city,
+        "city": _title_case_wordish(city_raw),  # keep city tidy
         "address": address,
         "letting_type": letting_type,
         "bedrooms_total": bedrooms_total,
@@ -95,18 +213,20 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
         "cinema_room": clean_bool("cinema_room"),
         "cleaning_service": (form.get("cleaning_service") or "none").strip(),
         "listing_type": listing_type,
+        "epc_rating": epc_rating,
+        "youtube_url": youtube_url,  # NEW
     }
     payload.update(bills_util)
 
-    # Validation (same rules as before)
+    # Validation
     errors = []
     if not title:
         errors.append("Title is required.")
-    if not address:
+    if not payload["address"]:
         errors.append("Address is required.")
     if bedrooms_total < 1:
         errors.append("Bedrooms must be at least 1.")
-    if not validate_city_active(city):
+    if not validate_city_active(city_raw):
         errors.append("Please choose a valid active city.")
     if not valid_choice(letting_type, ("whole", "share")):
         errors.append("Invalid letting type.")
@@ -116,6 +236,8 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str):
         errors.append("Invalid cleaning service value.")
     if not valid_choice(listing_type, ("owner", "agent")):
         errors.append("Invalid listing type.")
+    if epc_rating_raw and epc_rating == "":
+        errors.append("Invalid EPC rating (choose A, B, C, D, E, F or G).")
 
     return payload, errors
     # ---- End fallback ----
@@ -148,6 +270,7 @@ def house_new():
     cities = get_active_cities_safe()
 
     conn = get_db()
+    _ensure_houses_has_youtube(conn)  # ensure schema
     default_listing_type = house_form.get_default_listing_type(conn, lid)
 
     if request.method == "POST":
@@ -183,6 +306,8 @@ def house_edit(hid):
     lid = current_landlord_id()
     cities = get_active_cities_safe()
     conn = get_db()
+    _ensure_houses_has_youtube(conn)  # ensure schema
+
     house_row = owned_house_or_none(conn, hid, lid)
     if not house_row:
         conn.close()
@@ -193,7 +318,11 @@ def house_edit(hid):
     default_listing_type = house_form.get_default_listing_type(conn, lid, existing=house)
 
     if request.method == "POST":
-        payload, errors = _parse_or_delegate(request.form, mode="edit", default_listing_type=default_listing_type)
+        payload, errors = _parse_or_delegate(
+            request.form, mode="edit",
+            default_listing_type=default_listing_type,
+            existing_address=house.get("address")
+        )
 
         if errors:
             for e in errors:
