@@ -23,6 +23,18 @@
           <input type="text" id="price_ppw" value="" readonly>
         </label>
 
+        <!-- Suitable for couples -->
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="couples_ok" {% if form and form.couples_ok in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Suitable for couples</span>
+        </label>
+
+        <!-- Suitable for disabled person -->
+        <label class="field checkbox" style="align-self:end">
+          <input type="checkbox" name="disabled_ok" {% if form and form.disabled_ok in ['1',1,'on',True] %}checked{% endif %}>
+          <span>Suitable for disabled person</span>
+        </label>
+
         <label class="field" style="grid-column:1 / -1">
           <span class="label">Room name</span>
           <input type="text" name="name" value="{{ (form.name or '') if form else '' }}" required placeholder="e.g., Room 1, Attic room">
