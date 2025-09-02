@@ -29,7 +29,7 @@
             <th>Bed</th>
             <th>Wired internet</th>
             <th>Size</th>
-            <th style="width:380px">Actions</th>
+            <th style="width:260px">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -43,7 +43,7 @@
             <td>
               <div class="inline-actions">
                 <a class="btn" href="{{ url_for('landlord.room_photos', hid=house.id, rid=r.id) }}">
-                  Manage photos
+                  Photos
                 </a>
                 <a class="btn btn-outline" href="{{ url_for('landlord.room_edit', hid=house.id, rid=r.id) }}">
                   Edit
