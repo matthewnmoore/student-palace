@@ -1,25 +1,3 @@
-from utils import clean_bool
-from db import get_db
-from datetime import datetime as dt
-
-def _parse_uk_date(value: str) -> str:
-    """
-    Accepts 'DD/MM/YYYY' (UK) or 'YYYY-MM-DD' (HTML date input) and returns ISO 'YYYY-MM-DD'.
-    Returns '' if empty or invalid.
-    """
-    if not value:
-        return ""
-    value = value.strip()
-    if not value:
-        return ""
-    for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
-        try:
-            d = dt.strptime(value, fmt).date()
-            return d.isoformat()
-        except Exception:
-            continue
-    return ""
-
 def room_form_values(request):
     name = (request.form.get("name") or "").strip()
     ensuite = clean_bool("ensuite")
@@ -57,6 +35,9 @@ def room_form_values(request):
 
     available_from = _parse_uk_date(available_from_in)
     let_until = _parse_uk_date(let_until_in)
+
+    # NEW DESCRIPTION
+    description = (request.form.get("description") or "").strip()
 
     errors = []
     if not name:
@@ -101,10 +82,6 @@ def room_form_values(request):
         "is_let": is_let,
         "available_from": available_from,
         "let_until": let_until,
+        # NEW DESCRIPTION
+        "description": description,
     }, errors)
-
-def room_counts(conn, hid):
-    row = conn.execute("SELECT bedrooms_total FROM houses WHERE id=?", (hid,)).fetchone()
-    max_rooms = int(row["bedrooms_total"]) if row else 0
-    cnt = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()["c"]
-    return max_rooms, int(cnt)
