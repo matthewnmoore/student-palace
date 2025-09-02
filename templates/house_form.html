@@ -103,20 +103,7 @@
       </div>
     </div>
 
-    <!-- DESCRIPTION -->
-    <div class="card card--accent-edges">
-      <h2 class="mt-0">Description</h2>
-      <label class="field">
-        <span class="label">Property description</span>
-        <textarea name="description" id="description_input" rows="6" maxlength="1200"
-                  placeholder="Describe the property in detail…">{{ (form.description or '') if form else '' }}</textarea>
-        <div class="help">
-          Maximum 1200 characters. <span id="description_counter">0</span>/1200.
-        </div>
-      </label>
-    </div>
-
-    <!-- BILLS UTILITIES (moved here, purple accent) -->
+    <!-- BILLS UTILITIES (purple accent, before Address) -->
     <div id="bills-utilities" class="card card--accent-edges" style="margin-top:10px; {% if bi!='some' %}display:none{% endif %}">
       <h3 class="mt-0">Bills cover (tick the utilities included)</h3>
       <div class="grid grid-3">
@@ -151,7 +138,7 @@
       </p>
     </div>
 
-    <!-- ADDRESS (accented) -->
+    <!-- ADDRESS -->
     <div class="card card--accent-edges">
       <h2 class="mt-0">Address</h2>
 
@@ -263,6 +250,19 @@
         <label class="field checkbox"><input type="checkbox" name="games_room" {% if form and form.games_room in ['1',1,'on',True] %}checked{% endif %}><span>Games room</span></label>
         <label class="field checkbox"><input type="checkbox" name="cinema_room" {% if form and form.cinema_room in ['1',1,'on',True] %}checked{% endif %}><span>Cinema room</span></label>
       </div>
+    </div>
+
+    <!-- DESCRIPTION (moved below Amenities) -->
+    <div class="card card--accent-edges">
+      <h2 class="mt-0">Description</h2>
+      <label class="field">
+        <span class="label">Property description</span>
+        <textarea name="description" id="description_input" rows="6" maxlength="1200"
+                  placeholder="Describe the property in detail…">{{ (form.description or '') if form else '' }}</textarea>
+        <div class="help">
+          Maximum 1200 characters. <span id="description_counter">0</span>/1200.
+        </div>
+      </label>
     </div>
 
     <!-- MEDIA (accented) -->
