@@ -12,8 +12,8 @@ from admin import bp as admin_bp          # shared admin blueprint
 from landlord import bp as landlord_bp    # landlord blueprint
 from errors import register_error_handlers
 
-# NEW: import the property_public blueprint
-from public_property import property_public_bp
+# ✅ FIXED: correct import for property_public
+from public.property_public import bp as property_public_bp
 
 
 def create_app() -> Flask:
@@ -36,7 +36,7 @@ def create_app() -> Flask:
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(landlord_bp)
-    app.register_blueprint(property_public_bp)   # NEW: register property public
+    app.register_blueprint(property_public_bp)   # ✅ Register property public
 
     # Register error handlers
     register_error_handlers(app)
