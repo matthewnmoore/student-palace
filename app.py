@@ -12,8 +12,24 @@ from admin import bp as admin_bp          # shared admin blueprint
 from landlord import bp as landlord_bp    # landlord blueprint
 from errors import register_error_handlers
 
-# ✅ FIXED: correct import for property_public
-from public.property_public import bp as property_public_bp
+# --- Robust import for the public property page blueprint ---
+# We can't "from public.property_public import ..." because public.py at repo root
+# shadows the 'public' package. So we load the file directly and fetch its blueprint.
+try:
+    # Try the direct package-style import first (works if you ever make 'public' a package)
+    from public.property_public import property_public_bp  # type: ignore
+except Exception:
+    import importlib.util
+    from pathlib import Path
+
+    _pp_path = Path(__file__).parent / "public" / "property_public.py"
+    _spec = importlib.util.spec_from_file_location("property_public", str(_pp_path))
+    if _spec is None or _spec.loader is None:
+        raise ImportError(f"Could not load property_public.py from {_pp_path}")
+    _mod = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_mod)  # type: ignore[attr-defined]
+    # Support either export name
+    property_public_bp = getattr(_mod, "property_public_bp", getattr(_mod, "bp"))
 
 
 def create_app() -> Flask:
@@ -36,7 +52,7 @@ def create_app() -> Flask:
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(landlord_bp)
-    app.register_blueprint(property_public_bp)   # ✅ Register property public
+    app.register_blueprint(property_public_bp)   # register the public property blueprint
 
     # Register error handlers
     register_error_handlers(app)
@@ -201,9 +217,9 @@ def create_app() -> Flask:
         # prune to last 20
         existing = sorted(backups_dir.glob("student_palace.*.sqlite"))
         for p in existing[:-20]:
-            try: 
+            try:
                 p.unlink()
-            except Exception: 
+            except Exception:
                 pass
 
         return jsonify({"ok": True, "created": str(dest), "kept": len(existing[-20:])})
