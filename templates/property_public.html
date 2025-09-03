@@ -85,33 +85,30 @@
           <aside class="media-right">
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
 
-            {# --- compute ensuites + availability (DB-aligned) --- #}
+            {# --- compute ensuites + availability --- #}
             {% set ns = namespace(ens=0, avail=[]) %}
             {% if rooms and rooms|length %}
               {% for r in rooms %}
-                {% if r.ensuite %}
+                {% if r.ensuite or r.has_ensuite or r.private_bathroom %}
                   {% set ns.ens = ns.ens + 1 %}
                 {% endif %}
-                {% if r.is_let == 0 %}
+                {% if not r.is_let %}
                   {% set _price = (r.price_pcm if r.price_pcm and r.price_pcm > 0 else None) %}
                   {% set ns.avail = ns.avail + [ {'name': r.name, 'price': _price } ] %}
                 {% endif %}
               {% endfor %}
             {% endif %}
 
-            {# --- bills: prefer text bills_option, else map integer bills_included --- #}
-            {% set bills_val = house.bills_option
-                               if house.bills_option
-                               else ('yes' if house.bills_included == 1
-                                     else 'some' if house.bills_included == 2
-                                     else 'no') %}
-
-            {# --- any selected utilities? --- #}
-            {% set any_util = (house.bills_util_gas in ['1',1,true,'on']) or
-                              (house.bills_util_electric in ['1',1,true,'on']) or
-                              (house.bills_util_water in ['1',1,true,'on']) or
-                              (house.bills_util_broadband in ['1',1,true,'on']) or
-                              (house.bills_util_tv in ['1',1,true,'on']) %}
+            {# --- compute bills flags robustly (accept '1', 1, True, 'on') --- #}
+            {% set bills_mode = (house.bills_included or house.bills_option or 'no') %}
+            {% set u = {
+              'gas': house.bills_util_gas in ['1', 1, true, 'on'],
+              'elec': house.bills_util_electric in ['1', 1, true, 'on'],
+              'water': house.bills_util_water in ['1', 1, true, 'on'],
+              'bb': house.bills_util_broadband in ['1', 1, true, 'on'],
+              'tv': house.bills_util_tv in ['1', 1, true, 'on']
+            } %}
+            {% set any_util = u.gas or u.elec or u.water or u.bb or u.tv %}
 
             <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5;">
               <li><strong>Total bedrooms:</strong> {{ house.bedrooms_total }}</li>
@@ -120,9 +117,9 @@
                 <li><strong>Ensuites:</strong> {{ ns.ens }}</li>
               {% endif %}
 
-              {% if bills_val == 'yes' %}
+              {% if bills_mode == 'yes' %}
                 <li><strong>All bills included</strong></li>
-              {% elif bills_val == 'some' and any_util %}
+              {% elif bills_mode == 'some' and any_util %}
                 <li><strong>Some bills included</strong></li>
               {% endif %}
 
@@ -146,72 +143,67 @@
       {% endif %}
     </div>
 
-    {# NEW: AMENITIES & BILLS (full width) #}
-    <div class="card card--accent-lr" style="margin-bottom:12px">
-      <h2 style="margin:0 0 10px">Amenities</h2>
-      <div class="amenities-wrap">
-        {# Kitchen / utilities #}
-        {% if house.washing_machine in ['1',1,true,'on'] %}<span class="pill">Washing machine</span>{% endif %}
-        {% if house.tumble_dryer  in ['1',1,true,'on'] %}<span class="pill">Tumble dryer</span>{% endif %}
-        {% if house.dishwasher    in ['1',1,true,'on'] %}<span class="pill">Dishwasher</span>{% endif %}
-        {% if house.cooker        in ['1',1,true,'on'] %}<span class="pill">Cooker</span>{% endif %}
-        {% if house.microwave     in ['1',1,true,'on'] %}<span class="pill">Microwave</span>{% endif %}
-        {% if house.coffee_maker  in ['1',1,true,'on'] %}<span class="pill">Coffee maker</span>{% endif %}
+    {# AMENITIES (full width) #}
+    {% set amens = [] %}
+    {% if house.washing_machine %}{% set amens = amens + ['Washing machine'] %}{% endif %}
+    {% if house.tumble_dryer %}{% set amens = amens + ['Tumble dryer'] %}{% endif %}
+    {% if house.dishwasher %}{% set amens = amens + ['Dishwasher'] %}{% endif %}
+    {% if house.cooker %}{% set amens = amens + ['Cooker'] %}{% endif %}
+    {% if house.microwave %}{% set amens = amens + ['Microwave'] %}{% endif %}
+    {% if house.coffee_maker %}{% set amens = amens + ['Coffee maker'] %}{% endif %}
+    {% if house.central_heating %}{% set amens = amens + ['Central heating'] %}{% endif %}
+    {% if house.air_con %}{% set amens = amens + ['Air conditioning'] %}{% endif %}
+    {% if house.vacuum %}{% set amens = amens + ['Vacuum'] %}{% endif %}
+    {% if house.wifi %}{% set amens = amens + ['Wi-Fi'] %}{% endif %}
+    {% if house.wired_internet %}{% set amens = amens + ['Wired internet'] %}{% endif %}
+    {% if house.common_area_tv %}{% set amens = amens + ['Common area TV'] %}{% endif %}
+    {% if house.cctv %}{% set amens = amens + ['CCTV'] %}{% endif %}
+    {% if house.video_door_entry %}{% set amens = amens + ['Video door entry'] %}{% endif %}
+    {% if house.fob_entry %}{% set amens = amens + ['Fob entry'] %}{% endif %}
+    {% if house.off_street_parking %}{% set amens = amens + ['Off-street parking'] %}{% endif %}
+    {% if house.local_parking %}{% set amens = amens + ['Local parking'] %}{% endif %}
+    {% if house.garden %}{% set amens = amens + ['Garden'] %}{% endif %}
+    {% if house.roof_terrace %}{% set amens = amens + ['Roof terrace'] %}{% endif %}
+    {% if house.bike_storage %}{% set amens = amens + ['Bike storage'] %}{% endif %}
+    {% if house.games_room %}{% set amens = amens + ['Games room'] %}{% endif %}
+    {% if house.cinema_room %}{% set amens = amens + ['Cinema room'] %}{% endif %}
 
-        {# Comfort #}
-        {% if house.central_heating in ['1',1,true,'on'] %}<span class="pill">Central heating</span>{% endif %}
-        {% if house.air_con         in ['1',1,true,'on'] %}<span class="pill">Air conditioning</span>{% endif %}
-        {% if house.vacuum          in ['1',1,true,'on'] %}<span class="pill">Vacuum</span>{% endif %}
-
-        {# Connectivity / media #}
-        {% if house.wifi            in ['1',1,true,'on'] %}<span class="pill">Wi-Fi</span>{% endif %}
-        {% if house.wired_internet  in ['1',1,true,'on'] %}<span class="pill">Wired internet</span>{% endif %}
-        {% if house.common_area_tv  in ['1',1,true,'on'] %}<span class="pill">Common area TV</span>{% endif %}
-
-        {# Security / access #}
-        {% if house.cctv            in ['1',1,true,'on'] %}<span class="pill">CCTV</span>{% endif %}
-        {% if house.video_door_entry in ['1',1,true,'on'] %}<span class="pill">Video door entry</span>{% endif %}
-        {% if house.fob_entry       in ['1',1,true,'on'] %}<span class="pill">Fob entry</span>{% endif %}
-
-        {# Parking / outdoors #}
-        {% if house.off_street_parking in ['1',1,true,'on'] %}<span class="pill">Off-street parking</span>{% endif %}
-        {% if house.local_parking      in ['1',1,true,'on'] %}<span class="pill">Local parking</span>{% endif %}
-        {% if house.garden             in ['1',1,true,'on'] %}<span class="pill">Garden</span>{% endif %}
-        {% if house.roof_terrace       in ['1',1,true,'on'] %}<span class="pill">Roof terrace</span>{% endif %}
-        {% if house.bike_storage       in ['1',1,true,'on'] %}<span class="pill">Bike storage</span>{% endif %}
-
-        {# Shared facilities #}
-        {% if house.games_room         in ['1',1,true,'on'] %}<span class="pill">Games room</span>{% endif %}
-        {% if house.cinema_room        in ['1',1,true,'on'] %}<span class="pill">Cinema room</span>{% endif %}
-      </div>
-
-      {# Bills included (only if any) #}
-      {% set bills_val = house.bills_option
-                         if house.bills_option
-                         else ('yes' if house.bills_included == 1
-                               else 'some' if house.bills_included == 2
-                               else 'no') %}
-      {% set util_gas = house.bills_util_gas in ['1',1,true,'on'] %}
-      {% set util_elec = house.bills_util_electric in ['1',1,true,'on'] %}
-      {% set util_water = house.bills_util_water in ['1',1,true,'on'] %}
-      {% set util_bb = house.bills_util_broadband in ['1',1,true,'on'] %}
-      {% set util_tv = house.bills_util_tv in ['1',1,true,'on'] %}
-      {% set any_util = util_gas or util_elec or util_water or util_bb or util_tv %}
-
-      {% if bills_val != 'no' and (bills_val == 'yes' or any_util) %}
-        <hr style="margin:12px 0">
-        <h3 style="margin:0 0 6px; font-size:1.05rem;">Bills included</h3>
-        <div class="amenities-wrap">
-          {% if bills_val == 'yes' or util_gas %}<span class="pill">Gas</span>{% endif %}
-          {% if bills_val == 'yes' or util_elec %}<span class="pill">Electric</span>{% endif %}
-          {% if bills_val == 'yes' or util_water %}<span class="pill">Water</span>{% endif %}
-          {% if bills_val == 'yes' or util_bb %}<span class="pill">Broadband</span>{% endif %}
-          {% if bills_val == 'yes' or util_tv %}<span class="pill">TV licence/TV</span>{% endif %}
+    {% if amens and amens|length %}
+      <div class="card card--accent-lr" style="margin-bottom:12px">
+        <h2 style="margin:0 0 8px">Amenities</h2>
+        <div class="amenities-grid">
+          {% for label in amens %}
+            <span class="amenity-chip">{{ label }}</span>
+          {% endfor %}
         </div>
-      {% endif %}
-    </div>
+      </div>
+    {% endif %}
 
-    {# Description #}
+    {# BILLS INCLUDED (only if any) #}
+    {% set bills_mode = (house.bills_included or house.bills_option or 'no') %}
+    {% set util_labels = [] %}
+    {% if bills_mode == 'yes' %}
+      {% set util_labels = ['Gas','Electric','Water','Broadband','TV licence/TV'] %}
+    {% elif bills_mode == 'some' %}
+      {% if house.bills_util_gas in ['1',1,true,'on'] %}{% set util_labels = util_labels + ['Gas'] %}{% endif %}
+      {% if house.bills_util_electric in ['1',1,true,'on'] %}{% set util_labels = util_labels + ['Electric'] %}{% endif %}
+      {% if house.bills_util_water in ['1',1,true,'on'] %}{% set util_labels = util_labels + ['Water'] %}{% endif %}
+      {% if house.bills_util_broadband in ['1',1,true,'on'] %}{% set util_labels = util_labels + ['Broadband'] %}{% endif %}
+      {% if house.bills_util_tv in ['1',1,true,'on'] %}{% set util_labels = util_labels + ['TV licence/TV'] %}{% endif %}
+    {% endif %}
+
+    {% if util_labels and util_labels|length %}
+      <div class="card card--accent-lr" style="margin-bottom:12px">
+        <h2 style="margin:0 0 8px">Bills included</h2>
+        <div class="amenities-grid">
+          {% for ulabel in util_labels %}
+            <span class="amenity-chip">{{ ulabel }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    {# Description (moved to after amenities/bills) #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <h2 style="margin:0 0 8px">About this property</h2>
       <p style="white-space:pre-wrap">{{ house.description or "No description provided yet." }}</p>
@@ -281,7 +273,7 @@
   {% endif %}
 </section>
 
-{# --- Minimal CSS for the new media layout + pills --- #}
+{# --- Minimal CSS for the new media + amenity chips --- #}
 <style>
   .media-grid {
     display: grid;
@@ -324,20 +316,22 @@
   }
   .highlights { margin: 8px 0 0; padding-left: 18px; }
 
-  /* NEW: amenity pills */
-  .amenities-wrap {
-    display: flex;
-    flex-wrap: wrap;
+  .amenities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 8px;
+    align-items: start;
   }
-  .amenities-wrap .pill {
-    display: inline-block;
-    padding: 6px 10px;
+  .amenity-chip {
+    display:inline-flex;
+    align-items:center;
     border: 1px solid var(--border);
     border-radius: 999px;
+    padding: 6px 10px;
     font-size: 0.95rem;
     line-height: 1;
-    background: #fff;
+    background:#fff;
+    white-space: nowrap;
   }
 </style>
 
@@ -388,4 +382,12 @@
         btn.addEventListener('click', () => {
           const src = btn.getAttribute('data-full');
           if (src) hero.setAttribute('src', src);
-          document.querySelectorAll('.thumb').forEach(b
+          document.querySelectorAll('.thumb').forEach(b => b.style.outline = '');
+          btn.style.outline = '2px solid var(--brand)';
+          btn.style.outlineOffset = '2px';
+        });
+      });
+    }
+  })();
+</script>
+{% endblock %}
