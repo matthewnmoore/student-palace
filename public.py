@@ -112,7 +112,7 @@ def property_public(house_id: int):
     }
 
     return render_template(
-        "public/property.html",
+        "property_public.html",  # <- changed from "public/property.html"
         house=house,
         images=images,
         landlord=landlord,
