@@ -1,3 +1,151 @@
+
+
+
+
+
+
+UPDATED WITH NEW FIELDS
+=======================
+
+
+TABLE: cities
+	•	id (INTEGER, PK) → Auto-increment ID.
+	•	name (TEXT, UNIQUE) → City name shown in UI and used for filtering.
+	•	is_active (INTEGER, 0/1) → Whether city is selectable/visible.
+
+TABLE: landlords
+	•	id (INTEGER, PK) → Auto-increment ID.
+	•	email (TEXT, UNIQUE) → Login / contact email.
+	•	password_hash (TEXT) → Hashed password.
+	•	created_at (TEXT, ISO) → When the landlord account was created.
+
+TABLE: landlord_profiles
+	•	landlord_id (INTEGER, PK/FK landlords.id) → One-to-one with landlords.
+	•	display_name (TEXT) → Public display name.
+	•	phone (TEXT) → Public or internal phone number.
+	•	website (TEXT) → Landlord website URL.
+	•	bio (TEXT) → Profile bio/description.
+	•	public_slug (TEXT, UNIQUE) → Public profile URL slug (/l/).
+	•	profile_views (INTEGER) → Counter for profile views.
+	•	is_verified (INTEGER, 0/1) → Shows ✅ badge on listings.
+	•	role (TEXT: ‘owner’|‘agent’) → Listing role type.
+	•	logo_path (TEXT, nullable) → Path to landlord logo under /static.
+	•	photo_path (TEXT, nullable) → Path to landlord photo under /static.
+	•	enable_new_landlord (INTEGER, 0/1) [NEW] → Admin toggle to allow/stop creation of NEW landlord accounts (1 = enabled, 0 = disabled).
+
+TABLE: houses
+	•	id (INTEGER, PK) → Auto-increment property ID.
+	•	landlord_id (INTEGER, FK landlords.id) → Owner/agent of the property.
+	•	title (TEXT) → Listing title.
+	•	city (TEXT) → City name (matches cities.name).
+	•	address (TEXT) → Full street address.
+	•	letting_type (TEXT: ‘whole’|‘share’) → Whole property vs room share.
+	•	bedrooms_total (INTEGER) → Total bedrooms in the property.
+	•	gender_preference (TEXT: ‘Male’|‘Female’|‘Mixed’|‘Either’) → Preference tag.
+	•	bills_included (INTEGER, 0/1) → Legacy bills flag (kept for back-compat).
+	•	shared_bathrooms (INTEGER) → Count of shared bathrooms.
+	•	off_street_parking (INTEGER, 0/1) → Driveway/allocated parking.
+	•	local_parking (INTEGER, 0/1) → On-street/nearby parking.
+	•	cctv (INTEGER, 0/1) → CCTV present.
+	•	video_door_entry (INTEGER, 0/1) → Video entry present.
+	•	bike_storage (INTEGER, 0/1) → Bike storage present.
+	•	cleaning_service (TEXT) → e.g. ‘none’, ‘monthly’, etc.
+	•	wifi (INTEGER, 0/1) → Wi-Fi provided.
+	•	wired_internet (INTEGER, 0/1) → Ethernet available.
+	•	common_area_tv (INTEGER, 0/1) → TV in shared area.
+	•	created_at (TEXT, ISO) → When the house record was created.
+	•	listing_type (TEXT: ‘owner’|‘agent’) → Display badge for who lists it.
+	•	bills_option (TEXT: ‘no’|‘some’|‘yes’) → New bills selector.
+	•	bills_util_gas (INTEGER, 0/1) → Gas included if ‘some’.
+	•	bills_util_electric (INTEGER, 0/1) → Electric included if ‘some’.
+	•	bills_util_water (INTEGER, 0/1) → Water included if ‘some’.
+	•	bills_util_broadband (INTEGER, 0/1) → Broadband included if ‘some’.
+	•	bills_util_tv (INTEGER, 0/1) → TV licence included if ‘some’.
+	•	washing_machine (INTEGER, 0/1) → Amenity flag.
+	•	tumble_dryer (INTEGER, 0/1) → Amenity flag.
+	•	dishwasher (INTEGER, 0/1) → Amenity flag.
+	•	cooker (INTEGER, 0/1) → Amenity flag.
+	•	microwave (INTEGER, 0/1) → Amenity flag.
+	•	coffee_maker (INTEGER, 0/1) → Amenity flag.
+	•	central_heating (INTEGER, 0/1) → Amenity flag.
+	•	air_con (INTEGER, 0/1) → Amenity flag.
+	•	vacuum (INTEGER, 0/1) → Amenity flag.
+	•	fob_entry (INTEGER, 0/1) → Amenity/security flag.
+	•	garden (INTEGER, 0/1) → Outdoor/garden present.
+	•	roof_terrace (INTEGER, 0/1) → Roof terrace present.
+	•	games_room (INTEGER, 0/1) → Games room present.
+	•	cinema_room (INTEGER, 0/1) → Cinema/media room present.
+	•	epc_rating (TEXT) → EPC rating text (e.g. ‘C 75’).
+	•	description (TEXT) → Public description of the property.
+	•	ensuites_total (INTEGER) [NEW] → Pre-computed total number of ensuite bedrooms in this house.
+	•	available_rooms_total (INTEGER) [NEW] → Pre-computed count of rooms currently available (is_let = 0).
+	•	available_rooms_prices (TEXT) [NEW] → Pre-computed price summary for available rooms (e.g. JSON or “Room 1:999;Room 2:850”).
+	•	double_beds_total (INTEGER) [NEW] → Pre-computed count of rooms with bed_size in (‘Small double’,‘Double’,‘King’).
+	•	suitable_for_couples_total (INTEGER) [NEW] → Pre-computed count of rooms where couples_ok = 1.
+	•	post_code_prefix (TEXT) [NEW] → Allowed postcode prefix for saving new houses (used to restrict out-of-area entries).
+
+TABLE: rooms
+	•	id (INTEGER, PK) → Auto-increment room ID.
+	•	house_id (INTEGER, FK houses.id) → Parent property.
+	•	name (TEXT) → Room label (e.g. ‘Bedroom 2’).
+	•	ensuite (INTEGER, 0/1) → Private bathroom in this room.
+	•	bed_size (TEXT: ‘Single’|‘Small double’|‘Double’|‘King’) → Bed size.
+	•	tv (INTEGER, 0/1) → TV in room.
+	•	desk_chair (INTEGER, 0/1) → Desk/chair present.
+	•	wardrobe (INTEGER, 0/1) → Wardrobe present.
+	•	chest_drawers (INTEGER, 0/1) → Chest of drawers present.
+	•	lockable_door (INTEGER, 0/1) → Lock on the bedroom door.
+	•	wired_internet (INTEGER, 0/1) → Ethernet in room.
+	•	room_size (TEXT) → Free-text e.g. ‘12 m²’ or ‘3.5 x 4.0m’.
+	•	created_at (TEXT, ISO) → When the room record was created.
+	•	price_pcm (INTEGER) → Monthly price in whole pounds.
+	•	safe (INTEGER, 0/1) → Safe present.
+	•	dressing_table (INTEGER, 0/1) → Dressing table present.
+	•	mirror (INTEGER, 0/1) → Mirror present.
+	•	bedside_table (INTEGER, 0/1) → Bedside table present.
+	•	blinds (INTEGER, 0/1) → Blinds present.
+	•	curtains (INTEGER, 0/1) → Curtains present.
+	•	sofa (INTEGER, 0/1) → Sofa present.
+	•	couples_ok (INTEGER, 0/1) → Couples allowed in this room.
+	•	disabled_ok (INTEGER, 0/1) → Accessibility suitability flag.
+	•	is_let (INTEGER, 0/1) → 1 if currently let; 0 if available.
+	•	available_from (TEXT, ISO or empty) → If not available now, the date it becomes available.
+	•	let_until (TEXT, ISO or empty) → If let, the end date of the current let.
+	•	description (TEXT) → Public room description.
+
+TABLE: house_images
+	•	id (INTEGER, PK) → Auto-increment image ID.
+	•	house_id (INTEGER, FK houses.id) → Parent property.
+	•	file_name (TEXT) → Original filename (legacy).
+	•	filename (TEXT) → Synced filename (back-filled).
+	•	file_path (TEXT) → Relative path under /static (used in templates).
+	•	width (INTEGER) → Image width (px).
+	•	height (INTEGER) → Image height (px).
+	•	bytes (INTEGER) → File size (bytes).
+	•	is_primary (INTEGER, 0/1) → Whether to show first.
+	•	created_at (TEXT, ISO) → When uploaded.
+	•	sort_order (INTEGER) → Manual order for thumbnails.
+
+TABLE: house_documents
+	•	id (INTEGER, PK) → Auto-increment doc ID.
+	•	house_id (INTEGER, FK houses.id) → Parent property.
+	•	doc_type (TEXT) → ‘epc’ (and future types).
+	•	file_name (TEXT) → Original filename.
+	•	file_path (TEXT) → Relative path under /static.
+	•	bytes (INTEGER) → File size (bytes).
+	•	created_at (TEXT, ISO) → Upload time.
+	•	is_current (INTEGER, 0/1) → Current/active document flag.
+
+
+
+
+
+
+
+
+
+
+
 📍 Table: cities
 	•	id → unique identifier (auto-increment).
 	•	name → city name (e.g. “Leeds”).
