@@ -87,9 +87,10 @@
       <div class="card card--accent-lr">
         <h3 class="mt-0">Logo</h3>
         <div style="display:flex; gap:12px; align-items:flex-start">
-          <div style="width:96px;height:96px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#f6f3ff">
+          <!-- Force a true square: fixed basis and aspect ratio -->
+          <div style="width:150px; aspect-ratio:1/1; flex:0 0 150px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff">
             {% if profile.logo_path %}
-              <img src="{{ url_for('static', filename=profile.logo_path) }}?v={{ profile.updated_at or profile.logo_path|length }}" alt="Current logo" style="width:100%;height:100%;object-fit:cover">
+              <img src="{{ url_for('static', filename=profile.logo_path) }}?v={{ profile.updated_at or profile.logo_path|length }}" alt="Current logo" style="width:100%; height:100%; object-fit:cover; display:block">
             {% else %}
               <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#b9a6ff;font-weight:700">LOGO</div>
             {% endif %}
@@ -112,9 +113,10 @@
       <div class="card card--accent-lr">
         <h3 class="mt-0">Profile photo</h3>
         <div style="display:flex; gap:12px; align-items:flex-start">
-          <div style="width:96px;height:96px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#f6f3ff">
+          <!-- Force a true square: fixed basis and aspect ratio -->
+          <div style="width:150px; aspect-ratio:1/1; flex:0 0 150px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff">
             {% if profile.photo_path %}
-              <img src="{{ url_for('static', filename=profile.photo_path) }}?v={{ profile.updated_at or profile.photo_path|length }}" alt="Current photo" style="width:100%;height:100%;object-fit:cover">
+              <img src="{{ url_for('static', filename=profile.photo_path) }}?v={{ profile.updated_at or profile.photo_path|length }}" alt="Current photo" style="width:100%; height:100%; object-fit:cover; display:block">
             {% else %}
               <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#b9a6ff;font-weight:700">PHOTO</div>
             {% endif %}
