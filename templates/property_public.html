@@ -143,54 +143,72 @@
       {% endif %}
     </div>
 
-    {# AMENITIES (full width) #}
-    {% set amens = [] %}
-    {% if house.washing_machine %}{% set amens = amens + ['Washing machine'] %}{% endif %}
-    {% if house.tumble_dryer %}{% set amens = amens + ['Tumble dryer'] %}{% endif %}
-    {% if house.dishwasher %}{% set amens = amens + ['Dishwasher'] %}{% endif %}
-    {% if house.cooker %}{% set amens = amens + ['Cooker'] %}{% endif %}
-    {% if house.microwave %}{% set amens = amens + ['Microwave'] %}{% endif %}
-    {% if house.coffee_maker %}{% set amens = amens + ['Coffee maker'] %}{% endif %}
-    {% if house.central_heating %}{% set amens = amens + ['Central heating'] %}{% endif %}
-    {% if house.air_con %}{% set amens = amens + ['Air conditioning'] %}{% endif %}
-    {% if house.vacuum %}{% set amens = amens + ['Vacuum'] %}{% endif %}
-    {% if house.wifi %}{% set amens = amens + ['Wi-Fi'] %}{% endif %}
-    {% if house.wired_internet %}{% set amens = amens + ['Wired internet'] %}{% endif %}
-    {% if house.common_area_tv %}{% set amens = amens + ['Common area TV'] %}{% endif %}
-    {% if house.cctv %}{% set amens = amens + ['CCTV'] %}{% endif %}
-    {% if house.video_door_entry %}{% set amens = amens + ['Video door entry'] %}{% endif %}
-    {% if house.fob_entry %}{% set amens = amens + ['Fob entry'] %}{% endif %}
-    {% if house.off_street_parking %}{% set amens = amens + ['Off-street parking'] %}{% endif %}
-    {% if house.local_parking %}{% set amens = amens + ['Local parking'] %}{% endif %}
-    {% if house.garden %}{% set amens = amens + ['Garden'] %}{% endif %}
-    {% if house.roof_terrace %}{% set amens = amens + ['Roof terrace'] %}{% endif %}
-    {% if house.bike_storage %}{% set amens = amens + ['Bike storage'] %}{% endif %}
-    {% if house.games_room %}{% set amens = amens + ['Games room'] %}{% endif %}
-    {% if house.cinema_room %}{% set amens = amens + ['Cinema room'] %}{% endif %}
+    {# --- AMENITIES / FACILITIES --- #}
+<div class="card card--accent-lr" style="margin-bottom:12px">
+  <h2 style="margin:0 0 10px">Facilities</h2>
 
-    {% if amens and amens|length %}
-      <div class="card card--accent-lr" style="margin-bottom:12px">
-        <h2 style="margin:0 0 8px">Amenities</h2>
-        <div class="amenities-grid">
-          {% for label in amens %}
-            <span class="amenity-chip">{{ label }}</span>
-          {% endfor %}
-        </div>
-      </div>
-    {% endif %}
+  {# helper for truthy ints/strings #}
+  {% set t = lambda v: v in ['1', 1, true, 'on'] %}
 
-    {# BILLS INCLUDED (only if any) #}
-    {% set bills_mode = (house.bills_included or house.bills_option or 'no') %}
-    {% set util_labels = [] %}
+  {% set items = [] %}
+  {% if t(house.cctv) %}{% set items = items + [{'icon':'🛡️','label':'CCTV'}] %}{% endif %}
+  {% if t(house.off_street_parking) %}{% set items = items + [{'icon':'🅿️','label':'Off-street Parking'}] %}{% endif %}
+  {% if t(house.local_parking) %}{% set items = items + [{'icon':'🚗','label':'Local Parking'}] %}{% endif %}
+  {% if t(house.bike_storage) %}{% set items = items + [{'icon':'🚲','label':'Bike Storage'}] %}{% endif %}
+  {% if t(house.washing_machine) %}{% set items = items + [{'icon':'🧺','label':'Washing Machine'}] %}{% endif %}
+  {% if t(house.tumble_dryer) %}{% set items = items + [{'icon':'🌀','label':'Tumble Dryer'}] %}{% endif %}
+  {% if t(house.dishwasher) %}{% set items = items + [{'icon':'🍽️','label':'Dishwasher'}] %}{% endif %}
+  {% if t(house.cooker) %}{% set items = items + [{'icon':'🍳','label':'Cooker'}] %}{% endif %}
+  {% if t(house.microwave) %}{% set items = items + [{'icon':'📡','label':'Microwave/Oven'}] %}{% endif %}
+  {% if t(house.coffee_maker) %}{% set items = items + [{'icon':'☕','label':'Coffee Maker'}] %}{% endif %}
+  {% if t(house.central_heating) %}{% set items = items + [{'icon':'🔥','label':'Central Heating'}] %}{% endif %}
+  {% if t(house.air_con) or t(house.air_conditioning) %}{% set items = items + [{'icon':'❄️','label':'Air Conditioning'}] %}{% endif %}
+  {% if t(house.vacuum) %}{% set items = items + [{'icon':'🧹','label':'Vacuum'}] %}{% endif %}
+  {% if t(house.wifi) %}{% set items = items + [{'icon':'📶','label':'Wi-Fi'}] %}{% endif %}
+  {% if t(house.wired_internet) %}{% set items = items + [{'icon':'🔌','label':'Wired Internet'}] %}{% endif %}
+  {% if t(house.common_area_tv) %}{% set items = items + [{'icon':'📺','label':'TV (communal)'}] %}{% endif %}
+  {% if t(house.garden) %}{% set items = items + [{'icon':'🌳','label':'Outdoor Area / Garden'}] %}{% endif %}
+  {% if t(house.roof_terrace) %}{% set items = items + [{'icon':'🌇','label':'Roof Terrace'}] %}{% endif %}
+  {% if t(house.games_room) %}{% set items = items + [{'icon':'🕹️','label':'Games Room'}] %}{% endif %}
+  {% if t(house.cinema_room) %}{% set items = items + [{'icon':'🎬','label':'Cinema Room'}] %}{% endif %}
+
+  {% if items|length %}
+    <ul class="facilities-grid">
+      {% for it in items %}
+        <li class="facility"><span class="ico" aria-hidden="true">{{ it.icon }}</span>{{ it.label }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted" style="margin:0">No facilities listed.</p>
+  {% endif %}
+</div>
+
+{# --- BILLS INCLUDED --- #}
+{% set bills_mode = house.bills_option or house.bills_included %}
+{% set gas = t(house.bills_util_gas) %}
+{% set elec = t(house.bills_util_electric) %}
+{% set water = t(house.bills_util_water) %}
+{% set bb = t(house.bills_util_broadband) %}
+{% set tv = t(house.bills_util_tv) %}
+{% set any_util = gas or elec or water or bb or tv %}
+
+{% if bills_mode == 'yes' or (bills_mode == 'some' and any_util) %}
+  <div class="card card--accent-lr" style="margin-bottom:12px">
+    <h2 style="margin:0 0 8px">Bills included</h2>
+
     {% if bills_mode == 'yes' %}
-      {% set util_labels = ['Gas','Electric','Water','Broadband','TV licence/TV'] %}
-    {% elif bills_mode == 'some' %}
-      {% if house.bills_util_gas in ['1',1,true,'on'] %}{% set util_labels = util_labels + ['Gas'] %}{% endif %}
-      {% if house.bills_util_electric in ['1',1,true,'on'] %}{% set util_labels = util_labels + ['Electric'] %}{% endif %}
-      {% if house.bills_util_water in ['1',1,true,'on'] %}{% set util_labels = util_labels + ['Water'] %}{% endif %}
-      {% if house.bills_util_broadband in ['1',1,true,'on'] %}{% set util_labels = util_labels + ['Broadband'] %}{% endif %}
-      {% if house.bills_util_tv in ['1',1,true,'on'] %}{% set util_labels = util_labels + ['TV licence/TV'] %}{% endif %}
+      <p style="margin:0">All bills included.</p>
+    {% else %}
+      <ul class="bills-list">
+        {% if gas %}<li>Gas</li>{% endif %}
+        {% if elec %}<li>Electric</li>{% endif %}
+        {% if water %}<li>Water</li>{% endif %}
+        {% if bb %}<li>Broadband</li>{% endif %}
+        {% if tv %}<li>TV licence/TV</li>{% endif %}
+      </ul>
     {% endif %}
+  </div>
+{% endif %}
 
     {% if util_labels and util_labels|length %}
       <div class="card card--accent-lr" style="margin-bottom:12px">
