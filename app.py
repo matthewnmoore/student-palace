@@ -12,6 +12,9 @@ from admin import bp as admin_bp          # shared admin blueprint
 from landlord import bp as landlord_bp    # landlord blueprint
 from errors import register_error_handlers
 
+# NEW: import the property_public blueprint
+from public_property import property_public_bp
+
 
 def create_app() -> Flask:
     app = Flask(__name__)
@@ -33,6 +36,7 @@ def create_app() -> Flask:
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(landlord_bp)
+    app.register_blueprint(property_public_bp)   # NEW: register property public
 
     # Register error handlers
     register_error_handlers(app)
@@ -197,8 +201,10 @@ def create_app() -> Flask:
         # prune to last 20
         existing = sorted(backups_dir.glob("student_palace.*.sqlite"))
         for p in existing[:-20]:
-            try: p.unlink()
-            except Exception: pass
+            try: 
+                p.unlink()
+            except Exception: 
+                pass
 
         return jsonify({"ok": True, "created": str(dest), "kept": len(existing[-20:])})
 
