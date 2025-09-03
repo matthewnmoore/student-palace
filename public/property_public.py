@@ -4,7 +4,8 @@ from __future__ import annotations
 from flask import Blueprint, render_template, abort, url_for
 from db import get_db
 
-bp = Blueprint("public", __name__)  # register this in app.py (app.register_blueprint(public.property_public.bp))
+# renamed: give this blueprint a unique name and export it as property_public_bp
+property_public_bp = Blueprint("property_public", __name__)  # register in app.py
 
 def _fetch_house_bundle(conn, hid: int):
     house = conn.execute(
@@ -50,7 +51,7 @@ def _fetch_house_bundle(conn, hid: int):
 
     return dict(house=house, landlord=landlord, images=images, rooms=rooms)
 
-@bp.route("/p/<int:hid>")
+@property_public_bp.route("/p/<int:hid>")
 def property_public(hid: int):
     conn = get_db()
     bundle = _fetch_house_bundle(conn, hid)
