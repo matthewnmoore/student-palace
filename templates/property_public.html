@@ -52,7 +52,7 @@
       </div>
     </div>
 
-    {# MEDIA: main image + 4 thumbs + highlights box #}
+    {# MEDIA: main image + thumbs + highlights #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       {% if images and images|length > 0 %}
         <div class="media-grid">
@@ -73,7 +73,6 @@
                 </button>
               {% endfor %}
               {% if images|length == 1 %}
-                {# Fillers to keep layout tidy when only 1 image #}
                 <div class="thumb placeholder"></div>
                 <div class="thumb placeholder"></div>
                 <div class="thumb placeholder"></div>
@@ -85,14 +84,16 @@
           <aside class="media-right">
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
 
-            {# --- compute ensuites + availability --- #}
+            {# --- compute ensuites + availability (robust truthiness) --- #}
             {% set ns = namespace(ens=0, avail=[]) %}
             {% if rooms and rooms|length %}
               {% for r in rooms %}
-                {% if r.ensuite or r.has_ensuite or r.private_bathroom %}
+                {% if (r.ensuite in ['1',1,true,'on']) or
+                      (r.has_ensuite in ['1',1,true,'on']) or
+                      (r.private_bathroom in ['1',1,true,'on']) %}
                   {% set ns.ens = ns.ens + 1 %}
                 {% endif %}
-                {% if not r.is_let %}
+                {% if not (r.is_let in ['1',1,true,'on']) %}
                   {% set _price = (r.price_pcm if r.price_pcm and r.price_pcm > 0 else None) %}
                   {% set ns.avail = ns.avail + [ {'name': r.name, 'price': _price } ] %}
                 {% endif %}
@@ -196,7 +197,7 @@
   <div class="card card--accent-lr" style="margin-bottom:12px">
     <h2 style="margin:0 0 8px">Bills included</h2>
 
-    {# Use the same visual style as Facilities (icon + label chips in a responsive grid) #}
+    {# Use the same visual style as Facilities (icon + label chips) #}
     {% set util_list = [
       {'flag': gas,   'icon': '🔥', 'label': 'Gas'},
       {'flag': elec,  'icon': '⚡', 'label': 'Electric'},
@@ -243,7 +244,7 @@
             <div class="card" style="border:1px solid var(--border)">
               <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
                 <h3 class="mt-0" style="margin:0">{{ r.name }}</h3>
-                {% if r.is_let %}
+                {% if r.is_let in ['1',1,true,'on'] %}
                   <span class="badge" style="border:1px solid var(--border); padding:3px 8px; border-radius:999px">Let</span>
                 {% else %}
                   <span class="badge" style="border:1px solid var(--border); padding:3px 8px; border-radius:999px">Available</span>
@@ -347,28 +348,19 @@
     width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;
     font-size:20px;
   }
-
-  /* Bills list */
-  .bills-list{ margin:0; padding-left:18px; line-height:1.5; }
 </style>
 
 {# --- JS: short address + click thumbs to swap hero --- #}
 <script>
   (function () {
-    // 1) SHORT ADDRESS: remove house/flat number & house name, keep street + rest
+    // 1) SHORT ADDRESS
     const el = document.getElementById('short-address');
     if (el) {
       const full = el.getAttribute('data-full') || el.textContent || '';
       const parts = full.split(',').map(s => s.trim()).filter(Boolean);
-
-      const streetTypes = [
-        ' Road',' Street',' Avenue',' Lane',' Close',' Drive',' Terrace',' Way',' Place',' Crescent',
-        ' Court',' Hill',' Gardens',' Park',' Grove',' View',' Parade',' Square',' Row',' Mews'
-      ];
-
+      const streetTypes = [' Road',' Street',' Avenue',' Lane',' Close',' Drive',' Terrace',' Way',' Place',' Crescent',' Court',' Hill',' Gardens',' Park',' Grove',' View',' Parade',' Square',' Row',' Mews'];
       function extractStreet(line1) {
-        let keep = line1;
-        let hitIdx = -1;
+        let keep = line1, hitIdx = -1;
         for (const t of streetTypes) {
           const i = line1.toLowerCase().lastIndexOf(t.toLowerCase());
           if (i !== -1) { hitIdx = i; break; }
@@ -382,13 +374,11 @@
         keep = keep.replace(/^((flat|suite|apt|apartment)\b.*?\s)/i, '').trim();
         return keep || line1;
       }
-
       if (parts.length) {
         const line1 = parts[0];
         const rest = parts.slice(1);
         const street = extractStreet(line1);
-        const shortAddr = [street, ...rest].join(', ');
-        el.textContent = shortAddr;
+        el.textContent = [street, ...rest].join(', ');
       }
     }
 
