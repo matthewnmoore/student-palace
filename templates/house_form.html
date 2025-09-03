@@ -241,7 +241,7 @@
 
         <!-- Parking / Outdoors -->
         <label class="field checkbox"><input type="checkbox" name="off_street_parking" {% if form and form.off_street_parking in ['1',1,'on',True] %}checked{% endif %}><span>Off-street parking</span></label>
-        <label class="field checkbox"><input type="checkbox" name="local_parking" {% if form and form.local_parking in ['1',1,'on,True] %}checked{% endif %}><span>Local parking</span></label>
+        <label class="field checkbox"><input type="checkbox" name="local_parking" {% if form and form.local_parking in ['1',1,'on',True] %}checked{% endif %}><span>Local parking</span></label>
         <label class="field checkbox"><input type="checkbox" name="garden" {% if form and form.garden in ['1',1,'on',True] %}checked{% endif %}><span>Garden</span></label>
         <label class="field checkbox"><input type="checkbox" name="roof_terrace" {% if form and form.roof_terrace in ['1',1,'on',True] %}checked{% endif %}><span>Roof terrace</span></label>
         <label class="field checkbox"><input type="checkbox" name="bike_storage" {% if form and form.bike_storage in ['1',1,'on',True] %}checked{% endif %}><span>Bike storage</span></label>
@@ -294,21 +294,19 @@
 
     <!-- ACTIONS -->
     <div class="card card--accent-edges">
-      <div class="actions-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn" type="submit">{{ 'Create house' if mode=='new' else 'Save changes' }}</button>
         <a class="btn btn-outline" href="{{ url_for('landlord.landlord_houses') }}">Cancel</a>
-
         {% if mode=='edit' and house and house.id %}
           <a class="btn btn-outline" href="{{ url_for('public.property_public', house_id=house.id) }}" target="_blank" rel="noopener">
             View public page
           </a>
-
-          <!-- Right-aligned red delete button (kept as-is; we'll fix behavior later if needed) -->
+          <!-- Right-aligned delete button -->
           <form method="post"
-                action="{{ url_for('landlord.house_delete', hid=house.id) }}"
-                onsubmit="return confirm('Delete this house and its rooms? This cannot be undone.');"
+                action="/landlord/houses/{{ house.id }}/delete"
+                onsubmit="return confirm('Delete this house? This cannot be undone.');"
                 style="margin-left:auto">
-            <button class="btn btn-admin" type="submit">Delete house</button>
+            <button class="btn btn-outline" type="submit">Delete house</button>
           </form>
         {% endif %}
       </div>
@@ -341,7 +339,7 @@
       on(descInput, 'input', () => setCounter(descInput, descCounter, 1200));
     }
 
-    // Title auto-capitalise on blur (fix: correct regex using \p{L})
+    // Title auto-capitalise on blur
     function titleCaseWordishJS(s){
       s = (s || '').toLowerCase();
       return s.replace(/(^|[ \-’'])\p{L}/gu, m => m.toUpperCase());
@@ -385,7 +383,6 @@
 
     const getVal = (id) => ( document.getElementById(id)?.value || '' ).trim();
 
-    // fix: correct regex using \p{L}
     function titleCaseWordish(s) {
       s = (s || '').toLowerCase();
       return s.replace(/(^|[ \-’'])\p{L}/gu, m => m.toUpperCase());
@@ -422,8 +419,7 @@
     }
     on(citySel, 'change', () => {
       syncTownFromCity();
-      // fix: always recompute preview when city changes
-      composeFromParts();
+      if (partsDirty) composeFromParts();
     });
 
     function wireTitleCaseOnBlur(id, formatter = titleCaseWordish) {
@@ -491,8 +487,5 @@
   }
   .card--accent-edges::before { left: -1px; }
   .card--accent-edges::after  { right: -1px; }
-
-  /* Uniform button height just for the actions row */
-  .actions-row .btn { min-height: 40px; display:inline-flex; align-items:center; }
 </style>
 {% endblock %}
