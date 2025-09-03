@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Edit profile – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <h1>Edit your profile</h1>
+
+  {# Status banner (verified / not verified) #}
+  {% if profile and (profile.is_verified|default(0, true)) %}
+    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:12px; padding:14px 16px; margin-bottom:14px">
+      <span aria-hidden="true" style="font-size:22px; color:#22c55e">✔️</span>
+      <div style="flex:1; font-weight:600">You’re verified – Your listings will display a verified badge to tenants.</div>
+    </div>
+  {% else %}
+    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:12px; padding:14px 16px; margin-bottom:14px">
+      <span aria-hidden="true" style="font-size:22px; color:#f59e0b">❌</span>
+      <div style="flex:1; font-weight:600">Not verified – Get verified to boost renter trust.</div>
+    </div>
+  {% endif %}
+
+  <div class="grid" style="grid-template-columns: 1fr 320px; gap:16px; align-items:start">
+
+    <!-- LEFT -->
+    <div class="card card--accent-lr" style="max-width:100%">
+      <p class="muted" style="margin:0 0 10px">
+        Account role:
+        <strong>{{ (profile.role if profile and profile.role else 'owner') | replace('owner','Owner') | replace('agent','Agent') }}</strong>
+        {% if email or contact_email %}
+          &nbsp;•&nbsp; Email: <code>{{ email or contact_email }}</code>
+        {% endif %}
+      </p>
+
+      <form method="post" enctype="multipart/form-data">
+        <div class="grid grid-2">
+          <label class="field">
+            <span class="label">Display name (shown publicly)</span>
+            <input type="text" name="display_name" value="{{ profile.display_name or '' }}" maxlength="20" required id="display_name_input">
+            <div class="help"><span id="display_name_counter">0</span>/20 characters.</div>
+          </label>
+
+          <label class="field">
+            <span class="label">Phone</span>
+            <input type="text" name="phone" value="{{ profile.phone or '' }}" placeholder="+44…">
+            <div class="help">Optional. We’ll tidy the format on save.</div>
+          </label>
+        </div>
+
+        <label class="field">
+          <span class="label">Website</span>
+          <input type="url" name="website" value="{{ profile.website or '' }}" placeholder="https://example.com">
+        </label>
+
+        <label class="field">
+          <span class="label">Bio</span>
+          <textarea name="bio" rows="6" maxlength="1200" id="bio_input">{{ profile.bio or '' }}</textarea>
+          <div class="help">Maximum 1200 characters. <span id="bio_counter">0</span>/1200.</div>
+        </label>
+
+        <div class="grid grid-2">
+          <label class="field">
+            <span class="label">I am an…</span>
+            {% set r = (profile.role if profile and profile.role else 'owner') %}
+            <select name="role" required>
+              <option value="owner" {% if r == 'owner' %}selected{% endif %}>Owner / Landlord</option>
+              <option value="agent" {% if r == 'agent' %}selected{% endif %}>Letting Agent / Manager</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="label">Email (read-only)</span>
+            <input type="email" value="{{ email or contact_email or '' }}" readonly style="background:#f8f8f8">
+          </label>
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn primary" type="submit">Save profile</button>
+          <a class="btn" href="{{ url_for('landlord.dashboard') }}">Back to dashboard</a>
+          {% if profile.public_slug %}
+            <a class="btn" href="/l/{{ profile.public_slug }}" target="_blank">View public page</a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+
+    <!-- RIGHT uploads -->
+    <div style="display:flex; flex-direction:column; gap:16px">
+      <!-- Logo -->
+      <div class="card card--accent-lr">
+        <h3 class="mt-0">Logo</h3>
+        <div style="display:flex; gap:12px; align-items:flex-start">
+          <div style="width:96px;height:96px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#f6f3ff">
+            {% if profile.logo_path %}
+              <img src="{{ url_for('static', filename=profile.logo_path) }}?v={{ profile.updated_at or profile.logo_path|length }}" alt="Current logo" style="width:100%;height:100%;object-fit:cover">
+            {% else %}
+              <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#b9a6ff;font-weight:700">LOGO</div>
+            {% endif %}
+          </div>
+          <div style="flex:1">
+            <form method="post" enctype="multipart/form-data">
+              <input type="file" name="logo" accept="image/*">
+              <div style="margin-top:8px">
+                <button class="btn btn-outline" type="submit" name="action" value="upload_logo">Upload logo</button>
+                {% if profile.logo_path %}
+                  <button class="btn btn-outline" type="submit" name="action" value="remove_logo">Remove</button>
+                {% endif %}
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Photo -->
+      <div class="card card--accent-lr">
+        <h3 class="mt-0">Profile photo</h3>
+        <div style="display:flex; gap:12px; align-items:flex-start">
+          <div style="width:96px;height:96px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#f6f3ff">
+            {% if profile.photo_path %}
+              <img src="{{ url_for('static', filename=profile.photo_path) }}?v={{ profile.updated_at or profile.photo_path|length }}" alt="Current photo" style="width:100%;height:100%;object-fit:cover">
+            {% else %}
+              <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#b9a6ff;font-weight:700">PHOTO</div>
+            {% endif %}
+          </div>
+          <div style="flex:1">
+            <form method="post" enctype="multipart/form-data">
+              <input type="file" name="photo" accept="image/*">
+              <div style="margin-top:8px">
+                <button class="btn btn-outline" type="submit" name="action" value="upload_photo">Upload photo</button>
+                {% if profile.photo_path %}
+                  <button class="btn btn-outline" type="submit" name="action" value="remove_photo">Remove</button>
+                {% endif %}
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+  (function(){
+    const dn = document.getElementById('display_name_input');
+    const dc = document.getElementById('display_name_counter');
+    const bio = document.getElementById('bio_input');
+    const bc = document.getElementById('bio_counter');
+    function setCount(input, counter, max){
+      if (!input || !counter) return;
+      const len = (input.value || '').length;
+      counter.textContent = Math.min(len, max);
+    }
+    if (dn && dc){ setCount(dn, dc, 20); dn.addEventListener('input', () => setCount(dn, dc, 20)); }
+    if (bio && bc){ setCount(bio, bc, 1200); bio.addEventListener('input', () => setCount(bio, bc, 1200)); }
+  })();
+</script>
+{% endblock %}
