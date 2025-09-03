@@ -81,61 +81,63 @@
             </div>
           </div>
 
-
-          
+          {# === HIGHLIGHTS (fixed to your schema) === #}
           <aside class="media-right">
-  <h3 class="mt-0" style="margin-top:0">Highlights</h3>
+            <h3 class="mt-0" style="margin-top:0">Highlights</h3>
 
-  {# truthy helper list #}
-  {% set T = ['1', 1, true, 'on'] %}
+            {# Treat typical truthy values, but we will only use actual columns you have #}
+            {% set T = ['1', 1, true, 'on'] %}
 
-  {# compute ensuites + availability #}
-  {% set ns = namespace(ens=0, avail=[]) %}
-  {% if rooms and rooms|length %}
-    {% for r in rooms %}
-      {% if (r.ensuite in T) or (r.has_ensuite in T) or (r.private_bathroom in T) %}
-        {% set ns.ens = ns.ens + 1 %}
-      {% endif %}
-      {% if not (r.is_let in T) %}
-        {% set _price = (r.price_pcm if r.price_pcm and r.price_pcm > 0 else None) %}
-        {% set ns.avail = ns.avail + [ {'name': r.name, 'price': _price } ] %}
-      {% endif %}
-    {% endfor %}
-  {% endif %}
+            {# Compute counts using ONLY your DB fields: ensuite, is_let, price_pcm #}
+            {% set ns = namespace(ens=0, avail=[]) %}
+            {% if rooms %}
+              {% for r in rooms %}
+                {% if r.ensuite in T %}
+                  {% set ns.ens = ns.ens + 1 %}
+                {% endif %}
+                {% if not (r.is_let in T) %}
+                  {% set _price = (r.price_pcm if r.price_pcm and r.price_pcm|int > 0 else None) %}
+                  {% set ns.avail = ns.avail + [ {'name': r.name, 'price': _price } ] %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
 
-  {# bills summary (handle old/new fields) #}
-  {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
-  {% set any_util = (house.bills_util_gas in T) or (house.bills_util_electric in T) or
-                    (house.bills_util_water in T) or (house.bills_util_broadband in T) or
-                    (house.bills_util_tv in T) %}
+            {# bills summary (old/new fields supported) #}
+            {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
+            {% set any_util = (house.bills_util_gas in T) or (house.bills_util_electric in T) or
+                              (house.bills_util_water in T) or (house.bills_util_broadband in T) or
+                              (house.bills_util_tv in T) %}
 
-  <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5;">
-    <li><strong>Total bedrooms:</strong> {{ house.bedrooms_total }}</li>
+            <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5;">
+              <li><strong>Total bedrooms:</strong> {{ house.bedrooms_total }}</li>
 
-    {% if ns.ens > 0 %}
-      <li><strong>Ensuites:</strong> {{ ns.ens }}</li>
-    {% endif %}
+              {% if ns.ens > 0 %}
+                <li><strong>Ensuites:</strong> {{ ns.ens }}</li>
+              {% endif %}
 
-    {% if bills_mode == 'yes' %}
-      <li><strong>All bills included</strong></li>
-    {% elif bills_mode == 'some' and any_util %}
-      <li><strong>Some bills included</strong></li>
-    {% endif %}
+              {% if bills_mode == 'yes' %}
+                <li><strong>All bills included</strong></li>
+              {% elif bills_mode == 'some' and any_util %}
+                <li><strong>Some bills included</strong></li>
+              {% endif %}
 
-    {% if ns.avail|length > 0 %}
-      <li><strong>Bedrooms available:</strong> {{ ns.avail|length }}</li>
-      <li style="list-style:none; margin:4px 0 0; padding:0">
-        <ul style="margin:4px 0 0; padding-left:1.1rem;">
-          {% for a in ns.avail %}
-            <li>{{ a.name }}{% if a.price %} – £{{ a.price }} pcm{% endif %}</li>
-          {% endfor %}
-        </ul>
-      </li>
-    {% endif %}
-  </ul>
-</aside>
+              {% if ns.avail|length > 0 %}
+                <li><strong>Bedrooms available:</strong> {{ ns.avail|length }}</li>
+                <li style="list-style:none; margin:4px 0 0; padding:0">
+                  <ul style="margin:4px 0 0; padding-left:1.1rem;">
+                    {% for a in ns.avail %}
+                      <li>{{ a.name }}{% if a.price %} – £{{ a.price }} pcm{% endif %}</li>
+                    {% endfor %}
+                  </ul>
+                </li>
+              {% endif %}
+            </ul>
 
-         
+            {# Tiny inline debug (safe to remove later) #}
+            <div class="muted" style="margin-top:10px; font-size:0.85em; border-top:1px dashed var(--border); padding-top:8px;">
+              <div>debug: rooms passed = {{ rooms|length if rooms else 0 }}, ensuites = {{ ns.ens }}, avail = {{ ns.avail|length }}</div>
+            </div>
+          </aside>
         </div>
       {% else %}
         <div style="aspect-ratio:4/3; border:1px dashed var(--border); border-radius:12px; display:flex;align-items:center;justify-content:center; color:#b9a6ff; font-weight:700">
@@ -181,44 +183,42 @@
       {% endif %}
     </div>
 
-   {# --- BILLS INCLUDED (icons style) --- #}
-{% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
+    {# --- BILLS INCLUDED (icons style) --- #}
+    {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
 
-{# truthy helpers for each utility #}
-{% set gas   = house.bills_util_gas in ['1', 1, true, 'on'] %}
-{% set elec  = house.bills_util_electric in ['1', 1, true, 'on'] %}
-{% set water = house.bills_util_water in ['1', 1, true, 'on'] %}
-{% set bb    = house.bills_util_broadband in ['1', 1, true, 'on'] %}
-{% set tv    = house.bills_util_tv in ['1', 1, true, 'on'] %}
+    {% set gas   = house.bills_util_gas in ['1', 1, true, 'on'] %}
+    {% set elec  = house.bills_util_electric in ['1', 1, true, 'on'] %}
+    {% set water = house.bills_util_water in ['1', 1, true, 'on'] %}
+    {% set bb    = house.bills_util_broadband in ['1', 1, true, 'on'] %}
+    {% set tv    = house.bills_util_tv in ['1', 1, true, 'on'] %}
 
-{% set any_util = gas or elec or water or bb or tv %}
-{% set show_all  = (bills_mode == 'yes') %}
-{% set show_some = (bills_mode == 'some' and any_util) %}
+    {% set any_util = gas or elec or water or bb or tv %}
+    {% set show_all  = (bills_mode == 'yes') %}
+    {% set show_some = (bills_mode == 'some' and any_util) %}
 
-{% if show_all or show_some %}
-  <div class="card card--accent-lr" style="margin-bottom:12px">
-    <h2 style="margin:0 0 8px">Bills included</h2>
+    {% if show_all or show_some %}
+      <div class="card card--accent-lr" style="margin-bottom:12px">
+        <h2 style="margin:0 0 8px">Bills included</h2>
 
-    {# Use the same visual style as Facilities (icon + label chips) #}
-    {% set util_list = [
-      {'flag': gas,   'icon': '🔥', 'label': 'Gas'},
-      {'flag': elec,  'icon': '⚡', 'label': 'Electric'},
-      {'flag': water, 'icon': '💧', 'label': 'Water'},
-      {'flag': bb,    'icon': '🌐', 'label': 'Broadband'},
-      {'flag': tv,    'icon': '📺', 'label': 'TV licence/TV'}
-    ] %}
+        {% set util_list = [
+          {'flag': gas,   'icon': '🔥', 'label': 'Gas'},
+          {'flag': elec,  'icon': '⚡', 'label': 'Electric'},
+          {'flag': water, 'icon': '💧', 'label': 'Water'},
+          {'flag': bb,    'icon': '🌐', 'label': 'Broadband'},
+          {'flag': tv,    'icon': '📺', 'label': 'TV licence/TV'}
+        ] %}
 
-    <ul class="facilities-grid">
-      {% for u in util_list %}
-        {% if show_all or u.flag %}
-          <li class="facility">
-            <span class="ico" aria-hidden="true">{{ u.icon }}</span>{{ u.label }}
-          </li>
-        {% endif %}
-      {% endfor %}
-    </ul>
-  </div>
-{% endif %}
+        <ul class="facilities-grid">
+          {% for u in util_list %}
+            {% if show_all or u.flag %}
+              <li class="facility">
+                <span class="ico" aria-hidden="true">{{ u.icon }}</span>{{ u.label }}
+              </li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
 
     {# Description #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
@@ -254,7 +254,7 @@
               </div>
               <p class="muted" style="margin:6px 0 0">
                 {{ r.bed_size }}{% if r.room_size %} • {{ r.room_size }}{% endif %}
-                {% if r.price_pcm and r.price_pcm > 0 %}
+                {% if r.price_pcm and r.price_pcm|int > 0 %}
                   • £{{ r.price_pcm }} pcm
                 {% endif %}
               </p>
