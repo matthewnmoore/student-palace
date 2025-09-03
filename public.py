@@ -1,9 +1,12 @@
 # public.py
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, abort
 from datetime import datetime as dt
 
 # Import helpers from your models module
 from models import get_active_city_names
+
+# DB access
+from db import get_db
 
 # --- Blueprint ---
 public_bp = Blueprint("public", __name__)
@@ -50,3 +53,67 @@ def search():
     }
 
     return render_template("search.html", query=q, cities=cities)
+
+
+@public_bp.route("/p/<int:house_id>")
+def property_public(house_id: int):
+    """
+    Public property detail page.
+    Pulls the house, landlord (for verification badge), and primary/other images.
+    Renders templates/public/property.html (you’ll create this template next).
+    """
+    conn = get_db()
+
+    # House
+    house = conn.execute(
+        "SELECT * FROM houses WHERE id=?", (house_id,)
+    ).fetchone()
+    if not house:
+        conn.close()
+        abort(404)
+
+    # Landlord bits (for name, verification, profile link)
+    ll = conn.execute(
+        """
+        SELECT lp.display_name, lp.public_slug, lp.is_verified, l.email
+          FROM landlord_profiles lp
+          JOIN landlords l ON l.id = lp.landlord_id
+         WHERE lp.landlord_id = ?
+        """,
+        (house["landlord_id"],)
+    ).fetchone()
+
+    # Images (primary first, then order)
+    try:
+        images = conn.execute(
+            """
+            SELECT id,
+                   COALESCE(filename, file_name) AS filename,
+                   file_path,
+                   width, height, bytes,
+                   is_primary, sort_order, created_at
+              FROM house_images
+             WHERE house_id=?
+             ORDER BY is_primary DESC, sort_order ASC, id ASC
+            """,
+            (house_id,)
+        ).fetchall()
+    except Exception:
+        images = []
+
+    conn.close()
+
+    # Prepare a small view model for the template
+    landlord = {
+        "display_name": (ll["display_name"] if ll and "display_name" in ll.keys() else ""),
+        "public_slug": (ll["public_slug"] if ll and "public_slug" in ll.keys() else ""),
+        "is_verified": int(ll["is_verified"]) if (ll and "is_verified" in ll.keys()) else 0,
+        "email": (ll["email"] if ll and "email" in ll.keys() else ""),
+    }
+
+    return render_template(
+        "public/property.html",
+        house=house,
+        images=images,
+        landlord=landlord,
+    )
