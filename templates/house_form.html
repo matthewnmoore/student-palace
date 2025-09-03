@@ -301,6 +301,13 @@
           <a class="btn btn-outline" href="{{ url_for('public.property_public', house_id=house.id) }}" target="_blank" rel="noopener">
             View public page
           </a>
+          <!-- Right-aligned delete button -->
+          <form method="post"
+                action="/landlord/houses/{{ house.id }}/delete"
+                onsubmit="return confirm('Delete this house? This cannot be undone.');"
+                style="margin-left:auto">
+            <button class="btn btn-outline" type="submit">Delete house</button>
+          </form>
         {% endif %}
       </div>
     </div>
