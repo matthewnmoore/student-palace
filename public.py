@@ -205,6 +205,30 @@ def debug_house(house_id: int):
     })
 
 
+@public_bp.route("/debug/wipe_images")
+def debug_wipe_images():
+    """
+    TEMPORARY: Delete ALL house images and documents (DB rows only).
+    Visit this once to clear test media references; then remove this route.
+    """
+    conn = get_db()
+    try:
+        deleted_images = conn.execute("DELETE FROM house_images").rowcount
+    except Exception:
+        deleted_images = 0
+    try:
+        deleted_docs = conn.execute("DELETE FROM house_documents").rowcount
+    except Exception:
+        deleted_docs = 0
+    conn.commit()
+    conn.close()
+    return jsonify({
+        "status": "ok",
+        "deleted_images": deleted_images,
+        "deleted_docs": deleted_docs
+    })
+
+
 # ---------------------------------------------
 # HUMAN-FRIENDLY DB DUMP PAGE (read-only HTML)
 # ---------------------------------------------
