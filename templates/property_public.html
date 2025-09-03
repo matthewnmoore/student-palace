@@ -85,29 +85,35 @@
           <aside class="media-right">
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
 
-            {# --- compute ensuites + availability --- #}
+            {# --- compute ensuites + availability (DB-aligned) --- #}
             {% set ns = namespace(ens=0, avail=[]) %}
             {% if rooms and rooms|length %}
               {% for r in rooms %}
-                {% if r.ensuite or r.has_ensuite or r.private_bathroom %}
+                {# rooms.ensuite is 0/1 in DB #}
+                {% if r.ensuite %}
                   {% set ns.ens = ns.ens + 1 %}
                 {% endif %}
-                {% if not r.is_let %}
+                {# rooms.is_let is 0/1; available when 0 #}
+                {% if r.is_let == 0 %}
                   {% set _price = (r.price_pcm if r.price_pcm and r.price_pcm > 0 else None) %}
                   {% set ns.avail = ns.avail + [ {'name': r.name, 'price': _price } ] %}
                 {% endif %}
               {% endfor %}
             {% endif %}
 
-            {# --- compute bills flags robustly (accept '1', 1, True, 'on') --- #}
-            {% set u = {
-              'gas': house.bills_util_gas in ['1', 1, true, 'on'],
-              'elec': house.bills_util_electric in ['1', 1, true, 'on'],
-              'water': house.bills_util_water in ['1', 1, true, 'on'],
-              'bb': house.bills_util_broadband in ['1', 1, true, 'on'],
-              'tv': house.bills_util_tv in ['1', 1, true, 'on']
-            } %}
-            {% set any_util = u.gas or u.elec or u.water or u.bb or u.tv %}
+            {# --- bills: prefer text bills_option, else map integer bills_included --- #}
+            {% set bills_val = house.bills_option
+                               if house.bills_option
+                               else ('yes' if house.bills_included == 1
+                                     else 'some' if house.bills_included == 2
+                                     else 'no') %}
+
+            {# --- any selected utilities? (accept 0/1/true/'on') --- #}
+            {% set any_util = (house.bills_util_gas in ['1',1,true,'on']) or
+                              (house.bills_util_electric in ['1',1,true,'on']) or
+                              (house.bills_util_water in ['1',1,true,'on']) or
+                              (house.bills_util_broadband in ['1',1,true,'on']) or
+                              (house.bills_util_tv in ['1',1,true,'on']) %}
 
             <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5;">
               <li><strong>Total bedrooms:</strong> {{ house.bedrooms_total }}</li>
@@ -116,9 +122,9 @@
                 <li><strong>Ensuites:</strong> {{ ns.ens }}</li>
               {% endif %}
 
-              {% if house.bills_included == 'yes' %}
+              {% if bills_val == 'yes' %}
                 <li><strong>All bills included</strong></li>
-              {% elif house.bills_included == 'some' and any_util %}
+              {% elif bills_val == 'some' and any_util %}
                 <li><strong>Some bills included</strong></li>
               {% endif %}
 
