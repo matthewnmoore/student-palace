@@ -59,6 +59,10 @@ def table_has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
         return False
 
 def _safe_add_column(conn: sqlite3.Connection, table: str, ddl: str) -> None:
+    """
+    Add a column if it doesn't already exist. Example:
+    _safe_add_column(conn, "houses", "ADD COLUMN epc_rating TEXT NOT NULL DEFAULT ''")
+    """
     try:
         after = ddl.strip().split("ADD COLUMN", 1)[1].strip()
         col_name = after.split()[0]
@@ -229,7 +233,7 @@ def ensure_db():
         """)
         conn.commit()
 
-    # --- NEW: Bills model (dropdown + detailed utilities) ---
+    # --- Bills model (dropdown + detailed utilities) ---
     _safe_add_column(conn, "houses", "ADD COLUMN bills_option TEXT NOT NULL DEFAULT 'no'")
     _safe_add_column(conn, "houses", "ADD COLUMN bills_util_gas INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN bills_util_electric INTEGER NOT NULL DEFAULT 0")
@@ -237,7 +241,7 @@ def ensure_db():
     _safe_add_column(conn, "houses", "ADD COLUMN bills_util_broadband INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN bills_util_tv INTEGER NOT NULL DEFAULT 0")
 
-    # --- NEW: Amenities added previously ---
+    # --- Amenities (house) ---
     _safe_add_column(conn, "houses", "ADD COLUMN washing_machine INTEGER NOT NULL DEFAULT 1")
     _safe_add_column(conn, "houses", "ADD COLUMN tumble_dryer INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN dishwasher INTEGER NOT NULL DEFAULT 0")
@@ -253,35 +257,35 @@ def ensure_db():
     _safe_add_column(conn, "houses", "ADD COLUMN games_room INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN cinema_room INTEGER NOT NULL DEFAULT 0")
 
-    # --- NEW: EPC rating text (optional) ---
+    # --- EPC rating text (optional) ---
     _safe_add_column(conn, "houses", "ADD COLUMN epc_rating TEXT NOT NULL DEFAULT ''")
 
-    # --- NEW: Rooms fields (2025-09-01) ---
+    # --- Rooms fields (2025-09-01) ---
     _safe_add_column(conn, "rooms", "ADD COLUMN price_pcm INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "rooms", "ADD COLUMN safe INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "rooms", "ADD COLUMN dressing_table INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "rooms", "ADD COLUMN mirror INTEGER NOT NULL DEFAULT 0")
 
-    # --- NEW: Room non-searchable features (2025-09-01) ---
+    # --- Room non-searchable features (2025-09-01) ---
     _safe_add_column(conn, "rooms", "ADD COLUMN bedside_table INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "rooms", "ADD COLUMN blinds INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "rooms", "ADD COLUMN curtains INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "rooms", "ADD COLUMN sofa INTEGER NOT NULL DEFAULT 0")
 
-    # --- NEW: Searchable room flags (couples/disabled) ---
+    # --- Searchable room flags (couples/disabled) ---
     _safe_add_column(conn, "rooms", "ADD COLUMN couples_ok INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "rooms", "ADD COLUMN disabled_ok INTEGER NOT NULL DEFAULT 0")
 
-    # --- NEW: Room availability (2025-09-02) ---
+    # --- Room availability (2025-09-02) ---
     _safe_add_column(conn, "rooms", "ADD COLUMN is_let INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "rooms", "ADD COLUMN available_from TEXT NOT NULL DEFAULT ''")
     _safe_add_column(conn, "rooms", "ADD COLUMN let_until TEXT NOT NULL DEFAULT ''")
 
-    # --- NEW: Descriptions (2025-09-02) ---
+    # --- Descriptions (2025-09-02) ---
     _safe_add_column(conn, "rooms", "ADD COLUMN description TEXT NOT NULL DEFAULT ''")
     _safe_add_column(conn, "houses", "ADD COLUMN description TEXT NOT NULL DEFAULT ''")
 
-    # --- NEW: Landlord profile media (logo & photo) ---
+    # --- Landlord profile media (logo & photo) ---
     _safe_add_column(conn, "landlord_profiles", "ADD COLUMN logo_path TEXT")
     _safe_add_column(conn, "landlord_profiles", "ADD COLUMN photo_path TEXT")
 
@@ -311,6 +315,20 @@ def ensure_db():
             conn.commit()
         except Exception as e:
             print("[MIGRATE] backfill filenames:", e)
+
+    # -------------------------------------------------------------------------
+    # NEW SUMMARY / CONTROL FIELDS (your request)
+    # -------------------------------------------------------------------------
+    # Houses: summary counts + availability info
+    _safe_add_column(conn, "houses", "ADD COLUMN ensuites_total INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN available_rooms_total INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN available_rooms_prices TEXT NOT NULL DEFAULT ''")
+    _safe_add_column(conn, "houses", "ADD COLUMN double_beds_total INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN suitable_for_couples_total INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN post_code_prefix TEXT NOT NULL DEFAULT ''")
+
+    # Landlord profiles: admin toggle for new signups
+    _safe_add_column(conn, "landlord_profiles", "ADD COLUMN enable_new_landlord INTEGER NOT NULL DEFAULT 1")
 
     conn.close()
 
