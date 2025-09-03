@@ -82,6 +82,20 @@
             </div>
           </div>
 
+#########debug
+
+<div class="card" style="margin-bottom:12px; background:#fff8e1; padding:10px; font-size:0.85em">
+  <h3>Debug info</h3>
+  <pre style="white-space:pre-wrap">{{ house | tojson(indent=2) }}</pre>
+  {% if rooms and rooms|length %}
+    <h4>First room object</h4>
+    <pre style="white-space:pre-wrap">{{ rooms[0] | tojson(indent=2) }}</pre>
+  {% endif %}
+</div>
+
+#########debug
+
+          
           <aside class="media-right">
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
 
