@@ -60,7 +60,7 @@ def property_public(house_id: int):
     """
     Public property detail page.
     Pulls the house, landlord (for verification badge), and primary/other images.
-    Renders templates/public/property.html (you’ll create this template next).
+    Renders templates/property_public.html.
     """
     conn = get_db()
 
@@ -101,6 +101,24 @@ def property_public(house_id: int):
     except Exception:
         images = []
 
+    # Rooms (for highlights, ensuite counts, availability, etc.)
+    try:
+        rooms = conn.execute(
+            """
+            SELECT id, name, is_let, price_pcm, bed_size, room_size,
+                   COALESCE(ensuite,0) AS ensuite,
+                   COALESCE(has_ensuite,0) AS has_ensuite,
+                   COALESCE(private_bathroom,0) AS private_bathroom,
+                   description
+              FROM rooms
+             WHERE house_id=?
+             ORDER BY id
+            """,
+            (house_id,)
+        ).fetchall()
+    except Exception:
+        rooms = []
+
     conn.close()
 
     # Prepare a small view model for the template
@@ -112,8 +130,9 @@ def property_public(house_id: int):
     }
 
     return render_template(
-        "property_public.html",  # <- changed from "public/property.html"
+        "property_public.html",
         house=house,
         images=images,
+        rooms=rooms,
         landlord=landlord,
     )
