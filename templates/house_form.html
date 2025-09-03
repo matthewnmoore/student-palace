@@ -297,19 +297,13 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn" type="submit">{{ 'Create house' if mode=='new' else 'Save changes' }}</button>
         <a class="btn btn-outline" href="{{ url_for('landlord.landlord_houses') }}">Cancel</a>
+        {% if mode=='edit' and house and house.id %}
+          <a class="btn btn-outline" href="{{ url_for('public.property_public', house_id=house.id) }}" target="_blank" rel="noopener">
+            View public page
+          </a>
+        {% endif %}
       </div>
     </div>
-
-    <!-- PUBLIC PAGE BUTTON (added at bottom) -->
-    {% if mode=='edit' and house and house.id %}
-    <div class="card card--accent-edges">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-start;">
-        <a class="btn btn-outline" href="{{ url_for('public.property_public', house_id=house.id) }}" target="_blank" rel="noopener">
-          View public page
-        </a>
-      </div>
-    </div>
-    {% endif %}
 
   </form>
 </section>
