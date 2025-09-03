@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Admin · Website info{% endblock %}
+{% block content %}
+<section class="wrap">
+
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Admin · Website info</h1>
+    <div class="inline-actions">
+      <form method="post" action="{{ url_for('admin.admin_info_recompute', page=page, limit=limit, q=q) }}"
+            onsubmit="return confirm('Recompute availability summaries for all houses now?');"
+            style="display:inline">
+        <button class="btn" type="submit">Recompute availability</button>
+      </form>
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Log out</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card" style="margin-bottom:14px">
+    <h3 class="mt-0">At a glance</h3>
+    <div class="grid grid-4" style="gap:12px">
+      <div class="stat-card">
+        <div class="stat-label">Landlords</div>
+        <div class="stat-value">{{ glance.landlords_total }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Houses</div>
+        <div class="stat-value">{{ glance.houses_total }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Rooms (total)</div>
+        <div class="stat-value">{{ glance.rooms_total }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Rooms available</div>
+        <div class="stat-value">{{ glance.rooms_available }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <form method="get" class="flex-between" style="gap:10px; align-items:center; flex-wrap:wrap">
+      <div class="field" style="flex:1 1 260px; margin:0">
+        <input type="text" name="q" value="{{ q or '' }}" placeholder="Search title / city / house ID"
+               style="width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:#fff">
+      </div>
+      <div class="field" style="margin:0">
+        <select name="limit" style="padding:10px 12px; border:1px solid var(--border); border-radius:10px">
+          {% for opt in [25,50,100,200] %}
+            <option value="{{ opt }}" {% if limit == opt %}selected{% endif %}>{{ opt }} / page</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn" type="submit">Apply</button>
+      {% if q %}
+        <a class="btn btn-outline" href="{{ url_for('admin.admin_info') }}">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="card">
+    {% if items and items|length %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:80px">ID</th>
+            <th>Title</th>
+            <th style="width:140px">City</th>
+            <th style="width:90px">Letting</th>
+            <th style="width:110px">Bedrooms</th>
+            <th style="width:110px">Rooms</th>
+            <th style="width:140px">Available</th>
+            <th style="width:200px">Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in items %}
+            <tr>
+              <td>{{ h.id }}</td>
+              <td>{{ h.title }}</td>
+              <td>{{ h.city }}</td>
+              <td>{{ 'Whole' if h.letting_type=='whole' else 'Share' }}</td>
+              <td>{{ h.bedrooms_total }}</td>
+              <td>{{ h.rooms_total }}</td>
+              <td>
+                {% set avail = h.rooms_available %}
+                {% if avail > 0 %}
+                  <span class="badge">{{ avail }} open</span>
+                {% else %}
+                  <span class="badge" style="background:#fff6f6; color:#7f1d1d; border:1px solid #f7caca;">Fully let</span>
+                {% endif %}
+              </td>
+              <td class="small">{{ h.created_at }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="flex-between" style="margin-top:10px">
+        <div class="muted small">
+          Showing page {{ page }} of {{ pages }} (limit {{ limit }}). Total houses: {{ total }}.
+        </div>
+        <div class="inline-actions">
+          {% if page > 1 %}
+            <a class="btn btn-outline"
+               href="{{ url_for('admin.admin_info', page=page-1, limit=limit, q=q) }}">&larr; Prev</a>
+          {% endif %}
+          {% if page < pages %}
+            <a class="btn btn-outline"
+               href="{{ url_for('admin.admin_info', page=page+1, limit=limit, q=q) }}">Next &rarr;</a>
+          {% endif %}
+        </div>
+      </div>
+    {% else %}
+      <p class="muted">No houses match this view.</p>
+    {% endif %}
+  </div>
+
+</section>
+
+<style>
+.stat-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+}
+.stat-label { font-size:12px; color:var(--muted); margin-bottom:6px; }
+.stat-value { font-size:28px; font-weight:700; line-height:1.2; }
+</style>
+{% endblock %}
