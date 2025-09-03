@@ -84,14 +84,47 @@
 
 #########debug
 
+#########debug
+
 <div class="card" style="margin-bottom:12px; background:#fff8e1; padding:10px; font-size:0.85em">
-  <h3>Debug info</h3>
-  <pre style="white-space:pre-wrap">{{ house | tojson(indent=2) }}</pre>
-  {% if rooms and rooms|length %}
-    <h4>First room object</h4>
-    <pre style="white-space:pre-wrap">{{ rooms[0] | tojson(indent=2) }}</pre>
-  {% endif %}
+  <h3 style="margin:0 0 6px">Debug info (safe)</h3>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div>
+      <h4 style="margin:6px 0">House fields</h4>
+      <ul style="margin:0; padding-left:16px; line-height:1.4">
+        <li>bedrooms_total: {{ house.bedrooms_total|default('—', true) }}</li>
+        <li>bills_included (or option): {{ (house.bills_included or house.bills_option)|default('—', true) }}</li>
+        <li>bills_util_gas: {{ house.bills_util_gas|default('—', true) }}</li>
+        <li>bills_util_electric: {{ house.bills_util_electric|default('—', true) }}</li>
+        <li>bills_util_water: {{ house.bills_util_water|default('—', true) }}</li>
+        <li>bills_util_broadband: {{ house.bills_util_broadband|default('—', true) }}</li>
+        <li>bills_util_tv: {{ house.bills_util_tv|default('—', true) }}</li>
+      </ul>
+    </div>
+
+    <div>
+      <h4 style="margin:6px 0">Rooms (first up to 3)</h4>
+      {% if rooms and rooms|length %}
+        <ol style="margin:0; padding-left:16px; line-height:1.4">
+          {% for r in rooms[:3] %}
+            <li>
+              name: {{ r.name|default('—', true) }},
+              is_let: {{ r.is_let|default('—', true) }},
+              price_pcm: {{ r.price_pcm|default('—', true) }},
+              ensuite/has_ensuite/private_bathroom:
+              {{ (r.ensuite or r.has_ensuite or r.private_bathroom)|default('—', true) }}
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p style="margin:0">No rooms.</p>
+      {% endif %}
+    </div>
+  </div>
 </div>
+
+#########debug
 
 #########debug
 
