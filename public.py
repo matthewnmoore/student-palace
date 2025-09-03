@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from flask import Blueprint, render_template, request, abort, jsonify
 from datetime import datetime as dt
+import html
 
 # Import helpers from your models module
 from models import get_active_city_names
@@ -103,14 +104,12 @@ def property_public(house_id: int):
     except Exception:
         images = []
 
-    # Rooms (for highlights: ensuites + availability + prices)
+    # Rooms (only columns that exist in the DB schema)
     try:
         rooms = conn.execute(
             """
             SELECT id, name, is_let, price_pcm, bed_size, room_size,
                    COALESCE(ensuite,0) AS ensuite,
-                   COALESCE(has_ensuite,0) AS has_ensuite,
-                   COALESCE(private_bathroom,0) AS private_bathroom,
                    description
               FROM rooms
              WHERE house_id=?
@@ -189,8 +188,9 @@ def debug_house(house_id: int):
         (house_id,)
     ).fetchall()
 
+    # Only columns that are guaranteed to exist
     rooms = conn.execute(
-        "SELECT id, name, is_let, ensuite, has_ensuite, private_bathroom, price_pcm FROM rooms WHERE house_id=? ORDER BY id ASC",
+        "SELECT id, name, is_let, ensuite, price_pcm FROM rooms WHERE house_id=? ORDER BY id ASC",
         (house_id,)
     ).fetchall()
 
@@ -203,3 +203,78 @@ def debug_house(house_id: int):
         "images_sample": [dict(r) for r in images[:5]],
         "rooms_sample": [dict(r) for r in rooms[:5]],
     })
+
+
+# ---------------------------------------------
+# HUMAN-FRIENDLY DB DUMP PAGE (read-only HTML)
+# ---------------------------------------------
+@public_bp.route("/show_me_the_data.html")
+def show_me_the_data():
+    """
+    Debug page that lists all non-system tables in the DB with their fields and rows.
+    Renders a simple HTML page with one <table> per DB table.
+    """
+    conn = get_db()
+
+    # Get all non-system tables (skip sqlite_* internal tables)
+    tables = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    ).fetchall()
+
+    html_parts = ["<html><head><meta charset='utf-8'><title>DB Dump</title>"]
+    html_parts.append(
+        "<style>"
+        "body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:24px;}"
+        "h1{margin:0 0 10px;font-size:22px}"
+        "h2{margin-top:36px;font-size:18px}"
+        ".meta{color:#666;margin:0 0 20px}"
+        "table{border-collapse:collapse;margin:10px 0 24px;width:100%;font-size:14px}"
+        "th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}"
+        "th{background:#f7f7fb;font-weight:600}"
+        "tbody tr:nth-child(even){background:#fafafa}"
+        "code{background:#f3f3f6;padding:1px 4px;border-radius:4px}"
+        "</style></head><body>"
+    )
+    html_parts.append("<h1>Student Palace – Database Dump</h1>")
+    html_parts.append("<p class='meta'>Read-only view of all user tables.</p>")
+
+    for t in tables:
+        table_name = t["name"]
+
+        # Columns (ordered by cid)
+        pragma_rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        cols = [row["name"] if isinstance(row, dict) or hasattr(row, "keys") else row[1] for row in pragma_rows]
+        if not cols:
+            # Fallback to cursor description by selecting zero rows
+            cur = conn.execute(f"SELECT * FROM {table_name} LIMIT 0")
+            cols = [d[0] for d in (cur.description or [])]
+
+        # Rows
+        rows = conn.execute(f"SELECT * FROM {table_name}").fetchall()
+
+        html_parts.append(f"<h2>Table: <code>{html.escape(table_name)}</code> ({len(rows)} rows)</h2>")
+        # Show column list
+        col_list = ", ".join([f"<code>{html.escape(c)}</code>" for c in cols])
+        html_parts.append(f"<div class='meta'>Columns: {col_list}</div>")
+
+        # Build table
+        html_parts.append("<table><thead><tr>")
+        for col in cols:
+            html_parts.append(f"<th>{html.escape(col)}</th>")
+        html_parts.append("</tr></thead><tbody>")
+
+        for r in rows:
+            html_parts.append("<tr>")
+            # r is sqlite3.Row (dict-like)
+            for col in cols:
+                val = r[col] if col in r.keys() else ""
+                # stringify safely
+                sval = "" if val is None else str(val)
+                html_parts.append(f"<td>{html.escape(sval)}</td>")
+            html_parts.append("</tr>")
+
+        html_parts.append("</tbody></table>")
+
+    html_parts.append("</body></html>")
+    conn.close()
+    return "".join(html_parts)
