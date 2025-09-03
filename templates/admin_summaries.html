@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Admin · Summaries – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Admin · Summaries</h1>
+    <div class="inline-actions">
+      <a class="btn" href="{{ url_for('admin.admin_summaries_recompute') }}">Recompute all</a>
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Log out</a>
+    </div>
+  </div>
+
+  <!-- Totals overview -->
+  <div class="card" style="margin-bottom:16px">
+    <h3 class="mt-0">Totals</h3>
+    <div class="grid grid-4" style="gap:12px;">
+      <div class="stat-card">
+        <div class="stat-label">Houses</div>
+        <div class="stat-value">{{ totals.houses }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Bedrooms (total)</div>
+        <div class="stat-value">{{ totals.bedrooms }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Rooms created</div>
+        <div class="stat-value">{{ totals.rooms_created }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Rooms available</div>
+        <div class="stat-value">{{ totals.rooms_available }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Per-house breakdown -->
+  <div class="card">
+    <h3 class="mt-0">Per-house summaries</h3>
+    {% if houses and houses|length %}
+      <table class="table" style="margin-top:10px">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>City</th>
+            <th>Bedrooms</th>
+            <th>Rooms created</th>
+            <th>Rooms available</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in houses %}
+            <tr>
+              <td>{{ h.id }}</td>
+              <td>{{ h.title }}</td>
+              <td>{{ h.city }}</td>
+              <td>{{ h.bedrooms_total }}</td>
+              <td>{{ h.rooms_created }}</td>
+              <td>{{ h.rooms_available }}</td>
+              <td>
+                {% if h.rooms_available > 0 %}
+                  <span class="badge" style="background:#e5f9f5; color:#0f5132;">Advertised</span>
+                {% else %}
+                  <span class="badge" style="background:#fff6f6; color:#7f1d1d; border:1px solid #f7caca;">Fully let</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No houses found.</p>
+    {% endif %}
+  </div>
+</section>
+
+<style>
+.stat-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+}
+.stat-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+</style>
+{% endblock %}
