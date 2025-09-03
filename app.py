@@ -1,3 +1,4 @@
+# app.py
 from __future__ import annotations
 
 import datetime
@@ -5,12 +6,14 @@ from flask import Flask, jsonify, request, abort
 
 from config import SECRET_KEY
 from db import ensure_db, DB_PATH
-from public import public_bp                     # existing public blueprint (from public.py)
+from public import public_bp                     # public blueprint (has /p/<id>)
 from auth import auth_bp
 from admin import bp as admin_bp                 # shared admin blueprint
 from landlord import bp as landlord_bp           # landlord blueprint
 from errors import register_error_handlers
-from public_property import property_public_bp   # NEW: public property blueprint (top-level module)
+
+# NOTE: We intentionally DO NOT import or register any duplicate public_property blueprint.
+# from public_property import property_public_bp   # <-- removed on purpose
 
 
 def create_app() -> Flask:
@@ -28,12 +31,12 @@ def create_app() -> Flask:
         import datetime as _dt
         return {"BUILD_VERSION": build_version, "now": _dt.datetime.utcnow}
 
-    # Register blueprints
+    # Register blueprints (only one public blueprint provides /p/<id>)
     app.register_blueprint(public_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(landlord_bp)
-    app.register_blueprint(property_public_bp)   # register the public property routes (/p/<id>)
+    # app.register_blueprint(property_public_bp)  # <-- removed so /p/<id> isn't shadowed
 
     # Register error handlers
     register_error_handlers(app)
