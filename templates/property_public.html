@@ -84,8 +84,47 @@
 
           <aside class="media-right">
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
-            <ul class="highlights">
-              {# Intentionally left empty for now – add list items later #}
+
+            {# --- compute ensuites + availability --- #}
+            {% set ns = namespace(ens=0, avail=[]) %}
+            {% if rooms and rooms|length %}
+              {% for r in rooms %}
+                {% if r.ensuite or r.has_ensuite or r.private_bathroom %}
+                  {% set ns.ens = ns.ens + 1 %}
+                {% endif %}
+                {% if not r.is_let %}
+                  {% set _price = (r.price_pcm if r.price_pcm and r.price_pcm > 0 else None) %}
+                  {% set ns.avail = ns.avail + [ {'name': r.name, 'price': _price } ] %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+
+            <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5;">
+              <li><strong>Total bedrooms:</strong> {{ house.bedrooms_total }}</li>
+
+              {% if ns.ens > 0 %}
+                <li><strong>Ensuites:</strong> {{ ns.ens }}</li>
+              {% endif %}
+
+              {% if house.bills_included == 'yes' %}
+                <li><strong>All bills included</strong></li>
+              {% elif house.bills_included == 'some' %}
+                {% set any_util = (house.bills_util_gas or house.bills_util_electric or house.bills_util_water or house.bills_util_broadband or house.bills_util_tv) %}
+                {% if any_util %}
+                  <li><strong>Some bills included</strong></li>
+                {% endif %}
+              {% endif %}
+
+              {% if ns.avail|length > 0 %}
+                <li><strong>Bedrooms available:</strong> {{ ns.avail|length }}</li>
+                <li style="list-style:none; margin:4px 0 0; padding:0">
+                  <ul style="margin:4px 0 0; padding-left:1.1rem;">
+                    {% for a in ns.avail %}
+                      <li>{{ a.name }}{% if a.price %} – £{{ a.price }} pcm{% endif %}</li>
+                    {% endfor %}
+                  </ul>
+                </li>
+              {% endif %}
             </ul>
           </aside>
         </div>
@@ -219,8 +258,6 @@
       const full = el.getAttribute('data-full') || el.textContent || '';
       const parts = full.split(',').map(s => s.trim()).filter(Boolean);
 
-      // Heuristic: line1 may contain "<flat/house/number> <house name?> <street>"
-      // We try to keep only the street portion by detecting common street types.
       const streetTypes = [
         ' Road',' Street',' Avenue',' Lane',' Close',' Drive',' Terrace',' Way',' Place',' Crescent',
         ' Court',' Hill',' Gardens',' Park',' Grove',' View',' Parade',' Square',' Row',' Mews'
@@ -231,30 +268,21 @@
         let hitIdx = -1;
         for (const t of streetTypes) {
           const i = line1.toLowerCase().lastIndexOf(t.toLowerCase());
-          if (i !== -1) {
-            // take from start of the found street type word
-            hitIdx = i;
-            break;
-          }
+          if (i !== -1) { hitIdx = i; break; }
         }
         if (hitIdx !== -1) {
-          // Find start of the street token (go to previous space before the matched word)
-          // but since we matched the street type itself, include a few chars before to capture full name
-          // e.g., "Glan Y Mor Bryn Road" -> from "Bryn Road"
           const before = line1.slice(0, hitIdx).trim();
           const lastSpace = before.lastIndexOf(' ');
           const start = Math.max(0, lastSpace + 1);
           keep = line1.slice(start).trim();
         }
-        // Remove a leading flat/suite token if it slipped through
         keep = keep.replace(/^((flat|suite|apt|apartment)\b.*?\s)/i, '').trim();
-        // If nothing useful, fall back to original line1
         return keep || line1;
-      }
+        }
 
       if (parts.length) {
         const line1 = parts[0];
-        const rest = parts.slice(1); // area, city, postcode, etc.
+        const rest = parts.slice(1);
         const street = extractStreet(line1);
         const shortAddr = [street, ...rest].join(', ');
         el.textContent = shortAddr;
@@ -268,7 +296,6 @@
         btn.addEventListener('click', () => {
           const src = btn.getAttribute('data-full');
           if (src) hero.setAttribute('src', src);
-          // optional: simple focus ring
           document.querySelectorAll('.thumb').forEach(b => b.style.outline = '');
           btn.style.outline = '2px solid var(--brand)';
           btn.style.outlineOffset = '2px';
