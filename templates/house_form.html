@@ -373,12 +373,12 @@
     on(billsSelect, 'change', syncUtilitiesVisibility);
     syncUtilitiesVisibility();
 
-    // Address compose (safe)
+    // Address compose helpers
     const citySel  = $('city_select');
     const townInp  = $('town');
     const hidden   = $('address_hidden');
     const preview  = $('address_preview');
-    const partIds = ['flat_number','house_name','house_number','street_name','address_extra','postcode'];
+    const partIds  = ['flat_number','house_name','house_number','street_name','address_extra','postcode'];
     let partsDirty = false;
 
     const getVal = (id) => ( document.getElementById(id)?.value || '' ).trim();
@@ -414,14 +414,20 @@
       if (hidden) hidden.value = composed;
     }
 
+    // Keep Town in sync with City
     function syncTownFromCity() {
-      if (townInp && citySel) townInp.value = (citySel.value || '').trim();
+      if (townInp && citySel) {
+        townInp.value = (citySel.value || '').trim();
+      }
     }
+
+    // Wire city changes -> town + preview (always recompute)
     on(citySel, 'change', () => {
       syncTownFromCity();
-      if (partsDirty) composeFromParts();
+      composeFromParts();
     });
 
+    // Title-case & compose on address field blur
     function wireTitleCaseOnBlur(id, formatter = titleCaseWordish) {
       const el = $(id);
       if (!el) return;
@@ -438,24 +444,28 @@
     wireTitleCaseOnBlur('address_extra');
     wireTitleCaseOnBlur('postcode', normalizePostcode);
 
+    // Compose live as user types
     partIds.forEach(id => on($(id), 'input', () => {
       partsDirty = true;
       composeFromParts();
     }));
 
-    // Initial
-    syncTownFromCity();
-    if (hidden && hidden.value && hidden.value.trim()) {
-      if (preview) preview.textContent = hidden.value;
-    } else {
+    // Initial: if Town is empty but City has a value, copy it; then compose preview
+    (function initialSync(){
+      if (citySel && townInp) {
+        const initialCity = (citySel.value || '').trim();
+        if (!townInp.value && initialCity) {
+          townInp.value = initialCity;
+        }
+      }
       composeFromParts();
-    }
+    })();
 
-    // Before submit
+    // Before submit: make sure we’re fully in sync
     const form = document.getElementById('house-form');
     on(form, 'submit', function () {
-      if (partsDirty) composeFromParts();
       syncTownFromCity();
+      composeFromParts();
     });
   })();
 </script>
