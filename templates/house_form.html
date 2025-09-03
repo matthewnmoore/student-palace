@@ -241,7 +241,7 @@
 
         <!-- Parking / Outdoors -->
         <label class="field checkbox"><input type="checkbox" name="off_street_parking" {% if form and form.off_street_parking in ['1',1,'on',True] %}checked{% endif %}><span>Off-street parking</span></label>
-        <label class="field checkbox"><input type="checkbox" name="local_parking" {% if form and form.local_parking in ['1',1,'on',True] %}checked{% endif %}><span>Local parking</span></label>
+        <label class="field checkbox"><input type="checkbox" name="local_parking" {% if form and form.local_parking in ['1',1,'on,True] %}checked{% endif %}><span>Local parking</span></label>
         <label class="field checkbox"><input type="checkbox" name="garden" {% if form and form.garden in ['1',1,'on',True] %}checked{% endif %}><span>Garden</span></label>
         <label class="field checkbox"><input type="checkbox" name="roof_terrace" {% if form and form.roof_terrace in ['1',1,'on',True] %}checked{% endif %}><span>Roof terrace</span></label>
         <label class="field checkbox"><input type="checkbox" name="bike_storage" {% if form and form.bike_storage in ['1',1,'on',True] %}checked{% endif %}><span>Bike storage</span></label>
@@ -303,7 +303,7 @@
             View public page
           </a>
 
-          <!-- Right-aligned red delete button -->
+          <!-- Right-aligned red delete button (kept as-is; we'll fix behavior later if needed) -->
           <form method="post"
                 action="{{ url_for('landlord.house_delete', hid=house.id) }}"
                 onsubmit="return confirm('Delete this house and its rooms? This cannot be undone.');"
@@ -341,10 +341,10 @@
       on(descInput, 'input', () => setCounter(descInput, descCounter, 1200));
     }
 
-    // Title auto-capitalise on blur
+    // Title auto-capitalise on blur (fix: correct regex using \p{L})
     function titleCaseWordishJS(s){
       s = (s || '').toLowerCase();
-      return s.replace(/(^|[ \-’'])\\p{L}/gu, m => m.toUpperCase());
+      return s.replace(/(^|[ \-’'])\p{L}/gu, m => m.toUpperCase());
     }
     on(titleInput, 'blur', () => {
       const v = (titleInput.value || '').trim();
@@ -385,9 +385,10 @@
 
     const getVal = (id) => ( document.getElementById(id)?.value || '' ).trim();
 
+    // fix: correct regex using \p{L}
     function titleCaseWordish(s) {
       s = (s || '').toLowerCase();
-      return s.replace(/(^|[ \-’'])\\p{L}/gu, m => m.toUpperCase());
+      return s.replace(/(^|[ \-’'])\p{L}/gu, m => m.toUpperCase());
     }
     function normalizePostcode(pc) {
       pc = (pc || '').toUpperCase().trim();
@@ -421,7 +422,8 @@
     }
     on(citySel, 'change', () => {
       syncTownFromCity();
-      if (partsDirty) composeFromParts();
+      // fix: always recompute preview when city changes
+      composeFromParts();
     });
 
     function wireTitleCaseOnBlur(id, formatter = titleCaseWordish) {
