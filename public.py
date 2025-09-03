@@ -1,11 +1,11 @@
 # public.py
 from __future__ import annotations
 
-import os
-import html
-from pathlib import Path
 from flask import Blueprint, render_template, request, abort, jsonify
 from datetime import datetime as dt
+import html
+import os
+from pathlib import Path
 
 # Import helpers from your models module
 from models import get_active_city_names
@@ -240,24 +240,26 @@ def show_me_the_data():
     html_parts.append("<h1>Student Palace – Database Dump</h1>")
     html_parts.append("<p class='meta'>Read-only view of all user tables.</p>")
 
-    conn.row_factory = None  # ensure plain tuples for PRAGMA fallback if needed
     for t in tables:
-        table_name = t["name"] if isinstance(t, dict) or hasattr(t, "keys") else t[0]
+        table_name = t["name"]
 
         # Columns (ordered by cid)
-        pragma_rows = get_db().execute(f"PRAGMA table_info({table_name})").fetchall()
-        cols = [row["name"] if hasattr(row, "keys") else row[1] for row in pragma_rows]
+        pragma_rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        cols = [row["name"] if isinstance(row, dict) or hasattr(row, "keys") else row[1] for row in pragma_rows]
         if not cols:
-            cur = get_db().execute(f"SELECT * FROM {table_name} LIMIT 0")
+            # Fallback to cursor description by selecting zero rows
+            cur = conn.execute(f"SELECT * FROM {table_name} LIMIT 0")
             cols = [d[0] for d in (cur.description or [])]
 
         # Rows
-        rows = get_db().execute(f"SELECT * FROM {table_name}").fetchall()
+        rows = conn.execute(f"SELECT * FROM {table_name}").fetchall()
 
         html_parts.append(f"<h2>Table: <code>{html.escape(table_name)}</code> ({len(rows)} rows)</h2>")
+        # Show column list
         col_list = ", ".join([f"<code>{html.escape(c)}</code>" for c in cols])
         html_parts.append(f"<div class='meta'>Columns: {col_list}</div>")
 
+        # Build table
         html_parts.append("<table><thead><tr>")
         for col in cols:
             html_parts.append(f"<th>{html.escape(col)}</th>")
@@ -265,85 +267,100 @@ def show_me_the_data():
 
         for r in rows:
             html_parts.append("<tr>")
-            # r can be sqlite3.Row (dict-like)
-            try:
-                keys = r.keys()
-                for col in cols:
-                    val = r[col] if col in keys else ""
-                    sval = "" if val is None else str(val)
-                    html_parts.append(f"<td>{html.escape(sval)}</td>")
-            except Exception:
-                # tuple fallback
-                for val in r:
-                    sval = "" if val is None else str(val)
-                    html_parts.append(f"<td>{html.escape(sval)}</td>")
+            # r is sqlite3.Row (dict-like)
+            for col in cols:
+                val = r[col] if col in r.keys() else ""
+                # stringify safely
+                sval = "" if val is None else str(val)
+                html_parts.append(f"<td>{html.escape(sval)}</td>")
             html_parts.append("</tr>")
 
         html_parts.append("</tbody></table>")
 
     html_parts.append("</body></html>")
+    conn.close()
     return "".join(html_parts)
 
 
-# ----------------------------------------------------------
-# NUKE FILES: delete uploaded images/docs from the filesystem
-# ----------------------------------------------------------
-def _candidate_upload_roots() -> list[Path]:
-    """
-    Return likely roots that contain uploaded house assets.
-    """
-    here = Path(__file__).resolve()
-    roots = [
-        here.parent / "static" / "uploads" / "houses",
-        Path("/opt/render/project/src/static/uploads/houses"),  # Render default used elsewhere
-    ]
-    # Deduplicate & keep only existing dirs
-    uniq = []
-    seen = set()
-    for p in roots:
-        p = p.resolve()
-        if str(p) not in seen and p.exists() and p.is_dir():
-            uniq.append(p)
-            seen.add(str(p))
-    return uniq
+# -----------------------------------------------------
+# MEDIA SCAN / NUKE ORPHANS (houses + rooms directories)
+# -----------------------------------------------------
+def _static_root() -> Path:
+    # Derive absolute path to ./static (same as app's static folder)
+    here = Path(__file__).resolve().parent
+    # Project root is likely one level up from this file; static is at PROJECT/static
+    # But safest: walk up until we find 'static' sibling
+    for _ in range(5):
+        cand = here / "static"
+        if cand.exists() and cand.is_dir():
+            return cand
+        here = here.parent
+    # Fallback to Render default if present
+    return Path("/opt/render/project/src/static")
 
 
-@public_bp.route("/admin/debug/nuke_upload_files", methods=["POST", "GET"])
-def nuke_upload_files():
-    """
-    Remove uploaded *files on disk* under static/uploads/houses/** (including epc/ if present).
-    - POST is preferred.
-    - GET requires ?confirm=1 to run (otherwise returns a preview of what would be deleted).
-    """
-    if request.method == "GET" and request.args.get("confirm") != "1":
-        roots = [str(p) for p in _candidate_upload_roots()]
-        return jsonify({
-            "status": "dry-run",
-            "message": "Add ?confirm=1 to perform deletion, or POST to this endpoint.",
-            "paths_checked": roots
-        })
+def _collect_files_under(root: Path, subdir: str) -> set[str]:
+    folder = (root / subdir)
+    found: set[str] = set()
+    if not folder.exists():
+        return found
+    for p in folder.rglob("*"):
+        if p.is_file():
+            # store POSIX-style relative path from static root (what DB stores)
+            try:
+                rel = p.relative_to(root).as_posix()
+                found.add(rel)
+            except Exception:
+                # if not under static root, skip
+                pass
+    return found
 
-    deleted_files = 0
-    checked_paths = []
-    errors = []
 
-    for base in _candidate_upload_roots():
-        checked_paths.append(str(base))
-        try:
-            # Delete files under the root (non-recursive then recursive to catch nested like epc/)
-            for p in base.rglob("*"):
-                try:
-                    if p.is_file():
-                        p.unlink()
-                        deleted_files += 1
-                except Exception as e:
-                    errors.append(f"{p}: {e}")
-        except Exception as e:
-            errors.append(f"{base}: {e}")
+@public_bp.route("/debug/nuke_orphan_media")
+def nuke_orphan_media():
+    """
+    Scan static/uploads/{houses,rooms} and compare to house_images.file_path.
+    If ?delete=1 is provided, delete files on disk that aren't referenced
+    by any row (orphans). Returns a JSON summary.
+    """
+    delete_flag = request.args.get("delete") in ("1", "true", "yes")
+
+    conn = get_db()
+    db_paths = conn.execute("SELECT DISTINCT file_path FROM house_images").fetchall()
+    conn.close()
+
+    referenced = { (r["file_path"] or "").strip() for r in db_paths if (r["file_path"] or "").strip() }
+
+    static_root = _static_root()
+    # gather both locations
+    files_houses = _collect_files_under(static_root, "uploads/houses")
+    files_rooms  = _collect_files_under(static_root, "uploads/rooms")
+    all_files = files_houses.union(files_rooms)
+
+    # Orphans = on disk but not in DB
+    orphans = sorted(f for f in all_files if f not in referenced)
+
+    deleted = 0
+    errors: list[dict] = []
+
+    if delete_flag:
+        for rel in orphans:
+            try:
+                abs_path = static_root / rel
+                if abs_path.is_file():
+                    abs_path.unlink()
+                    deleted += 1
+            except Exception as e:
+                errors.append({"file": rel, "error": str(e)})
 
     return jsonify({
-        "status": "ok",
-        "deleted_files": deleted_files,
-        "paths_checked": checked_paths,
+        "static_root": str(static_root),
+        "scanned_dirs": ["uploads/houses", "uploads/rooms"],
+        "db_referenced_count": len(referenced),
+        "on_disk_count": len(all_files),
+        "orphans_count": len(orphans),
+        "deleted": deleted if delete_flag else 0,
         "errors": errors,
+        "sample_orphans": orphans[:20],
+        "hint": "Add ?delete=1 to actually delete orphans."
     })
