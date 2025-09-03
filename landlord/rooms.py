@@ -5,6 +5,10 @@ from utils import current_landlord_id, require_landlord, owned_house_or_none
 from .helpers import room_form_values, room_counts
 from . import bp
 
+# ✅ NEW: import the summaries utility
+from utils_summaries import recompute_house_summaries
+
+
 @bp.route("/landlord/houses/<int:hid>/rooms")
 def rooms_list(hid):
     r = require_landlord()
@@ -29,6 +33,7 @@ def rooms_list(hid):
         remaining=remaining,
         max_rooms=max_rooms
     )
+
 
 @bp.route("/landlord/houses/<int:hid>/rooms/new", methods=["GET","POST"])
 def room_new(hid):
@@ -76,6 +81,10 @@ def room_new(hid):
             dt.utcnow().isoformat()
         ))
         rid = cur.lastrowid
+
+        # ✅ NEW: recompute summaries
+        recompute_house_summaries(conn, hid)
+
         conn.commit()
         conn.close()
         flash("Room added.", "ok")
@@ -88,6 +97,7 @@ def room_new(hid):
 
     conn.close()
     return render_template("room_form.html", house=house, form={}, mode="new")
+
 
 @bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/edit", methods=["GET","POST"])
 def room_edit(hid, rid):
@@ -130,6 +140,10 @@ def room_edit(hid, rid):
             vals["is_let"], vals["available_from"], vals["let_until"],
             rid, hid
         ))
+
+        # ✅ NEW: recompute summaries
+        recompute_house_summaries(conn, hid)
+
         conn.commit()
         conn.close()
         flash("Room updated.", "ok")
@@ -144,6 +158,7 @@ def room_edit(hid, rid):
     conn.close()
     return render_template("room_form.html", house=house, form=form, mode="edit", room=room)
 
+
 @bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/delete", methods=["POST"])
 def room_delete(hid, rid):
     r = require_landlord()
@@ -155,6 +170,10 @@ def room_delete(hid, rid):
         conn.close()
         return redirect(url_for("landlord.landlord_houses"))
     conn.execute("DELETE FROM rooms WHERE id=? AND house_id=?", (rid, hid))
+
+    # ✅ NEW: recompute summaries
+    recompute_house_summaries(conn, hid)
+
     conn.commit()
     conn.close()
     flash("Room deleted.", "ok")
