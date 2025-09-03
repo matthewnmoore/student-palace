@@ -1,4 +1,6 @@
 # public.py
+from __future__ import annotations
+
 from flask import Blueprint, render_template, request, abort
 from datetime import datetime as dt
 
@@ -59,7 +61,7 @@ def search():
 def property_public(house_id: int):
     """
     Public property detail page.
-    Pulls the house, landlord (for verification badge), and primary/other images.
+    Pulls the house, landlord (for verification badge), images, and rooms.
     Renders templates/property_public.html.
     """
     conn = get_db()
@@ -101,7 +103,7 @@ def property_public(house_id: int):
     except Exception:
         images = []
 
-    # Rooms (for highlights, ensuite counts, availability, etc.)
+    # Rooms (for highlights: ensuites + availability + prices)
     try:
         rooms = conn.execute(
             """
@@ -121,7 +123,7 @@ def property_public(house_id: int):
 
     conn.close()
 
-    # Prepare a small view model for the template
+    # View model for the template
     landlord = {
         "display_name": (ll["display_name"] if ll and "display_name" in ll.keys() else ""),
         "public_slug": (ll["public_slug"] if ll and "public_slug" in ll.keys() else ""),
@@ -133,6 +135,6 @@ def property_public(house_id: int):
         "property_public.html",
         house=house,
         images=images,
-        rooms=rooms,
+        rooms=rooms,          # <-- IMPORTANT: pass rooms to template
         landlord=landlord,
     )
