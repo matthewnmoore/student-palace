@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}
+  {{ (house.title ~ " – " ~ house.city ~ " – Student Palace") if house else "Property – Student Palace" }}
+{% endblock %}
+
+{% block content %}
+<section class="wrap">
+  {% if not house %}
+    <h1>Property not found</h1>
+    <div class="card card--accent-lr"><p class="help">This listing doesn’t exist.</p></div>
+  {% else %}
+
+    {# Verified banner #}
+    {% set verified = landlord and (landlord.is_verified|default(0, true)) %}
+    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
+      {% if verified %}
+        <span aria-hidden="true" style="font-size:20px">✅</span>
+        <div style="font-weight:600">Verified landlord – Listings from this landlord display a verified badge.</div>
+      {% else %}
+        <span aria-hidden="true" style="font-size:20px">❌</span>
+        <div style="font-weight:600">Not verified – Get verified to boost renter trust.</div>
+      {% endif %}
+    </div>
+
+    {# Title + meta #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+        <div>
+          <h1 class="mt-0" style="margin:0">{{ house.title }}</h1>
+
+          {# SHORT ADDRESS (street + rest, no number/house name) #}
+          {% set full_addr = (house.address or '') ~ (', ' ~ house.city if house.city) %}
+          <p id="short-address" class="muted" style="margin:6px 0 0"
+             data-full="{{ full_addr|e }}">
+            {{ full_addr }}
+          </p>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          {% if epc_label %}
+            <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px; font-weight:600">{{ epc_label }}</span>
+          {% endif %}
+          {% if bills_label %}
+            <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px">{{ bills_label }}</span>
+          {% endif %}
+          {% if house.listing_type in ("owner","agent") %}
+            <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px">
+              {{ "Letting Agent" if house.listing_type=="agent" else "Owner / Landlord" }}
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# MEDIA: main image + 4 thumbs + highlights box #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      {% if images and images|length > 0 %}
+        <div class="media-grid">
+          <div class="media-left">
+            {# Main image = first image #}
+            {% set main = images[0] %}
+            {% set main_src = url_for('static', filename=main.file_path) %}
+            <div class="hero-img">
+              <img src="{{ main_src }}" alt="Main photo" loading="lazy">
+            </div>
+
+            {# Thumbnails: next up to 4 #}
+            <div class="thumb-row">
+              {% for img in images[1:5] %}
+                {% set tsrc = url_for('static', filename=img.file_path) %}
+                <button class="thumb" type="button" data-full="{{ tsrc }}">
+                  <img src="{{ tsrc }}" alt="Photo {{ loop.index + 1 }}" loading="lazy">
+                </button>
+              {% endfor %}
+              {% if images|length == 1 %}
+                {# Fillers to keep layout tidy when only 1 image #}
+                <div class="thumb placeholder"></div>
+                <div class="thumb placeholder"></div>
+                <div class="thumb placeholder"></div>
+                <div class="thumb placeholder"></div>
+              {% endif %}
+            </div>
+          </div>
+
+          <aside class="media-right">
+            <h3 class="mt-0" style="margin-top:0">Highlights</h3>
+            <ul class="highlights">
+              {# Intentionally left empty for now – add list items later #}
+            </ul>
+          </aside>
+        </div>
+      {% else %}
+        <div style="aspect-ratio:4/3; border:1px dashed var(--border); border-radius:12px; display:flex;align-items:center;justify-content:center; color:#b9a6ff; font-weight:700">
+          NO PHOTOS YET
+        </div>
+      {% endif %}
+    </div>
+
+    {# Description #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      <h2 style="margin:0 0 8px">About this property</h2>
+      <p style="white-space:pre-wrap">{{ house.description or "No description provided yet." }}</p>
+    </div>
+
+    {# Quick facts #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      <h2 style="margin:0 0 8px">Key details</h2>
+      <div class="grid grid-2">
+        <p><strong>Bedrooms:</strong> {{ house.bedrooms_total }}</p>
+        <p><strong>Letting type:</strong> {{ "Whole property" if house.letting_type=="whole" else "Room only" }}</p>
+        <p><strong>Gender preference:</strong> {{ house.gender_preference }}</p>
+        <p><strong>Shared bathrooms:</strong> {{ house.shared_bathrooms }}</p>
+      </div>
+    </div>
+
+    {# Rooms #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      <h2 style="margin:0 0 8px">Rooms</h2>
+      {% if rooms and rooms|length %}
+        <div class="grid" style="gap:10px; grid-template-columns:1fr 1fr">
+          {% for r in rooms %}
+            <div class="card" style="border:1px solid var(--border)">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <h3 class="mt-0" style="margin:0">{{ r.name }}</h3>
+                {% if r.is_let %}
+                  <span class="badge" style="border:1px solid var(--border); padding:3px 8px; border-radius:999px">Let</span>
+                {% else %}
+                  <span class="badge" style="border:1px solid var(--border); padding:3px 8px; border-radius:999px">Available</span>
+                {% endif %}
+              </div>
+              <p class="muted" style="margin:6px 0 0">
+                {{ r.bed_size }}{% if r.room_size %} • {{ r.room_size }}{% endif %}
+                {% if r.price_pcm and r.price_pcm > 0 %}
+                  • £{{ r.price_pcm }} pcm
+                {% endif %}
+              </p>
+              {% if r.description %}
+                <p style="margin:8px 0 0; white-space:pre-wrap">{{ r.description }}</p>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted" style="margin:0">No individual rooms listed yet.</p>
+      {% endif %}
+    </div>
+
+    {# Landlord card #}
+    <div class="card card--accent-lr">
+      <h2 style="margin:0 0 8px">Listed by</h2>
+      <p style="margin:0">
+        <strong>
+          {% if landlord and landlord.public_slug %}
+            <a href="/l/{{ landlord.public_slug }}">{{ landlord.display_name or "Landlord" }}</a>
+          {% else %}
+            {{ landlord.display_name or "Landlord" }}
+          {% endif %}
+        </strong>
+        {% if verified %} <span aria-hidden="true" title="Verified">✅</span>{% endif %}
+      </p>
+      <p class="muted" style="margin:6px 0 0">
+        {% if landlord and landlord.email %}<strong>Email:</strong> {{ landlord.email }}{% endif %}
+      </p>
+    </div>
+
+  {% endif %}
+</section>
+
+{# --- Minimal CSS for the new media layout --- #}
+<style>
+  .media-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 860px) {
+    .media-grid { grid-template-columns: 1fr; }
+  }
+  .media-left { display: grid; gap: 10px; grid-template-rows: auto auto; }
+  .hero-img {
+    aspect-ratio: 4/3;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f6f3ff;
+  }
+  .hero-img > img { width: 100%; height: 100%; object-fit: cover; display:block; }
+  .thumb-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .thumb {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    aspect-ratio: 4/3;
+    overflow: hidden;
+    padding: 0;
+    background: #fff;
+    cursor: pointer;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display:block; }
+  .thumb.placeholder { background: repeating-linear-gradient(45deg,#faf7ff,#faf7ff 6px,#f0e8ff 6px,#f0e8ff 12px); }
+  .media-right {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    background: #fff;
+  }
+  .highlights { margin: 8px 0 0; padding-left: 18px; }
+</style>
+
+{# --- JS: short address + click thumbs to swap hero --- #}
+<script>
+  (function () {
+    // 1) SHORT ADDRESS: remove house/flat number & house name, keep street + rest
+    const el = document.getElementById('short-address');
+    if (el) {
+      const full = el.getAttribute('data-full') || el.textContent || '';
+      const parts = full.split(',').map(s => s.trim()).filter(Boolean);
+
+      // Heuristic: line1 may contain "<flat/house/number> <house name?> <street>"
+      // We try to keep only the street portion by detecting common street types.
+      const streetTypes = [
+        ' Road',' Street',' Avenue',' Lane',' Close',' Drive',' Terrace',' Way',' Place',' Crescent',
+        ' Court',' Hill',' Gardens',' Park',' Grove',' View',' Parade',' Square',' Row',' Mews'
+      ];
+
+      function extractStreet(line1) {
+        let keep = line1;
+        let hitIdx = -1;
+        for (const t of streetTypes) {
+          const i = line1.toLowerCase().lastIndexOf(t.toLowerCase());
+          if (i !== -1) {
+            // take from start of the found street type word
+            hitIdx = i;
+            break;
+          }
+        }
+        if (hitIdx !== -1) {
+          // Find start of the street token (go to previous space before the matched word)
+          // but since we matched the street type itself, include a few chars before to capture full name
+          // e.g., "Glan Y Mor Bryn Road" -> from "Bryn Road"
+          const before = line1.slice(0, hitIdx).trim();
+          const lastSpace = before.lastIndexOf(' ');
+          const start = Math.max(0, lastSpace + 1);
+          keep = line1.slice(start).trim();
+        }
+        // Remove a leading flat/suite token if it slipped through
+        keep = keep.replace(/^((flat|suite|apt|apartment)\b.*?\s)/i, '').trim();
+        // If nothing useful, fall back to original line1
+        return keep || line1;
+      }
+
+      if (parts.length) {
+        const line1 = parts[0];
+        const rest = parts.slice(1); // area, city, postcode, etc.
+        const street = extractStreet(line1);
+        const shortAddr = [street, ...rest].join(', ');
+        el.textContent = shortAddr;
+      }
+    }
+
+    // 2) THUMB CLICK -> swap hero image
+    const hero = document.querySelector('.hero-img img');
+    if (hero) {
+      document.querySelectorAll('.thumb[data-full]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const src = btn.getAttribute('data-full');
+          if (src) hero.setAttribute('src', src);
+          // optional: simple focus ring
+          document.querySelectorAll('.thumb').forEach(b => b.style.outline = '');
+          btn.style.outline = '2px solid var(--brand)';
+          btn.style.outlineOffset = '2px';
+        });
+      });
+    }
+  })();
+</script>
+{% endblock %}
