@@ -144,84 +144,76 @@
     </div>
 
     {# --- AMENITIES / FACILITIES --- #}
-<div class="card card--accent-lr" style="margin-bottom:12px">
-  <h2 style="margin:0 0 10px">Facilities</h2>
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      <h2 style="margin:0 0 10px">Facilities</h2>
 
-  {# helper for truthy ints/strings #}
-  {% set t = lambda v: v in ['1', 1, true, 'on'] %}
+      {# truthy helper #}
+      {% set t = lambda v: v in ['1', 1, true, 'on'] %}
 
-  {% set items = [] %}
-  {% if t(house.cctv) %}{% set items = items + [{'icon':'🛡️','label':'CCTV'}] %}{% endif %}
-  {% if t(house.off_street_parking) %}{% set items = items + [{'icon':'🅿️','label':'Off-street Parking'}] %}{% endif %}
-  {% if t(house.local_parking) %}{% set items = items + [{'icon':'🚗','label':'Local Parking'}] %}{% endif %}
-  {% if t(house.bike_storage) %}{% set items = items + [{'icon':'🚲','label':'Bike Storage'}] %}{% endif %}
-  {% if t(house.washing_machine) %}{% set items = items + [{'icon':'🧺','label':'Washing Machine'}] %}{% endif %}
-  {% if t(house.tumble_dryer) %}{% set items = items + [{'icon':'🌀','label':'Tumble Dryer'}] %}{% endif %}
-  {% if t(house.dishwasher) %}{% set items = items + [{'icon':'🍽️','label':'Dishwasher'}] %}{% endif %}
-  {% if t(house.cooker) %}{% set items = items + [{'icon':'🍳','label':'Cooker'}] %}{% endif %}
-  {% if t(house.microwave) %}{% set items = items + [{'icon':'📡','label':'Microwave/Oven'}] %}{% endif %}
-  {% if t(house.coffee_maker) %}{% set items = items + [{'icon':'☕','label':'Coffee Maker'}] %}{% endif %}
-  {% if t(house.central_heating) %}{% set items = items + [{'icon':'🔥','label':'Central Heating'}] %}{% endif %}
-  {% if t(house.air_con) or t(house.air_conditioning) %}{% set items = items + [{'icon':'❄️','label':'Air Conditioning'}] %}{% endif %}
-  {% if t(house.vacuum) %}{% set items = items + [{'icon':'🧹','label':'Vacuum'}] %}{% endif %}
-  {% if t(house.wifi) %}{% set items = items + [{'icon':'📶','label':'Wi-Fi'}] %}{% endif %}
-  {% if t(house.wired_internet) %}{% set items = items + [{'icon':'🔌','label':'Wired Internet'}] %}{% endif %}
-  {% if t(house.common_area_tv) %}{% set items = items + [{'icon':'📺','label':'TV (communal)'}] %}{% endif %}
-  {% if t(house.garden) %}{% set items = items + [{'icon':'🌳','label':'Outdoor Area / Garden'}] %}{% endif %}
-  {% if t(house.roof_terrace) %}{% set items = items + [{'icon':'🌇','label':'Roof Terrace'}] %}{% endif %}
-  {% if t(house.games_room) %}{% set items = items + [{'icon':'🕹️','label':'Games Room'}] %}{% endif %}
-  {% if t(house.cinema_room) %}{% set items = items + [{'icon':'🎬','label':'Cinema Room'}] %}{% endif %}
+      {% set items = [] %}
+      {# security / access #}
+      {% if t(house.cctv) %}{% set items = items + [{'icon':'<span class="ico">🛡️</span>','label':'CCTV'}] %}{% endif %}
+      {% if t(house.video_door_entry) %}{% set items = items + [{'icon':'<span class="ico">📹</span>','label':'Video Door Entry'}] %}{% endif %}
+      {% if t(house.fob_entry) %}{% set items = items + [{'icon':'<span class="ico">🔑</span>','label':'Fob Entry'}] %}{% endif %}
 
-  {% if items|length %}
-    <ul class="facilities-grid">
-      {% for it in items %}
-        <li class="facility"><span class="ico" aria-hidden="true">{{ it.icon }}</span>{{ it.label }}</li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="muted" style="margin:0">No facilities listed.</p>
-  {% endif %}
-</div>
+      {# parking & outdoors #}
+      {% if t(house.off_street_parking) %}{% set items = items + [{'icon':'<span class="ico">🅿️</span>','label':'Off-street Parking'}] %}{% endif %}
+      {% if t(house.local_parking) %}{% set items = items + [{'icon':'<span class="ico">🚗</span>','label':'Local Parking'}] %}{% endif %}
+      {% if t(house.bike_storage) %}{% set items = items + [{'icon':'<span class="ico">🚲</span>','label':'Bike Storage'}] %}{% endif %}
+      {% if t(house.garden) %}{% set items = items + [{'icon':'<span class="ico">🌳</span>','label':'Outdoor Area / Garden'}] %}{% endif %}
+      {% if t(house.roof_terrace) %}{% set items = items + [{'icon':'<span class="ico">🌇</span>','label':'Roof Terrace'}] %}{% endif %}
 
-{# --- BILLS INCLUDED --- #}
-{% set bills_mode = house.bills_option or house.bills_included %}
-{% set gas = t(house.bills_util_gas) %}
-{% set elec = t(house.bills_util_electric) %}
-{% set water = t(house.bills_util_water) %}
-{% set bb = t(house.bills_util_broadband) %}
-{% set tv = t(house.bills_util_tv) %}
-{% set any_util = gas or elec or water or bb or tv %}
+      {# kitchen / appliances #}
+      {% if t(house.cooker) %}{% set items = items + [{'icon':'<span class="ico">🍳</span>','label':'Cooker'}] %}{% endif %}
+      {% if t(house.microwave) %}{% set items = items + [{'icon':'<span class="ico">🧲</span>','label':'Microwave/Oven'}] %}{% endif %}
+      {% if t(house.dishwasher) %}{% set items = items + [{'icon':'<span class="ico">🍽️</span>','label':'Dishwasher'}] %}{% endif %}
+      {% if t(house.washing_machine) %}{% set items = items + [{'icon':'<span class="ico">🧺</span>','label':'Washing Machine'}] %}{% endif %}
+      {% if t(house.tumble_dryer) %}{% set items = items + [{'icon':'<span class="ico">🌀</span>','label':'Tumble Dryer'}] %}{% endif %}
+      {% if t(house.coffee_maker) %}{% set items = items + [{'icon':'<span class="ico">☕</span>','label':'Coffee Maker'}] %}{% endif %}
 
-{% if bills_mode == 'yes' or (bills_mode == 'some' and any_util) %}
-  <div class="card card--accent-lr" style="margin-bottom:12px">
-    <h2 style="margin:0 0 8px">Bills included</h2>
+      {# comfort / media #}
+      {% if t(house.central_heating) %}{% set items = items + [{'icon':'<span class="ico">🔥</span>','label':'Central Heating'}] %}{% endif %}
+      {% if t(house.air_con) or t(house.air_conditioning) %}{% set items = items + [{'icon':'<span class="ico">❄️</span>','label':'Air Conditioning'}] %}{% endif %}
+      {% if t(house.wifi) %}{% set items = items + [{'icon':'<span class="ico">📶</span>','label':'Wi-Fi'}] %}{% endif %}
+      {% if t(house.wired_internet) %}{% set items = items + [{'icon':'<span class="ico">🔌</span>','label':'Wired Internet'}] %}{% endif %}
+      {% if t(house.common_area_tv) %}{% set items = items + [{'icon':'<span class="ico">📺</span>','label':'TV (communal)'}] %}{% endif %}
 
-    {% if bills_mode == 'yes' %}
-      <p style="margin:0">All bills included.</p>
-    {% else %}
-      <ul class="bills-list">
-        {% if gas %}<li>Gas</li>{% endif %}
-        {% if elec %}<li>Electric</li>{% endif %}
-        {% if water %}<li>Water</li>{% endif %}
-        {% if bb %}<li>Broadband</li>{% endif %}
-        {% if tv %}<li>TV licence/TV</li>{% endif %}
-      </ul>
-    {% endif %}
-  </div>
-{% endif %}
+      {# shared spaces #}
+      {% if t(house.games_room) %}{% set items = items + [{'icon':'<span class="ico">🕹️</span>','label':'Games Room'}] %}{% endif %}
+      {% if t(house.cinema_room) %}{% set items = items + [{'icon':'<span class="ico">🎬</span>','label':'Cinema Room'}] %}{% endif %}
 
-    {% if util_labels and util_labels|length %}
+      {% if items|length %}
+        <ul class="facilities-grid">
+          {% for it in items %}
+            <li class="facility">{{ it.icon|safe }}<span>{{ it.label }}</span></li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted" style="margin:0">No facilities listed.</p>
+      {% endif %}
+    </div>
+
+    {# --- BILLS INCLUDED --- #}
+    {% set gas = u.gas %}{% set elec = u.elec %}{% set water = u.water %}{% set bb = u.bb %}{% set tv = u.tv %}
+    {% if bills_mode == 'yes' or (bills_mode == 'some' and (gas or elec or water or bb or tv)) %}
       <div class="card card--accent-lr" style="margin-bottom:12px">
         <h2 style="margin:0 0 8px">Bills included</h2>
-        <div class="amenities-grid">
-          {% for ulabel in util_labels %}
-            <span class="amenity-chip">{{ ulabel }}</span>
-          {% endfor %}
-        </div>
+
+        {% if bills_mode == 'yes' %}
+          <p style="margin:0">All bills included.</p>
+        {% else %}
+          <ul class="bills-list">
+            {% if gas %}<li>Gas</li>{% endif %}
+            {% if elec %}<li>Electric</li>{% endif %}
+            {% if water %}<li>Water</li>{% endif %}
+            {% if bb %}<li>Broadband</li>{% endif %}
+            {% if tv %}<li>TV licence/TV</li>{% endif %}
+          </ul>
+        {% endif %}
       </div>
     {% endif %}
 
-    {# Description (moved to after amenities/bills) #}
+    {# Description #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <h2 style="margin:0 0 8px">About this property</h2>
       <p style="white-space:pre-wrap">{{ house.description or "No description provided yet." }}</p>
@@ -291,7 +283,7 @@
   {% endif %}
 </section>
 
-{# --- Minimal CSS for the new media + amenity chips --- #}
+{# --- Minimal CSS for media + facilities --- #}
 <style>
   .media-grid {
     display: grid;
@@ -334,23 +326,26 @@
   }
   .highlights { margin: 8px 0 0; padding-left: 18px; }
 
-  .amenities-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 8px;
-    align-items: start;
+  /* Facilities grid (icon + label, like your screenshot) */
+  .facilities-grid{
+    list-style:none; margin:0; padding:0;
+    display:grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap:14px 18px;
   }
-  .amenity-chip {
-    display:inline-flex;
-    align-items:center;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 6px 10px;
-    font-size: 0.95rem;
-    line-height: 1;
-    background:#fff;
-    white-space: nowrap;
+  @media (max-width: 900px){ .facilities-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (max-width: 560px){ .facilities-grid{ grid-template-columns: 1fr; } }
+
+  .facility{
+    display:flex; align-items:center; gap:12px;
+    font-size:1.05rem; line-height:1.4;
   }
+  .facility .ico{
+    width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;
+    font-size:20px;
+  }
+
+  .bills-list{ margin:0; padding-left:18px; line-height:1.5; }
 </style>
 
 {# --- JS: short address + click thumbs to swap hero --- #}
