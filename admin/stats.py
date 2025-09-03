@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import math
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash
 from db import get_db
-from utils import require_admin
 from utils_summaries import recompute_all_houses
 
-from . import bp  # admin blueprint
+# Import from the admin package so routes register on the admin blueprint
+from . import bp, require_admin
 
 
 # -----------------------
@@ -29,31 +29,35 @@ def _parse_int(name: str, default: int, min_val: int = 1, max_val: int | None = 
 # Pages
 # -----------------------
 
-# ✅ Force endpoint name = 'admin.dashboard' so url_for('admin.dashboard') works
-@bp.route("/admin/dashboard", endpoint="dashboard")
-def dashboard():
-    """(Existing) lightweight dashboard entry."""
+# Endpoint name MUST be 'dashboard' so url_for('admin.dashboard') works
+@bp.get("/dashboard", endpoint="dashboard")
+def admin_dashboard():
+    """Read-only stats dashboard at /admin/dashboard."""
     r = require_admin()
     if r:
         return r
+
     conn = get_db()
-    # current totals + last 24h deltas
+
+    # Totals
     totals = {
         "landlords": conn.execute("SELECT COUNT(*) FROM landlords").fetchone()[0],
         "houses":    conn.execute("SELECT COUNT(*) FROM houses").fetchone()[0],
         "rooms":     conn.execute("SELECT COUNT(*) FROM rooms").fetchone()[0],
     }
-    # quick-and-simple (UTC-based) last 24h deltas; safe if created_at exists
+
+    # Last 24h deltas (UTC)
     deltas = {
         "landlords": conn.execute("SELECT COUNT(*) FROM landlords WHERE created_at >= datetime('now','-1 day')").fetchone()[0],
         "houses":    conn.execute("SELECT COUNT(*) FROM houses    WHERE created_at >= datetime('now','-1 day')").fetchone()[0],
         "rooms":     conn.execute("SELECT COUNT(*) FROM rooms     WHERE created_at >= datetime('now','-1 day')").fetchone()[0],
     }
+
     conn.close()
     return render_template("admin_dashboard.html", totals=totals, deltas=deltas)
 
 
-@bp.route("/admin/summaries")
+@bp.route("/summaries")
 def admin_summaries():
     """
     Admin: Live view of per-house availability rollups.
@@ -133,7 +137,7 @@ def admin_summaries():
     )
 
 
-@bp.route("/admin/summaries/recompute", methods=["POST"])
+@bp.route("/summaries/recompute", methods=["POST"])
 def admin_summaries_recompute():
     """
     Button to recompute summaries for all houses.
