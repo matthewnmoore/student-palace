@@ -178,24 +178,44 @@
       {% endif %}
     </div>
 
-    {# --- BILLS INCLUDED BLOCK (visible only when applicable) --- #}
-    {% if bills_mode == 'yes' or (bills_mode == 'some' and any_util) %}
-      <div class="card card--accent-lr" style="margin-bottom:12px">
-        <h2 style="margin:0 0 8px">Bills included</h2>
+   {# --- BILLS INCLUDED (icons style) --- #}
+{% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
 
-        {% if bills_mode == 'yes' %}
-          <p style="margin:0">All bills included.</p>
-        {% else %}
-          <ul class="bills-list">
-            {% if gas %}<li>Gas</li>{% endif %}
-            {% if elec %}<li>Electric</li>{% endif %}
-            {% if water %}<li>Water</li>{% endif %}
-            {% if bb %}<li>Broadband</li>{% endif %}
-            {% if tv %}<li>TV licence/TV</li>{% endif %}
-          </ul>
+{# truthy helpers for each utility #}
+{% set gas   = house.bills_util_gas in ['1', 1, true, 'on'] %}
+{% set elec  = house.bills_util_electric in ['1', 1, true, 'on'] %}
+{% set water = house.bills_util_water in ['1', 1, true, 'on'] %}
+{% set bb    = house.bills_util_broadband in ['1', 1, true, 'on'] %}
+{% set tv    = house.bills_util_tv in ['1', 1, true, 'on'] %}
+
+{% set any_util = gas or elec or water or bb or tv %}
+{% set show_all  = (bills_mode == 'yes') %}
+{% set show_some = (bills_mode == 'some' and any_util) %}
+
+{% if show_all or show_some %}
+  <div class="card card--accent-lr" style="margin-bottom:12px">
+    <h2 style="margin:0 0 8px">Bills included</h2>
+
+    {# Use the same visual style as Facilities (icon + label chips in a responsive grid) #}
+    {% set util_list = [
+      {'flag': gas,   'icon': '🔥', 'label': 'Gas'},
+      {'flag': elec,  'icon': '⚡', 'label': 'Electric'},
+      {'flag': water, 'icon': '💧', 'label': 'Water'},
+      {'flag': bb,    'icon': '🌐', 'label': 'Broadband'},
+      {'flag': tv,    'icon': '📺', 'label': 'TV licence/TV'}
+    ] %}
+
+    <ul class="facilities-grid">
+      {% for u in util_list %}
+        {% if show_all or u.flag %}
+          <li class="facility">
+            <span class="ico" aria-hidden="true">{{ u.icon }}</span>{{ u.label }}
+          </li>
         {% endif %}
-      </div>
-    {% endif %}
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
 
     {# Description #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
