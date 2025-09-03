@@ -1,0 +1,240 @@
+Student Palace – Handover Summary (as of 3rd Sept 2025)
+	1.	Core architecture
+
+	•	Flask app using Blueprints (public, landlord, admin).
+	•	SQLite database located at /static/uploads/houses/student_palace.db.
+	•	Database persists across deploys. Backups can be taken from /admin/backup.
+	•	Static uploads (houses, rooms, EPCs, photos) stored under /static/uploads/.
+	•	Admin and landlord authentication implemented. Admin session based on ADMIN_TOKEN environment variable.
+
+	2.	Database schema (relevant tables)
+
+Table: landlords
+	•	id (int, primary key)
+	•	email (str)
+	•	password_hash (str)
+	•	created_at (datetime)
+
+Table: landlord_profiles
+	•	landlord_id (int, fk → landlords.id)
+	•	display_name (str)
+	•	phone (str)
+	•	website (str)
+	•	bio (str)
+	•	public_slug (str, optional for public page link)
+	•	profile_views (int)
+	•	is_verified (int, 0 or 1)
+
+Table: houses
+	•	id (int, primary key)
+	•	landlord_id (fk → landlords.id)
+	•	title (short title, max ~20 chars)
+	•	description (text, up to 1200 chars)
+	•	city (name, chosen from admin-maintained city list)
+	•	address (string, normalised)
+	•	bedrooms_total (int, required ≥ 1)
+	•	letting_type (whole or share)
+	•	gender_preference (Male, Female, Mixed, Either)
+	•	bills_option (yes, no, some)
+	•	bills_included (legacy int flag, kept in sync with bills_option)
+	•	bills_util_* (five flags: gas, electric, water, broadband, tv)
+	•	shared_bathrooms (int)
+	•	washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker, central_heating, air_con, vacuum, wifi, wired_internet, common_area_tv, cctv, video_door_entry, fob_entry, off_street_parking, local_parking, garden, roof_terrace, bike_storage, games_room, cinema_room (all booleans)
+	•	cleaning_service (none, weekly, fortnightly, monthly)
+	•	listing_type (owner or agent)
+	•	epc_rating (optional A–G)
+	•	youtube_url (normalised watch URL if supplied)
+	•	created_at (datetime)
+
+Table: rooms
+	•	id (int, pk)
+	•	house_id (fk → houses.id)
+	•	name (room name, free text)
+	•	description (text)
+	•	ensuite (bool)
+	•	bed_size (text, e.g. double)
+	•	tv, desk_chair, wardrobe, chest_drawers, lockable_door, wired_internet, safe, dressing_table, mirror, bedside_table, blinds, curtains, sofa (all booleans)
+	•	couples_ok, disabled_ok (booleans)
+	•	room_size (numeric string, e.g. “25.5 sqm”)
+	•	price_pcm (int)
+	•	is_let (bool)
+	•	available_from (date)
+	•	let_until (date, optional – if present and in the past, auto-marks let)
+	•	created_at (datetime)
+
+Table: cities
+	•	id (int)
+	•	name (str, e.g. Leeds, Cardiff)
+	•	is_active (bool)
+
+Table: images
+	•	id (int)
+	•	house_id (nullable, fk)
+	•	room_id (nullable, fk)
+	•	filename (str)
+	•	file_path (str)
+	•	width, height, bytes (image metadata)
+	•	is_primary (bool)
+	•	created_at (datetime)
+
+	3.	Summaries and availability roll-ups
+
+	•	We created a utility: utils_summaries.py with recompute_house_summaries() and recompute_all_houses().
+	•	On every room add/edit/delete, recompute_house_summaries() is called.
+	•	On house create/edit, recompute_house_summaries() is called (initialises rooms_available=0).
+	•	recompute_all_houses() can be run from admin/stats to recalc all houses if data drifts.
+
+Logic for availability:
+	•	Whole property letting: students search requires group_size == bedrooms_total and rooms_available == bedrooms_total.
+	•	Room-only letting: students search requires rooms_available >= group_size.
+	•	Academic year filter: 1 Aug to 31 Jul. Matching is based on available_from date. If available_from falls in a given year, property shows for that academic year.
+	•	Let until date: if present and in the past, room is auto-marked let.
+	•	Images limited: 5 per property and 5 per room. Extra uploads are trimmed with a warning.
+
+	4.	Landlord flows
+
+	•	Landlord can log in, view dashboard of houses, add/edit/delete houses.
+	•	Each house has a rooms tab: list rooms, add new, edit or delete.
+	•	House creation: requires title, description, city (from admin list), address, bedrooms_total, letting_type, gender_preference, bills info. Optional EPC and YouTube.
+	•	Rooms creation: requires name, description, price, available_from. Optional ensuite flag and features. Each new room triggers summary recompute.
+	•	If rooms created exceed bedrooms_total, system prevents further additions.
+	•	Flash messages confirm success/errors.
+
+	5.	Admin flows
+
+	•	Admin login via token (ADMIN_TOKEN).
+	•	Admin dashboard: totals for landlords, houses, rooms with last 24h deltas.
+	•	Admin home page: has buttons for backup, cities, landlords, images, dashboard (stats).
+	•	Admin can manage cities (add/activate/deactivate/delete).
+	•	Admin can view landlords (list with verification, profile details, public slug, views). Each landlord detail shows profile edit, verification toggle, reset password, update email, danger zone delete.
+	•	Admin can manage images: view all or broken only, delete broken, see metadata.
+	•	Admin summaries page (new): shows each house, bedrooms_total, total rooms, rooms_available, and overall stats. Searchable by city/title/id. Supports recompute button to recalc all houses. Pagination included.
+
+	6.	Public pages (currently placeholders but structured)
+
+	•	Home (/) – shows hero search, list of active cities, featured property card.
+	•	Search (/search) – captures query: city, group_size, gender, ensuite, bills_included. Currently echoes back values but will later integrate DB search logic.
+	•	Public property detail pages and room detail pages already designed in mockups. Each will show images (max 5), badges, description, availability, request viewing button (no calendar integration yet).
+	•	Cities list is controlled by admin only.
+
+	7.	Business rules recap
+
+	•	Cities are only added/removed/activated by admin.
+	•	Rooms_available is always derived, never manually edited.
+	•	EPC optional, stored as A–G or blank.
+	•	YouTube normalisation ensures consistent embed links.
+	•	All boolean flags stored as int (0/1).
+	•	Cleaning service only accepts none, weekly, fortnightly, monthly.
+	•	Images stored in DB plus on disk, with background process for cleanup. Orphaned images can be detected and deleted.
+
+	8.	Admin templates recap
+
+	•	Admin home: entry point after login, with navigation and quick stats.
+	•	Admin dashboard: shows totals and 24h deltas.
+	•	Admin summaries: new page for availability roll-ups.
+	•	Admin cities: manage city list.
+	•	Admin landlords: search, list, detail, edit profile, toggle verified.
+	•	Admin images: browse all images, filter broken, delete.
+	•	Admin backup: download DB snapshot.
+	•	All admin pages extend base.html with Student Palace branding.
+
+	9.	Current status
+
+	•	Database is initialised, schema extended with description and youtube_url safely.
+	•	Landlord and room flows working end-to-end with recompute summaries.
+	•	Admin can now view cities, landlords, images, dashboard, and summaries.
+	•	Public pages stubbed in, ready to be wired to DB.
+	•	Backup strategy in place (manual trigger).
+	•	Deployment stable after rollback of experimental changes.
+	•	Error resolved: admin.dashboard endpoint confirmed working and linked from templates.
+	•	Summaries button corrected to point to admin.admin_summaries.
+
+	10.	Next steps (future work)
+
+	•	Wire student search page to DB queries for houses/rooms, applying business rules.
+	•	Build property detail and room detail public pages from DB.
+	•	Style and limit image galleries (max 5).
+	•	Add request viewing workflow for students.
+	•	Add admin page to approve or moderate properties (if needed).
+	•	Add landlord billing/verification integration (ID verification provider?).
+	•	Continue to back up after each successful deployment.
+
+
+
+
+
+
+
+Student Palace – Authoritative Handover (facts only)
+
+1. Tech stack
+	•	Flask app, Jinja2 templates.
+	•	SQLite database (file lives at /static/uploads/houses/student_palace.db, persists across deploys).
+	•	Gunicorn as server.
+	•	Static assets under /static.
+	•	Uploads stored under /static/uploads/....
+
+2. Current modules & flows
+	•	Public (public.py)
+	•	/ (homepage) → loads active cities from DB, shows one featured property (stubbed).
+	•	/search → echoes filters back to the template (no DB logic wired yet).
+	•	Landlord area
+	•	Signup/login working.
+	•	Landlords can create/edit/delete houses.
+	•	Landlords can add/edit/delete rooms inside their houses.
+	•	When a landlord adds/edits/deletes houses or rooms, we recompute summaries (so room counts stay consistent).
+	•	Admin area
+	•	Login secured by ADMIN_TOKEN.
+	•	Pages in place:
+	•	Home (/admin/) → navigation hub.
+	•	Dashboard (/admin/dashboard) → totals + 24h deltas for landlords/houses/rooms.
+	•	Cities (/admin/cities) → add/activate/deactivate/delete cities.
+	•	Landlords (/admin/landlords) → list/search landlords; detail page shows their profile and properties.
+	•	Images (/admin/images) → paginated list of uploaded images, broken/valid, delete tools.
+	•	Backup (/admin/backup) → download SQLite DB file.
+	•	Summaries (/admin/summaries) → NEW page we added to view per-house rollups (bedrooms_total, rooms_total, rooms_available). Includes a “Recompute all summaries” button.
+
+3. Database schema (confirmed tables/columns)
+	•	cities → id, name, is_active.
+	•	landlords → id, email, password_hash, created_at.
+	•	landlord_profiles → landlord_id, display_name, phone, website, bio, public_slug, profile_views, is_verified, role.
+	•	houses → id, landlord_id, title, description, city, address, letting_type, bedrooms_total, gender_preference, bills_option, bills_included, shared_bathrooms, cleaning_service, listing_type, epc_rating, youtube_url, created_at.
+	•	Plus many boolean amenity fields (wifi, garden, etc.) that we confirmed working.
+	•	rooms → id, house_id, name, description, ensuite, bed_size, features (booleans), couples_ok, disabled_ok, price_pcm, is_let, available_from, let_until, created_at.
+	•	house_images → id, house_id, file_name, filename, file_path, width, height, bytes, is_primary, sort_order, created_at.
+
+4. Summaries system (implemented facts)
+	•	utils_summaries.recompute_house_summaries(conn, hid) runs after landlord edits houses/rooms.
+	•	utils_summaries.recompute_all_houses(conn) recalculates for every house (admin trigger).
+	•	Admin Summaries page shows:
+	•	per-house: id, title, city, letting_type, bedrooms_total, rooms_total, rooms_available.
+	•	global glance: houses_total, sum(bedrooms_total), rooms_total_all, rooms_available_all.
+	•	Room cap rule enforced: landlord cannot add more rooms than bedrooms_total.
+
+5. Images system
+	•	House images: max 5 per property.
+	•	Upload pipeline: resize to 1600px max, watermark “Student Palace”, save as JPG, record metadata in DB.
+	•	Admin can browse images, filter “broken only”, and delete.
+
+6. Validation & normalization (facts we coded in)
+	•	Cities: landlords must pick from active cities list.
+	•	Addresses: normalized into one-line, saved into houses.address.
+	•	Bills: controlled by bills_option (yes/no/some).
+	•	yes → all bills_util_* = 1, bills_included = 1
+	•	no → all bills_util_* = 0, bills_included = 0
+	•	some → checkboxes decide bills_util_*, bills_included = 0
+	•	Gender preference: stored in houses.gender_preference (Male/Female/Mixed/Either).
+	•	EPC rating: optional, must be A–G if set.
+	•	Room availability: is_let and let_until decide availability; recomputed summaries reflect these.
+
+7. What’s live today
+	•	Landlord: can sign up, log in, add houses, add rooms, upload images.
+	•	Admin: can log in, add cities, view landlords, manage images, backup DB, see dashboard, view summaries.
+	•	Public: homepage loads with cities, search page echoes filters (not querying DB yet).
+
+8. What’s not built yet
+	•	Public search results logic (currently echo only).
+	•	Public property/room detail pages.
+	•	Viewing/enquiry workflow.
+	•	Landlord public profile pages.
+	•	Room images (only houses have images right now).
