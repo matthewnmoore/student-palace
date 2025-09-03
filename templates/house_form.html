@@ -301,13 +301,6 @@
           <a class="btn btn-outline" href="{{ url_for('public.property_public', house_id=house.id) }}" target="_blank" rel="noopener">
             View public page
           </a>
-          <!-- Right-aligned delete button -->
-          <form method="post"
-                action="/landlord/houses/{{ house.id }}/delete"
-                onsubmit="return confirm('Delete this house? This cannot be undone.');"
-                style="margin-left:auto">
-            <button class="btn btn-outline" type="submit">Delete house</button>
-          </form>
         {% endif %}
       </div>
     </div>
@@ -373,12 +366,12 @@
     on(billsSelect, 'change', syncUtilitiesVisibility);
     syncUtilitiesVisibility();
 
-    // Address compose helpers
+    // Address compose (safe)
     const citySel  = $('city_select');
     const townInp  = $('town');
     const hidden   = $('address_hidden');
     const preview  = $('address_preview');
-    const partIds  = ['flat_number','house_name','house_number','street_name','address_extra','postcode'];
+    const partIds = ['flat_number','house_name','house_number','street_name','address_extra','postcode'];
     let partsDirty = false;
 
     const getVal = (id) => ( document.getElementById(id)?.value || '' ).trim();
@@ -414,20 +407,14 @@
       if (hidden) hidden.value = composed;
     }
 
-    // Keep Town in sync with City
     function syncTownFromCity() {
-      if (townInp && citySel) {
-        townInp.value = (citySel.value || '').trim();
-      }
+      if (townInp && citySel) townInp.value = (citySel.value || '').trim();
     }
-
-    // Wire city changes -> town + preview (always recompute)
     on(citySel, 'change', () => {
       syncTownFromCity();
-      composeFromParts();
+      if (partsDirty) composeFromParts();
     });
 
-    // Title-case & compose on address field blur
     function wireTitleCaseOnBlur(id, formatter = titleCaseWordish) {
       const el = $(id);
       if (!el) return;
@@ -444,28 +431,24 @@
     wireTitleCaseOnBlur('address_extra');
     wireTitleCaseOnBlur('postcode', normalizePostcode);
 
-    // Compose live as user types
     partIds.forEach(id => on($(id), 'input', () => {
       partsDirty = true;
       composeFromParts();
     }));
 
-    // Initial: if Town is empty but City has a value, copy it; then compose preview
-    (function initialSync(){
-      if (citySel && townInp) {
-        const initialCity = (citySel.value || '').trim();
-        if (!townInp.value && initialCity) {
-          townInp.value = initialCity;
-        }
-      }
+    // Initial
+    syncTownFromCity();
+    if (hidden && hidden.value && hidden.value.trim()) {
+      if (preview) preview.textContent = hidden.value;
+    } else {
       composeFromParts();
-    })();
+    }
 
-    // Before submit: make sure we’re fully in sync
+    // Before submit
     const form = document.getElementById('house-form');
     on(form, 'submit', function () {
+      if (partsDirty) composeFromParts();
       syncTownFromCity();
-      composeFromParts();
     });
   })();
 </script>
