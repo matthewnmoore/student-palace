@@ -1,0 +1,132 @@
+📋 houses
+	•	id
+	•	landlord_id
+	•	title
+	•	city
+	•	address
+	•	letting_type
+	•	bedrooms_total
+	•	gender_preference
+	•	bills_included
+	•	shared_bathrooms
+	•	off_street_parking
+	•	local_parking
+	•	cctv
+	•	video_door_entry
+	•	bike_storage
+	•	cleaning_service
+	•	wifi
+	•	wired_internet
+	•	common_area_tv
+	•	created_at
+	•	listing_type
+	•	bills_option
+	•	bills_util_gas
+	•	bills_util_electric
+	•	bills_util_water
+	•	bills_util_broadband
+	•	bills_util_tv
+	•	washing_machine
+	•	tumble_dryer
+	•	dishwasher
+	•	cooker
+	•	microwave
+	•	coffee_maker
+	•	central_heating
+	•	air_con
+	•	vacuum
+	•	fob_entry
+	•	garden
+	•	roof_terrace
+	•	games_room
+	•	cinema_room
+	•	epc_rating
+	•	description
+
+⸻
+
+📋 rooms
+	•	id
+	•	house_id
+	•	name
+	•	ensuite
+	•	bed_size
+	•	tv
+	•	desk_chair
+	•	wardrobe
+	•	chest_drawers
+	•	lockable_door
+	•	wired_internet
+	•	room_size
+	•	created_at
+	•	price_pcm
+	•	safe
+	•	dressing_table
+	•	mirror
+	•	bedside_table
+	•	blinds
+	•	curtains
+	•	sofa
+	•	couples_ok
+	•	disabled_ok
+	•	is_let
+	•	available_from
+	•	let_until
+	•	description
+
+⸻
+
+📋 landlords
+	•	id
+	•	email
+	•	password_hash
+	•	created_at
+
+⸻
+
+📋 landlord_profiles
+	•	landlord_id
+	•	display_name
+	•	phone
+	•	website
+	•	bio
+	•	public_slug
+	•	profile_views
+	•	is_verified
+	•	role
+	•	logo_path
+	•	photo_path
+
+⸻
+
+📋 cities
+	•	id
+	•	name
+	•	is_active
+
+⸻
+
+📋 house_images
+	•	id
+	•	house_id
+	•	file_name
+	•	file_path
+	•	width
+	•	height
+	•	bytes
+	•	is_primary
+	•	created_at
+	•	filename
+	•	sort_order
+
+⸻
+
+📋 house_documents
+	•	id
+	•	house_id
+	•	doc_type
+	•	file_name
+	•	file_path
+	•	bytes
+	•	created_at
+	•	is_current
