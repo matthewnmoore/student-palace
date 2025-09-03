@@ -81,59 +81,67 @@
             </div>
           </div>
 
+
+          ##### matthew 
+
+
+
+          
           <aside class="media-right">
-            <h3 class="mt-0" style="margin-top:0">Highlights</h3>
+  <h3 class="mt-0" style="margin-top:0">Highlights</h3>
 
-            {# --- compute ensuites + availability (robust truthiness) --- #}
-            {% set ns = namespace(ens=0, avail=[]) %}
-            {% if rooms and rooms|length %}
-              {% for r in rooms %}
-                {% if (r.ensuite in ['1',1,true,'on']) or
-                      (r.has_ensuite in ['1',1,true,'on']) or
-                      (r.private_bathroom in ['1',1,true,'on']) %}
-                  {% set ns.ens = ns.ens + 1 %}
-                {% endif %}
-                {% if not (r.is_let in ['1',1,true,'on']) %}
-                  {% set _price = (r.price_pcm if r.price_pcm and r.price_pcm > 0 else None) %}
-                  {% set ns.avail = ns.avail + [ {'name': r.name, 'price': _price } ] %}
-                {% endif %}
-              {% endfor %}
-            {% endif %}
+  {# truthy helper list #}
+  {% set T = ['1', 1, true, 'on'] %}
 
-            {# --- bills summary (handle old/new fields) --- #}
-            {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
-            {% set gas = house.bills_util_gas in ['1', 1, true, 'on'] %}
-            {% set elec = house.bills_util_electric in ['1', 1, true, 'on'] %}
-            {% set water = house.bills_util_water in ['1', 1, true, 'on'] %}
-            {% set bb = house.bills_util_broadband in ['1', 1, true, 'on'] %}
-            {% set tv = house.bills_util_tv in ['1', 1, true, 'on'] %}
-            {% set any_util = gas or elec or water or bb or tv %}
+  {# compute ensuites + availability #}
+  {% set ns = namespace(ens=0, avail=[]) %}
+  {% if rooms and rooms|length %}
+    {% for r in rooms %}
+      {% if (r.ensuite in T) or (r.has_ensuite in T) or (r.private_bathroom in T) %}
+        {% set ns.ens = ns.ens + 1 %}
+      {% endif %}
+      {% if not (r.is_let in T) %}
+        {% set _price = (r.price_pcm if r.price_pcm and r.price_pcm > 0 else None) %}
+        {% set ns.avail = ns.avail + [ {'name': r.name, 'price': _price } ] %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
 
-            <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5;">
-              <li><strong>Total bedrooms:</strong> {{ house.bedrooms_total }}</li>
+  {# bills summary (handle old/new fields) #}
+  {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
+  {% set any_util = (house.bills_util_gas in T) or (house.bills_util_electric in T) or
+                    (house.bills_util_water in T) or (house.bills_util_broadband in T) or
+                    (house.bills_util_tv in T) %}
 
-              {% if ns.ens > 0 %}
-                <li><strong>Ensuites:</strong> {{ ns.ens }}</li>
-              {% endif %}
+  <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5;">
+    <li><strong>Total bedrooms:</strong> {{ house.bedrooms_total }}</li>
 
-              {% if bills_mode == 'yes' %}
-                <li><strong>All bills included</strong></li>
-              {% elif bills_mode == 'some' and any_util %}
-                <li><strong>Some bills included</strong></li>
-              {% endif %}
+    {% if ns.ens > 0 %}
+      <li><strong>Ensuites:</strong> {{ ns.ens }}</li>
+    {% endif %}
 
-              {% if ns.avail|length > 0 %}
-                <li><strong>Bedrooms available:</strong> {{ ns.avail|length }}</li>
-                <li style="list-style:none; margin:4px 0 0; padding:0">
-                  <ul style="margin:4px 0 0; padding-left:1.1rem;">
-                    {% for a in ns.avail %}
-                      <li>{{ a.name }}{% if a.price %} – £{{ a.price }} pcm{% endif %}</li>
-                    {% endfor %}
-                  </ul>
-                </li>
-              {% endif %}
-            </ul>
-          </aside>
+    {% if bills_mode == 'yes' %}
+      <li><strong>All bills included</strong></li>
+    {% elif bills_mode == 'some' and any_util %}
+      <li><strong>Some bills included</strong></li>
+    {% endif %}
+
+    {% if ns.avail|length > 0 %}
+      <li><strong>Bedrooms available:</strong> {{ ns.avail|length }}</li>
+      <li style="list-style:none; margin:4px 0 0; padding:0">
+        <ul style="margin:4px 0 0; padding-left:1.1rem;">
+          {% for a in ns.avail %}
+            <li>{{ a.name }}{% if a.price %} – £{{ a.price }} pcm{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </li>
+    {% endif %}
+  </ul>
+</aside>
+########Matthew
+
+
+          
         </div>
       {% else %}
         <div style="aspect-ratio:4/3; border:1px dashed var(--border); border-radius:12px; display:flex;align-items:center;justify-content:center; color:#b9a6ff; font-weight:700">
