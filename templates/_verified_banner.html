@@ -1,0 +1,17 @@
+{% if profile and profile.is_verified|default(0, true) %}
+  <div class="card card--accent-lr"
+       style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0">
+    <span aria-hidden="true" style="font-size:20px">✅</span>
+    <div style="font-weight:600">
+      Verified – Listings from this landlord display a verified badge.
+    </div>
+  </div>
+{% else %}
+  <div class="card card--accent-lr"
+       style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0">
+    <span aria-hidden="true" style="font-size:20px; color:#f59e0b">❌</span>
+    <div style="font-weight:600">
+      Not verified – Get verified to boost renter trust.
+    </div>
+  </div>
+{% endif %}
