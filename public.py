@@ -1,7 +1,7 @@
 # public.py
 from __future__ import annotations
 
-from flask import Blueprint, render_template, request, abort
+from flask import Blueprint, render_template, request, abort, jsonify
 from datetime import datetime as dt
 
 # Import helpers from your models module
@@ -138,3 +138,68 @@ def property_public(house_id: int):
         rooms=rooms,          # <-- IMPORTANT: pass rooms to template
         landlord=landlord,
     )
+
+
+# -----------------------------
+# DEBUG ENDPOINTS (read-only)
+# -----------------------------
+
+@public_bp.route("/debug/rooms/<int:house_id>")
+def debug_rooms(house_id: int):
+    """
+    Show raw rows from the rooms table for a given house_id.
+    Helpful to confirm the data actually exists and column names match.
+    """
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM rooms WHERE house_id=? ORDER BY id ASC",
+        (house_id,)
+    ).fetchall()
+    conn.close()
+    return jsonify({
+        "house_id": house_id,
+        "count": len(rows),
+        "rows": [dict(r) for r in rows],
+    })
+
+
+@public_bp.route("/debug/house/<int:house_id>")
+def debug_house(house_id: int):
+    """
+    Quick snapshot of the house + landlord + counts of related rows.
+    """
+    conn = get_db()
+    house = conn.execute("SELECT * FROM houses WHERE id=?", (house_id,)).fetchone()
+    if not house:
+        conn.close()
+        return jsonify({"error": "house not found", "house_id": house_id}), 404
+
+    landlord = conn.execute(
+        """
+        SELECT lp.display_name, lp.public_slug, lp.is_verified, l.email
+          FROM landlord_profiles lp
+          JOIN landlords l ON l.id = lp.landlord_id
+         WHERE lp.landlord_id = ?
+        """,
+        (house["landlord_id"],)
+    ).fetchone()
+
+    images = conn.execute(
+        "SELECT id, file_path, is_primary, sort_order FROM house_images WHERE house_id=? ORDER BY is_primary DESC, sort_order ASC, id ASC",
+        (house_id,)
+    ).fetchall()
+
+    rooms = conn.execute(
+        "SELECT id, name, is_let, ensuite, has_ensuite, private_bathroom, price_pcm FROM rooms WHERE house_id=? ORDER BY id ASC",
+        (house_id,)
+    ).fetchall()
+
+    conn.close()
+    return jsonify({
+        "house": dict(house),
+        "landlord": (dict(landlord) if landlord else None),
+        "images_count": len(images),
+        "rooms_count": len(rooms),
+        "images_sample": [dict(r) for r in images[:5]],
+        "rooms_sample": [dict(r) for r in rooms[:5]],
+    })
