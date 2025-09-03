@@ -1,3 +1,158 @@
+📍 Table: cities
+	•	id → unique identifier (auto-increment).
+	•	name → city name (e.g. “Leeds”).
+	•	is_active → 1 = visible to users, 0 = hidden.
+
+⸻
+
+📍 Table: landlords
+	•	id → unique landlord ID.
+	•	email → landlord login email.
+	•	password_hash → hashed password.
+	•	created_at → date/time landlord account created.
+
+⸻
+
+📍 Table: landlord_profiles
+	•	landlord_id → foreign key to landlords.id.
+	•	display_name → public display name of landlord/agency.
+	•	phone → phone number.
+	•	website → website URL.
+	•	bio → landlord bio/description.
+	•	public_slug → unique slug for public profile URL.
+	•	profile_views → counter for how many times profile viewed.
+	•	is_verified → 1 = verified badge, 0 = not verified.
+	•	role → “owner” or “agent”.
+	•	logo_path → optional landlord/company logo.
+	•	photo_path → optional landlord profile photo.
+
+⸻
+
+📍 Table: houses
+	•	id → unique house ID.
+	•	landlord_id → foreign key to landlords.id.
+	•	title → listing title (headline).
+	•	city → city (links to dropdown).
+	•	address → full address string.
+	•	letting_type → “whole” or “share”.
+	•	bedrooms_total → total number of bedrooms in property.
+	•	gender_preference → “Male”, “Female”, “Mixed”, or “Either”.
+	•	bills_included → legacy yes/no integer (now superseded by bills_option).
+	•	shared_bathrooms → number of shared bathrooms.
+	•	off_street_parking → 1/0 flag.
+	•	local_parking → 1/0 flag.
+	•	cctv → 1/0 flag.
+	•	video_door_entry → 1/0 flag.
+	•	bike_storage → 1/0 flag.
+	•	cleaning_service → e.g. “weekly”, “none”.
+	•	wifi → 1/0 flag.
+	•	wired_internet → 1/0 flag.
+	•	common_area_tv → 1/0 flag.
+	•	created_at → timestamp when house added.
+	•	listing_type → “owner” or “agent”.
+	•	bills_option → “yes”, “some”, “no”.
+	•	bills_util_gas → 1/0.
+	•	bills_util_electric → 1/0.
+	•	bills_util_water → 1/0.
+	•	bills_util_broadband → 1/0.
+	•	bills_util_tv → 1/0.
+	•	washing_machine → 1/0.
+	•	tumble_dryer → 1/0.
+	•	dishwasher → 1/0.
+	•	cooker → 1/0.
+	•	microwave → 1/0.
+	•	coffee_maker → 1/0.
+	•	central_heating → 1/0.
+	•	air_con → 1/0.
+	•	vacuum → 1/0.
+	•	fob_entry → 1/0.
+	•	garden → 1/0.
+	•	roof_terrace → 1/0.
+	•	games_room → 1/0.
+	•	cinema_room → 1/0.
+	•	epc_rating → EPC text label.
+	•	description → property description text.
+
+⸻
+
+📍 Table: rooms
+	•	id → unique room ID.
+	•	house_id → foreign key to houses.id.
+	•	name → room name/label.
+	•	ensuite → 1/0 if ensuite bathroom.
+	•	bed_size → “Single”, “Double”, etc.
+	•	tv → 1/0 flag.
+	•	desk_chair → 1/0 flag.
+	•	wardrobe → 1/0 flag.
+	•	chest_drawers → 1/0 flag.
+	•	lockable_door → 1/0 flag.
+	•	wired_internet → 1/0 flag.
+	•	room_size → free text (e.g. “20 m²”).
+	•	created_at → timestamp when room added.
+	•	price_pcm → monthly rent for the room.
+	•	safe → 1/0 flag.
+	•	dressing_table → 1/0 flag.
+	•	mirror → 1/0 flag.
+	•	bedside_table → 1/0 flag.
+	•	blinds → 1/0 flag.
+	•	curtains → 1/0 flag.
+	•	sofa → 1/0 flag.
+	•	couples_ok → 1/0 flag.
+	•	disabled_ok → 1/0 flag.
+	•	is_let → 1 = room already let, 0 = available.
+	•	available_from → date available from.
+	•	let_until → date available until (auto-let after).
+	•	description → room description text.
+
+⸻
+
+📍 Table: house_images
+	•	id → unique image ID.
+	•	house_id → foreign key to houses.id.
+	•	file_name → original upload filename.
+	•	file_path → relative storage path (under /static).
+	•	width → pixel width.
+	•	height → pixel height.
+	•	bytes → file size in bytes.
+	•	is_primary → 1 = featured image.
+	•	created_at → timestamp when uploaded.
+	•	filename → duplicate name column (backfill compat).
+	•	sort_order → integer sort index.
+
+⸻
+
+📍 Table: house_documents
+	•	id → unique doc ID.
+	•	house_id → foreign key to houses.id.
+	•	doc_type → type of doc (“epc”, etc.).
+	•	file_name → file basename.
+	•	file_path → storage path (under /static).
+	•	bytes → file size in bytes.
+	•	created_at → timestamp uploaded.
+	•	is_current → 1 = current valid doc, 0 = old/archived.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 📋 houses
 	•	id
 	•	landlord_id
