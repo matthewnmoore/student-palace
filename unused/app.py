@@ -12,6 +12,7 @@ from admin import bp as admin_bp          # shared admin blueprint
 from landlord import bp as landlord_bp    # landlord blueprint
 from errors import register_error_handlers
 
+
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = SECRET_KEY
