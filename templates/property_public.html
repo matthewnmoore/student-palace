@@ -82,53 +82,6 @@
             </div>
           </div>
 
-#########debug
-
-#########debug
-
-<div class="card" style="margin-bottom:12px; background:#fff8e1; padding:10px; font-size:0.85em">
-  <h3 style="margin:0 0 6px">Debug info (safe)</h3>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-    <div>
-      <h4 style="margin:6px 0">House fields</h4>
-      <ul style="margin:0; padding-left:16px; line-height:1.4">
-        <li>bedrooms_total: {{ house.bedrooms_total|default('—', true) }}</li>
-        <li>bills_included (or option): {{ (house.bills_included or house.bills_option)|default('—', true) }}</li>
-        <li>bills_util_gas: {{ house.bills_util_gas|default('—', true) }}</li>
-        <li>bills_util_electric: {{ house.bills_util_electric|default('—', true) }}</li>
-        <li>bills_util_water: {{ house.bills_util_water|default('—', true) }}</li>
-        <li>bills_util_broadband: {{ house.bills_util_broadband|default('—', true) }}</li>
-        <li>bills_util_tv: {{ house.bills_util_tv|default('—', true) }}</li>
-      </ul>
-    </div>
-
-    <div>
-      <h4 style="margin:6px 0">Rooms (first up to 3)</h4>
-      {% if rooms and rooms|length %}
-        <ol style="margin:0; padding-left:16px; line-height:1.4">
-          {% for r in rooms[:3] %}
-            <li>
-              name: {{ r.name|default('—', true) }},
-              is_let: {{ r.is_let|default('—', true) }},
-              price_pcm: {{ r.price_pcm|default('—', true) }},
-              ensuite/has_ensuite/private_bathroom:
-              {{ (r.ensuite or r.has_ensuite or r.private_bathroom)|default('—', true) }}
-            </li>
-          {% endfor %}
-        </ol>
-      {% else %}
-        <p style="margin:0">No rooms.</p>
-      {% endif %}
-    </div>
-  </div>
-</div>
-
-#########debug
-
-#########debug
-
-          
           <aside class="media-right">
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
 
@@ -146,6 +99,16 @@
               {% endfor %}
             {% endif %}
 
+            {# --- compute bills flags robustly (accept '1', 1, True, 'on') --- #}
+            {% set u = {
+              'gas': house.bills_util_gas in ['1', 1, true, 'on'],
+              'elec': house.bills_util_electric in ['1', 1, true, 'on'],
+              'water': house.bills_util_water in ['1', 1, true, 'on'],
+              'bb': house.bills_util_broadband in ['1', 1, true, 'on'],
+              'tv': house.bills_util_tv in ['1', 1, true, 'on']
+            } %}
+            {% set any_util = u.gas or u.elec or u.water or u.bb or u.tv %}
+
             <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5;">
               <li><strong>Total bedrooms:</strong> {{ house.bedrooms_total }}</li>
 
@@ -155,11 +118,8 @@
 
               {% if house.bills_included == 'yes' %}
                 <li><strong>All bills included</strong></li>
-              {% elif house.bills_included == 'some' %}
-                {% set any_util = (house.bills_util_gas or house.bills_util_electric or house.bills_util_water or house.bills_util_broadband or house.bills_util_tv) %}
-                {% if any_util %}
-                  <li><strong>Some bills included</strong></li>
-                {% endif %}
+              {% elif house.bills_included == 'some' and any_util %}
+                <li><strong>Some bills included</strong></li>
               {% endif %}
 
               {% if ns.avail|length > 0 %}
@@ -325,7 +285,7 @@
         }
         keep = keep.replace(/^((flat|suite|apt|apartment)\b.*?\s)/i, '').trim();
         return keep || line1;
-        }
+      }
 
       if (parts.length) {
         const line1 = parts[0];
