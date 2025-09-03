@@ -99,16 +99,14 @@
               {% endfor %}
             {% endif %}
 
-            {# --- compute bills flags robustly (accept '1', 1, True, 'on') --- #}
-            {% set bills_mode = (house.bills_included or house.bills_option or 'no') %}
-            {% set u = {
-              'gas': house.bills_util_gas in ['1', 1, true, 'on'],
-              'elec': house.bills_util_electric in ['1', 1, true, 'on'],
-              'water': house.bills_util_water in ['1', 1, true, 'on'],
-              'bb': house.bills_util_broadband in ['1', 1, true, 'on'],
-              'tv': house.bills_util_tv in ['1', 1, true, 'on']
-            } %}
-            {% set any_util = u.gas or u.elec or u.water or u.bb or u.tv %}
+            {# --- bills summary (handle old/new fields) --- #}
+            {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
+            {% set gas = house.bills_util_gas in ['1', 1, true, 'on'] %}
+            {% set elec = house.bills_util_electric in ['1', 1, true, 'on'] %}
+            {% set water = house.bills_util_water in ['1', 1, true, 'on'] %}
+            {% set bb = house.bills_util_broadband in ['1', 1, true, 'on'] %}
+            {% set tv = house.bills_util_tv in ['1', 1, true, 'on'] %}
+            {% set any_util = gas or elec or water or bb or tv %}
 
             <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5;">
               <li><strong>Total bedrooms:</strong> {{ house.bedrooms_total }}</li>
@@ -143,49 +141,36 @@
       {% endif %}
     </div>
 
-    {# --- AMENITIES / FACILITIES --- #}
+    {# --- FACILITIES (amenities) --- #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <h2 style="margin:0 0 10px">Facilities</h2>
 
-      {# truthy helper #}
-      {% set t = lambda v: v in ['1', 1, true, 'on'] %}
+      {% set nsf = namespace(items=[]) %}
+      {% if house.cctv in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🛡️','label':'CCTV'}] %}{% endif %}
+      {% if house.off_street_parking in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🅿️','label':'Off-street Parking'}] %}{% endif %}
+      {% if house.local_parking in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🚗','label':'Local Parking'}] %}{% endif %}
+      {% if house.bike_storage in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🚲','label':'Bike Storage'}] %}{% endif %}
+      {% if house.washing_machine in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🧺','label':'Washing Machine'}] %}{% endif %}
+      {% if house.tumble_dryer in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🌀','label':'Tumble Dryer'}] %}{% endif %}
+      {% if house.dishwasher in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🍽️','label':'Dishwasher'}] %}{% endif %}
+      {% if house.cooker in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🍳','label':'Cooker'}] %}{% endif %}
+      {% if house.microwave in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'📡','label':'Microwave'}] %}{% endif %}
+      {% if house.coffee_maker in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'☕','label':'Coffee Maker'}] %}{% endif %}
+      {% if house.central_heating in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🔥','label':'Central Heating'}] %}{% endif %}
+      {% if (house.air_con in ['1',1,true,'on']) or (house.air_conditioning in ['1',1,true,'on']) %}{% set nsf.items = nsf.items + [{'icon':'❄️','label':'Air Conditioning'}] %}{% endif %}
+      {% if house.vacuum in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🧹','label':'Vacuum'}] %}{% endif %}
+      {% if house.wifi in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'📶','label':'Wi-Fi'}] %}{% endif %}
+      {% if house.wired_internet in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🔌','label':'Wired Internet'}] %}{% endif %}
+      {% if house.common_area_tv in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'📺','label':'TV (communal)'}] %}{% endif %}
+      {% if house.garden in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🌳','label':'Outdoor Area / Garden'}] %}{% endif %}
+      {% if house.roof_terrace in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🌇','label':'Roof Terrace'}] %}{% endif %}
+      {% if house.games_room in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🕹️','label':'Games Room'}] %}{% endif %}
+      {% if house.cinema_room in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🎬','label':'Cinema Room'}] %}{% endif %}
 
-      {% set items = [] %}
-      {# security / access #}
-      {% if t(house.cctv) %}{% set items = items + [{'icon':'<span class="ico">🛡️</span>','label':'CCTV'}] %}{% endif %}
-      {% if t(house.video_door_entry) %}{% set items = items + [{'icon':'<span class="ico">📹</span>','label':'Video Door Entry'}] %}{% endif %}
-      {% if t(house.fob_entry) %}{% set items = items + [{'icon':'<span class="ico">🔑</span>','label':'Fob Entry'}] %}{% endif %}
-
-      {# parking & outdoors #}
-      {% if t(house.off_street_parking) %}{% set items = items + [{'icon':'<span class="ico">🅿️</span>','label':'Off-street Parking'}] %}{% endif %}
-      {% if t(house.local_parking) %}{% set items = items + [{'icon':'<span class="ico">🚗</span>','label':'Local Parking'}] %}{% endif %}
-      {% if t(house.bike_storage) %}{% set items = items + [{'icon':'<span class="ico">🚲</span>','label':'Bike Storage'}] %}{% endif %}
-      {% if t(house.garden) %}{% set items = items + [{'icon':'<span class="ico">🌳</span>','label':'Outdoor Area / Garden'}] %}{% endif %}
-      {% if t(house.roof_terrace) %}{% set items = items + [{'icon':'<span class="ico">🌇</span>','label':'Roof Terrace'}] %}{% endif %}
-
-      {# kitchen / appliances #}
-      {% if t(house.cooker) %}{% set items = items + [{'icon':'<span class="ico">🍳</span>','label':'Cooker'}] %}{% endif %}
-      {% if t(house.microwave) %}{% set items = items + [{'icon':'<span class="ico">🧲</span>','label':'Microwave/Oven'}] %}{% endif %}
-      {% if t(house.dishwasher) %}{% set items = items + [{'icon':'<span class="ico">🍽️</span>','label':'Dishwasher'}] %}{% endif %}
-      {% if t(house.washing_machine) %}{% set items = items + [{'icon':'<span class="ico">🧺</span>','label':'Washing Machine'}] %}{% endif %}
-      {% if t(house.tumble_dryer) %}{% set items = items + [{'icon':'<span class="ico">🌀</span>','label':'Tumble Dryer'}] %}{% endif %}
-      {% if t(house.coffee_maker) %}{% set items = items + [{'icon':'<span class="ico">☕</span>','label':'Coffee Maker'}] %}{% endif %}
-
-      {# comfort / media #}
-      {% if t(house.central_heating) %}{% set items = items + [{'icon':'<span class="ico">🔥</span>','label':'Central Heating'}] %}{% endif %}
-      {% if t(house.air_con) or t(house.air_conditioning) %}{% set items = items + [{'icon':'<span class="ico">❄️</span>','label':'Air Conditioning'}] %}{% endif %}
-      {% if t(house.wifi) %}{% set items = items + [{'icon':'<span class="ico">📶</span>','label':'Wi-Fi'}] %}{% endif %}
-      {% if t(house.wired_internet) %}{% set items = items + [{'icon':'<span class="ico">🔌</span>','label':'Wired Internet'}] %}{% endif %}
-      {% if t(house.common_area_tv) %}{% set items = items + [{'icon':'<span class="ico">📺</span>','label':'TV (communal)'}] %}{% endif %}
-
-      {# shared spaces #}
-      {% if t(house.games_room) %}{% set items = items + [{'icon':'<span class="ico">🕹️</span>','label':'Games Room'}] %}{% endif %}
-      {% if t(house.cinema_room) %}{% set items = items + [{'icon':'<span class="ico">🎬</span>','label':'Cinema Room'}] %}{% endif %}
-
-      {% if items|length %}
+      {% if nsf.items|length %}
         <ul class="facilities-grid">
-          {% for it in items %}
-            <li class="facility">{{ it.icon|safe }}<span>{{ it.label }}</span></li>
+          {% for it in nsf.items %}
+            <li class="facility"><span class="ico" aria-hidden="true">{{ it.icon }}</span>{{ it.label }}</li>
           {% endfor %}
         </ul>
       {% else %}
@@ -193,9 +178,8 @@
       {% endif %}
     </div>
 
-    {# --- BILLS INCLUDED --- #}
-    {% set gas = u.gas %}{% set elec = u.elec %}{% set water = u.water %}{% set bb = u.bb %}{% set tv = u.tv %}
-    {% if bills_mode == 'yes' or (bills_mode == 'some' and (gas or elec or water or bb or tv)) %}
+    {# --- BILLS INCLUDED BLOCK (visible only when applicable) --- #}
+    {% if bills_mode == 'yes' or (bills_mode == 'some' and any_util) %}
       <div class="card card--accent-lr" style="margin-bottom:12px">
         <h2 style="margin:0 0 8px">Bills included</h2>
 
@@ -219,7 +203,7 @@
       <p style="white-space:pre-wrap">{{ house.description or "No description provided yet." }}</p>
     </div>
 
-    {# Quick facts #}
+    {# Key details #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <h2 style="margin:0 0 8px">Key details</h2>
       <div class="grid grid-2">
@@ -326,18 +310,17 @@
   }
   .highlights { margin: 8px 0 0; padding-left: 18px; }
 
-  /* Facilities grid (icon + label, like your screenshot) */
+  /* Facilities grid (icons + labels) */
   .facilities-grid{
     list-style:none; margin:0; padding:0;
     display:grid;
     grid-template-columns: repeat(3, minmax(0,1fr));
-    gap:14px 18px;
+    gap:12px 18px;
   }
   @media (max-width: 900px){ .facilities-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
   @media (max-width: 560px){ .facilities-grid{ grid-template-columns: 1fr; } }
-
   .facility{
-    display:flex; align-items:center; gap:12px;
+    display:flex; align-items:center; gap:10px;
     font-size:1.05rem; line-height:1.4;
   }
   .facility .ico{
@@ -345,6 +328,7 @@
     font-size:20px;
   }
 
+  /* Bills list */
   .bills-list{ margin:0; padding-left:18px; line-height:1.5; }
 </style>
 
