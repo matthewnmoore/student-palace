@@ -12,6 +12,9 @@ from utils import (
 from . import bp
 from . import house_form, house_repo
 
+# ✅ NEW: summaries helper
+from utils_summaries import recompute_house_summaries
+
 
 # -----------------------------
 # Normalisation helpers
@@ -310,6 +313,26 @@ def house_new():
 
         payload["created_at"] = dt.utcnow().isoformat()
         house_repo.insert_house(conn, lid, payload)
+
+        # ✅ NEW: initialise summaries for the newly inserted house
+        try:
+            hid_row = conn.execute("SELECT last_insert_rowid() AS id").fetchone()
+            new_hid = (hid_row["id"] if hasattr(hid_row, "keys") else hid_row[0]) if hid_row else None
+            if new_hid:
+                recompute_house_summaries(conn, new_hid)
+        except Exception:
+            # As a fallback (rare), initialise the most recent house for this landlord
+            try:
+                hid_row = conn.execute(
+                    "SELECT id FROM houses WHERE landlord_id=? ORDER BY id DESC LIMIT 1",
+                    (lid,)
+                ).fetchone()
+                if hid_row:
+                    new_hid = hid_row["id"] if hasattr(hid_row, "keys") else hid_row[0]
+                    recompute_house_summaries(conn, new_hid)
+            except Exception:
+                pass
+
         conn.close()
         flash("House added.", "ok")
         return redirect(url_for("landlord.landlord_houses"))
@@ -359,6 +382,13 @@ def house_edit(hid):
             )
 
         house_repo.update_house(conn, lid, hid, payload)
+
+        # ✅ NEW: keep summaries in sync after edits
+        try:
+            recompute_house_summaries(conn, hid)
+        except Exception:
+            pass
+
         conn.close()
         flash("House updated.", "ok")
         return redirect(url_for("landlord.landlord_houses"))
