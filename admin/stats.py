@@ -9,6 +9,7 @@ from utils_summaries import recompute_all_houses
 
 from . import bp  # admin blueprint
 
+
 # -----------------------
 # Helpers (local)
 # -----------------------
@@ -28,7 +29,8 @@ def _parse_int(name: str, default: int, min_val: int = 1, max_val: int | None = 
 # Pages
 # -----------------------
 
-@bp.route("/admin/dashboard")
+# ✅ Force endpoint name = 'admin.dashboard' so url_for('admin.dashboard') works
+@bp.route("/admin/dashboard", endpoint="dashboard")
 def dashboard():
     """(Existing) lightweight dashboard entry."""
     r = require_admin()
@@ -91,8 +93,8 @@ def admin_summaries():
       h.bedrooms_total,
       COALESCE(SUM(CASE WHEN r.id IS NOT NULL THEN 1 ELSE 0 END), 0)               AS rooms_total,
       COALESCE(SUM(CASE
-         WHEN r.id IS NULL                      THEN 0
-         WHEN r.is_let IN (1, '1', 'on', 'true', 'True') THEN 0
+         WHEN r.id IS NULL                                              THEN 0
+         WHEN r.is_let IN (1, '1', 'on', 'true', 'True')                THEN 0
          ELSE 1
       END), 0) AS rooms_available,
       h.created_at
