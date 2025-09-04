@@ -27,6 +27,7 @@ from . import auth as _auth            # noqa: F401,E402
 from . import cities as _cities        # noqa: F401,E402
 from . import landlords as _landlords  # noqa: F401,E402
 from . import images as _images        # noqa: F401,E402
+from . import summaries as _summaries  # ✅ NEW: register /admin/summaries routes  # noqa: F401,E402
 
 # ---- Import optional modules if present (avoid hard dependency/circulars) ----
 # If any of these files aren't present or raise during import, we skip them.
