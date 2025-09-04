@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}All rooms – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">All rooms (grouped by city &amp; house)</h1>
+    <a class="btn btn-outline" href="{{ url_for('landlord.landlord_houses') }}">Back to houses</a>
+  </div>
+
+  {% if grouped and grouped|length %}
+    {% for city, houses in grouped.items() %}
+      <div class="card card--accent-lr" style="margin-bottom:14px">
+        <h2 class="mt-0" style="margin-bottom:6px">{{ city }}</h2>
+
+        {% for h in houses %}
+          <div style="border:1px solid var(--border); border-radius:10px; padding:10px; margin-top:10px; background:#fff">
+            <div class="flex-between" style="align-items:center; gap:10px; margin-bottom:6px">
+              <h3 class="mt-0" style="font-size:16px">{{ h.title }}</h3>
+              <div class="inline-actions">
+                <a class="btn btn-outline" href="{{ url_for('landlord.house_edit', hid=h.id) }}">Edit house</a>
+                <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=h.id) }}">Manage rooms</a>
+              </div>
+            </div>
+
+            {% set bills = (h.bills_option or 'no') %}
+            <div class="muted" style="margin-bottom:8px">
+              Bills: {% if bills=='yes' %}All included{% elif bills=='some' %}Some included{% else %}Not included{% endif %}
+            </div>
+
+            <table class="table" style="margin:0">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>£ PPM</th>
+                  <th>£ PPW</th>
+                  <th>Bed size</th>
+                  <th>Ensuite</th>
+                  <th>Couples</th>
+                  <th>Inclusive</th>
+                  <th>Availability</th>
+                  <th style="width:280px">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if h.rooms and h.rooms|length %}
+                  {% for r in h.rooms %}
+                    <tr>
+                      <td><strong>{{ r.name }}</strong></td>
+                      <td>
+                        {% if r.price_pcm %}£{{ r.price_pcm }}{% else %}—{% endif %}
+                      </td>
+                      <td>
+                        {% if r.price_pcm %}£{{ ((r.price_pcm * 12) // 52)|int }}{% else %}—{% endif %}
+                      </td>
+                      <td>{{ r.bed_size or '—' }}</td>
+                      <td>{{ 'Yes' if r.ensuite else 'No' }}</td>
+                      <td>{{ 'Yes' if r.couples_ok else 'No' }}</td>
+                      <td>
+                        {% if bills=='yes' %}All{% elif bills=='some' %}Some{% else %}No{% endif %}
+                      </td>
+                      <td>
+                        {% if not r.is_let %}
+                          Yes
+                        {% elif r.let_until %}
+                          {% set d = r.let_until %}
+                          {% if d and '-' in d and d|length >= 10 %}
+                            Not until {{ d[8:10] }}/{{ d[5:7] }}/{{ d[0:4] }}
+                          {% else %}
+                            Not until {{ d }}
+                          {% endif %}
+                        {% else %}
+                          Not available
+                        {% endif %}
+                      </td>
+                      <td>
+                        <div class="inline-actions" style="display:flex; gap:8px; align-items:center;">
+                          <a class="btn" href="{{ url_for('landlord.room_photos', hid=h.id, rid=r.id) }}">Photos</a>
+                          <a class="btn btn-outline" href="{{ url_for('landlord.room_edit', hid=h.id, rid=r.id) }}">Edit</a>
+                          <form method="post" action="{{ url_for('landlord.room_delete', hid=h.id, rid=r.id) }}"
+                                onsubmit="return confirm('Delete this room?');" style="margin:0">
+                            <button class="btn btn-admin" type="submit">Delete</button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td colspan="9" class="muted">No rooms yet for this house.</td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="card card--accent-lr">No houses or rooms yet.</div>
+  {% endif %}
+</section>
+{% endblock %}
