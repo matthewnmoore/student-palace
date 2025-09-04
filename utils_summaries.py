@@ -1,91 +1,111 @@
 # utils_summaries.py
 from __future__ import annotations
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Iterable
 from sqlite3 import Connection
 
-# Treat these bed sizes as "double" for the rollups
+# Bed sizes that count as "double"
 DOUBLE_SIZES = {"Small double", "Double", "King"}
 
 
-# ---------- add-only migration helpers (safe to call repeatedly) ----------
-def _table_cols(conn: Connection, table: str) -> set[str]:
+# -------------------------------
+# schema helpers (add-only)
+# -------------------------------
+def _table_info(conn: Connection, table: str) -> list[dict]:
     rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
-    return {r["name"] if isinstance(r, dict) else r[1] for r in rows}
+    # Convert to dicts keyed by name for convenience
+    return [dict(zip([c[0] for c in rows.description] if hasattr(rows, "description") else
+                     ["cid", "name", "type", "notnull", "dflt_value", "pk"], r)) for r in rows]
 
-def _safe_add_column(conn: Connection, table: str, ddl_fragment: str) -> None:
-    """
-    Add a column to `table` if it does not already exist.
-    ddl_fragment should be like: `ADD COLUMN my_col INTEGER NOT NULL DEFAULT 0`
-    """
-    # Extract column name after 'ADD COLUMN '
-    frag = ddl_fragment.strip()
-    target = frag.upper().split("ADD COLUMN", 1)[1].strip()
-    col_name = target.split()[0]
-    existing = _table_cols(conn, table)
-    if col_name not in existing:
-        conn.execute(f"ALTER TABLE {table} {ddl_fragment}")
+def _has_column(conn: Connection, table: str, col: str) -> bool:
+    return any(row["name"] == col for row in _table_info(conn, table))
 
-def _ensure_house_rollup_columns(conn: Connection) -> None:
+def _safe_add_column(conn: Connection, table: str, ddl: str) -> None:
     """
-    Make sure all rollup columns exist on houses (add-only, no drops).
+    Add-only migration: `ddl` should be just the "ADD COLUMN ..." clause.
+    Example: _safe_add_column(conn, "houses", "ADD COLUMN ensuites_total INTEGER NOT NULL DEFAULT 0")
     """
-    # Existing (but ensure anyway in case of older db): totals + available rooms + prices
-    _safe_add_column(conn, "houses", "ADD COLUMN ensuites_total INTEGER NOT NULL DEFAULT 0")
-    _safe_add_column(conn, "houses", "ADD COLUMN double_beds_total INTEGER NOT NULL DEFAULT 0")
-    _safe_add_column(conn, "houses", "ADD COLUMN suitable_for_couples_total INTEGER NOT NULL DEFAULT 0")
-    _safe_add_column(conn, "houses", "ADD COLUMN available_rooms_total INTEGER NOT NULL DEFAULT 0")
-    _safe_add_column(conn, "houses", "ADD COLUMN available_rooms_prices TEXT NOT NULL DEFAULT '[]'")
+    try:
+        conn.execute(f"ALTER TABLE {table} {ddl}")
+        conn.commit()
+    except Exception:
+        # If it already exists or ALTER fails for a benign reason, ignore.
+        conn.rollback()
 
-    # New: available variants (these are the ones your admin check page needs)
-    _safe_add_column(conn, "houses", "ADD COLUMN ensuites_available INTEGER NOT NULL DEFAULT 0")
-    _safe_add_column(conn, "houses", "ADD COLUMN double_beds_available INTEGER NOT NULL DEFAULT 0")
-    _safe_add_column(conn, "houses", "ADD COLUMN couples_ok_available INTEGER NOT NULL DEFAULT 0")
-# --------------------------------------------------------------------------
+def ensure_house_rollup_columns(conn: Connection) -> None:
+    """
+    Make sure all rollup columns exist on houses (add-only, idempotent).
+    """
+    # Totals (already existed in your earlier doc, but ensure anyway)
+    if not _has_column(conn, "houses", "ensuites_total"):
+        _safe_add_column(conn, "houses", "ADD COLUMN ensuites_total INTEGER NOT NULL DEFAULT 0")
+    if not _has_column(conn, "houses", "available_rooms_total"):
+        _safe_add_column(conn, "houses", "ADD COLUMN available_rooms_total INTEGER NOT NULL DEFAULT 0")
+    if not _has_column(conn, "houses", "available_rooms_prices"):
+        _safe_add_column(conn, "houses", "ADD COLUMN available_rooms_prices TEXT NOT NULL DEFAULT '[]'")
+    if not _has_column(conn, "houses", "double_beds_total"):
+        _safe_add_column(conn, "houses", "ADD COLUMN double_beds_total INTEGER NOT NULL DEFAULT 0")
+    if not _has_column(conn, "houses", "suitable_for_couples_total"):
+        _safe_add_column(conn, "houses", "ADD COLUMN suitable_for_couples_total INTEGER NOT NULL DEFAULT 0")
+
+    # NEW: available-only fields
+    if not _has_column(conn, "houses", "ensuites_available"):
+        _safe_add_column(conn, "houses", "ADD COLUMN ensuites_available INTEGER NOT NULL DEFAULT 0")
+    if not _has_column(conn, "houses", "double_beds_available"):
+        _safe_add_column(conn, "houses", "ADD COLUMN double_beds_available INTEGER NOT NULL DEFAULT 0")
+    if not _has_column(conn, "houses", "couples_ok_available"):
+        _safe_add_column(conn, "houses", "ADD COLUMN couples_ok_available INTEGER NOT NULL DEFAULT 0")
+
+
+# -------------------------------
+# recompute logic
+# -------------------------------
+def _iter_rooms_for_house(conn: Connection, house_id: int) -> Iterable[dict]:
+    return conn.execute(
+        """
+        SELECT
+            name,
+            COALESCE(ensuite, 0)            AS ensuite,
+            COALESCE(is_let, 0)             AS is_let,
+            COALESCE(price_pcm, 0)          AS price_pcm,
+            TRIM(COALESCE(bed_size, ''))    AS bed_size,
+            COALESCE(couples_ok, 0)         AS couples_ok
+        FROM rooms
+        WHERE house_id = ?
+        """,
+        (house_id,)
+    ).fetchall()
 
 
 def recompute_house_summaries(conn: Connection, house_id: int) -> Dict[str, Any]:
     """
-    Recalculate and persist summary fields on houses for the given house_id.
+    Recalculate and persist **totals** and **available-only** rollups for a house.
     Returns the dict of values written.
     """
-    # Ensure schema supports all fields we’re going to write
-    _ensure_house_rollup_columns(conn)
+    ensure_house_rollup_columns(conn)
 
-    rows = conn.execute("""
-        SELECT
-            name,
-            COALESCE(ensuite,0)    AS ensuite,
-            COALESCE(is_let,0)     AS is_let,
-            COALESCE(price_pcm,0)  AS price_pcm,
-            TRIM(COALESCE(bed_size,'')) AS bed_size,
-            COALESCE(couples_ok,0) AS couples_ok
-        FROM rooms
-        WHERE house_id=?
-    """, (house_id,)).fetchall()
+    rows = list(_iter_rooms_for_house(conn, house_id))
 
-    # Totals (all rooms regardless of let status)
+    # Counters
     ensuites_total = 0
     double_beds_total = 0
     suitable_for_couples_total = 0
 
-    # Availability (only rooms where is_let == 0)
     available_rooms_total = 0
     ensuites_available = 0
     double_beds_available = 0
     couples_ok_available = 0
 
-    # Price summary for *available* rooms only
-    available_prices_list = []   # list of dicts: {"name": "...", "price_pcm": 999}
+    available_prices_list = []  # list of {"name": str, "price_pcm": int|None}
 
     for r in rows:
         ensuite = int(r["ensuite"]) == 1
-        is_let = int(r["is_let"]) == 1
-        couples_ok = int(r["couples_ok"]) == 1
-        bed_size = (r["bed_size"] or "")
+        is_available = int(r["is_let"]) == 0
+        bed_size = (r["bed_size"] or "").strip()
         is_double = bed_size in DOUBLE_SIZES
+        couples_ok = int(r["couples_ok"]) == 1
 
-        # Totals across all rooms
+        # Totals regardless of availability
         if ensuite:
             ensuites_total += 1
         if is_double:
@@ -93,8 +113,8 @@ def recompute_house_summaries(conn: Connection, house_id: int) -> Dict[str, Any]
         if couples_ok:
             suitable_for_couples_total += 1
 
-        # Available-only rollups
-        if not is_let:
+        # Available-only
+        if is_available:
             available_rooms_total += 1
             if ensuite:
                 ensuites_available += 1
@@ -103,66 +123,59 @@ def recompute_house_summaries(conn: Connection, house_id: int) -> Dict[str, Any]
             if couples_ok:
                 couples_ok_available += 1
 
-            # Include price if positive, else null
-            try:
-                price = int(r["price_pcm"]) if r["price_pcm"] is not None else 0
-            except Exception:
-                price = 0
-            available_prices_list.append({
-                "name": r["name"],
-                "price_pcm": price if price > 0 else None
-            })
+            price = int(r["price_pcm"]) if r["price_pcm"] else 0
+            available_prices_list.append(
+                {"name": r["name"], "price_pcm": price if price > 0 else None}
+            )
 
-    # Store prices as compact JSON
     available_rooms_prices = json.dumps(available_prices_list, separators=(",", ":"))
 
     # Persist to houses
-    conn.execute("""
+    conn.execute(
+        """
         UPDATE houses SET
             ensuites_total = ?,
-            double_beds_total = ?,
-            suitable_for_couples_total = ?,
-
             available_rooms_total = ?,
             available_rooms_prices = ?,
-
+            double_beds_total = ?,
+            suitable_for_couples_total = ?,
             ensuites_available = ?,
             double_beds_available = ?,
             couples_ok_available = ?
         WHERE id = ?
-    """, (
-        ensuites_total,
-        double_beds_total,
-        suitable_for_couples_total,
-
-        available_rooms_total,
-        available_rooms_prices,
-
-        ensuites_available,
-        double_beds_available,
-        couples_ok_available,
-        house_id
-    ))
+        """,
+        (
+            ensuites_total,
+            available_rooms_total,
+            available_rooms_prices,
+            double_beds_total,
+            suitable_for_couples_total,
+            ensuites_available,
+            double_beds_available,
+            couples_ok_available,
+            house_id,
+        ),
+    )
     conn.commit()
 
     return {
         "ensuites_total": ensuites_total,
-        "double_beds_total": double_beds_total,
-        "suitable_for_couples_total": suitable_for_couples_total,
         "available_rooms_total": available_rooms_total,
         "available_rooms_prices": available_rooms_prices,
+        "double_beds_total": double_beds_total,
+        "suitable_for_couples_total": suitable_for_couples_total,
         "ensuites_available": ensuites_available,
         "double_beds_available": double_beds_available,
         "couples_ok_available": couples_ok_available,
     }
 
 
-def recompute_all_houses(conn: Connection) -> None:
+def recompute_all_houses(conn: Connection) -> int:
     """
-    Recompute summaries for every house (used by Admin → Recompute all).
+    Recalculate rollups for every house. Returns the number of houses processed.
     """
-    _ensure_house_rollup_columns(conn)
-    ids = conn.execute("SELECT id FROM houses").fetchall()
-    for row in ids:
-        hid = row["id"] if isinstance(row, dict) else row[0]
+    ensure_house_rollup_columns(conn)
+    house_ids = [row[0] for row in conn.execute("SELECT id FROM houses").fetchall()]
+    for hid in house_ids:
         recompute_house_summaries(conn, hid)
+    return len(house_ids)
