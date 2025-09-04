@@ -15,10 +15,12 @@ except Exception:
 
 def _fetch_totals(conn: sqlite3.Connection) -> dict:
     houses = conn.execute("SELECT COUNT(*) FROM houses").fetchone()[0] or 0
-    bedrooms = conn.execute("SELECT COALESCE(SUM(bedrooms_total),0) FROM houses").fetchone()[0] or 0
+    bedrooms = conn.execute(
+        "SELECT COALESCE(SUM(bedrooms_total), 0) FROM houses"
+    ).fetchone()[0] or 0
     rooms_created = conn.execute("SELECT COUNT(*) FROM rooms").fetchone()[0] or 0
     rooms_available = conn.execute(
-        "SELECT COALESCE(SUM(CASE WHEN is_let=0 THEN 1 ELSE 0 END),0) FROM rooms"
+        "SELECT COALESCE(SUM(CASE WHEN is_let = 0 THEN 1 ELSE 0 END), 0) FROM rooms"
     ).fetchone()[0] or 0
     return {
         "houses": houses,
@@ -29,7 +31,14 @@ def _fetch_totals(conn: sqlite3.Connection) -> dict:
 
 
 def _fetch_houses(conn: sqlite3.Connection):
-    # Left join so houses with zero rooms still show
+    """
+    Per-house rollups for the table.
+    LEFT JOIN ensures houses with zero rooms still appear.
+    Also returns precomputed columns stored on houses:
+      - ensuites_total
+      - double_beds_total
+      - suitable_for_couples_total
+    """
     rows = conn.execute(
         """
         SELECT
@@ -37,8 +46,11 @@ def _fetch_houses(conn: sqlite3.Connection):
           h.title,
           h.city,
           h.bedrooms_total,
-          COALESCE(COUNT(r.id), 0)                                       AS rooms_created,
-          COALESCE(SUM(CASE WHEN r.is_let=0 THEN 1 ELSE 0 END), 0)        AS rooms_available
+          COALESCE(COUNT(r.id), 0)                                        AS rooms_created,
+          COALESCE(SUM(CASE WHEN r.is_let = 0 THEN 1 ELSE 0 END), 0)       AS rooms_available,
+          COALESCE(h.ensuites_total, 0)                                    AS ensuites_total,
+          COALESCE(h.double_beds_total, 0)                                 AS double_beds_total,
+          COALESCE(h.suitable_for_couples_total, 0)                        AS suitable_for_couples_total
         FROM houses h
         LEFT JOIN rooms r ON r.house_id = h.id
         GROUP BY h.id
