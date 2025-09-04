@@ -21,6 +21,49 @@ HISTORY:
 
 
 
+
+Updated 04/09/2025
+===================
+
+
+
+Backend Python files
+	•	app.py – main Flask entry point, registers blueprints (admin, landlord, public, etc.).
+	•	utils.py – shared helper functions (e.g., clean_bool, recompute summaries).
+	•	utils_summaries.py – recalculates house/room availability rollups.
+	•	db.py – database connection helper (get_db()).
+	•	landlord/__init__.py – landlord blueprint setup, imports all landlord routes.
+	•	landlord/helpers.py – parses/sanitises room form data, validates dates, counts rooms.
+	•	landlord/dashboard.py – landlord dashboard route, loads profile + houses summary.
+	•	landlord/houses.py – add/edit/list landlord houses.
+	•	landlord/rooms.py – add/edit/list landlord rooms.
+	•	landlord/room_photos.py – manage photos for individual rooms.
+	•	landlord/photos.py – manage photos for houses.
+	•	landlord/floorplans.py – manage floorplan uploads for houses.
+	•	landlord/epc.py – manage EPC uploads for houses.
+	•	landlord/rooms_all.py – landlord portfolio view (all rooms across all houses).
+	•	landlord/bulk.py – bulk edit page: set price/availability for all rooms in a house.
+	•	admin/__init__.py – admin blueprint setup, imports core admin routes.
+	•	admin/auth.py – admin login/logout.
+	•	admin/cities.py – manage cities list.
+	•	admin/landlords.py – manage landlord accounts.
+	•	admin/images.py – manage uploaded images.
+	•	admin/summaries.py – admin endpoint to recompute house/room rollups.
+
+⸻
+
+Templates (HTML/Jinja)
+	•	templates/base.html – global layout: header, footer, branding.
+	•	templates/dashboard.html – landlord dashboard (account info, quick actions, houses table).
+	•	templates/landlord_houses.html – list of landlord’s houses.
+	•	templates/landlord_rooms_list.html – list of rooms for one house.
+	•	templates/room_form.html – add/edit individual room (with availability calendars).
+	•	templates/landlord_bulk_edit.html – bulk house edit page (set all room prices/availability).
+	•	templates/landlord_rooms_all.html – landlord portfolio view (all rooms in one table).
+
+
+
+
 updated 02/09/2025 not checked
 ===============================
 
