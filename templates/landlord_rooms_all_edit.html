@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Portfolio (edit rooms) – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Portfolio (edit rooms)</h1>
+    <a class="btn btn-outline" href="{{ url_for('landlord.dashboard') }}">Back to dashboard</a>
+  </div>
+
+  <div class="card card--accent-lr">
+    <p class="muted" style="margin-top:-4px">
+      Edit price and availability for individual rooms across all your houses.
+    </p>
+
+    {% if rows and rows|length %}
+      <table class="table" style="margin-top:8px">
+        <thead>
+          <tr>
+            <th>City</th>
+            <th>House</th>
+            <th>Room</th>
+            <th>£ PPM</th>
+            <th>Couples</th>
+            <th>Ensuite</th>
+            <th style="width:540px">Availability</th>
+            <th style="width:110px">Apply</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.city }}</td>
+            <td><strong>{{ r.house_title }}</strong></td>
+            <td>{{ r.name }}</td>
+
+            <td>
+              <form method="post" action="{{ url_for('landlord.rooms_portfolio_apply', rid=r.id) }}" id="f{{ r.id }}">
+                <input type="number" name="price_pcm" inputmode="numeric" min="0" step="1"
+                       value="{{ r.price_pcm if r.price_pcm else '' }}"
+                       placeholder="{{ r.price_pcm if r.price_pcm else '—' }}"
+                       style="width:110px">
+            </td>
+
+            <td>{{ 'Yes' if r.couples_ok else 'No' }}</td>
+            <td>{{ 'Yes' if r.ensuite else 'No' }}</td>
+
+            <!-- Availability (single line) -->
+            <td style="white-space:nowrap">
+              <div class="avail-row">
+                <label class="check" style="margin-right:10px">
+                  <input type="checkbox" name="is_let" value="1" id="islet{{ r.id }}"
+                         {% if r.is_let %}checked{% endif %}>
+                  <span>Let</span>
+                </label>
+                <input type="hidden" name="is_let" value="0">
+
+                <label class="field-inline">
+                  <span class="mini">Until</span>
+                  <input type="date" name="let_until" id="lu{{ r.id }}" value="{{ r.let_until or '' }}">
+                </label>
+
+                <label class="field-inline">
+                  <span class="mini">From</span>
+                  <input type="date" name="available_from" id="af{{ r.id }}" value="{{ r.available_from or '' }}">
+                </label>
+              </div>
+            </td>
+
+            <td>
+              <button class="btn" type="submit" form="f{{ r.id }}">Apply</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No rooms found.</p>
+    {% endif %}
+  </div>
+</section>
+
+<style>
+  .avail-row {
+    display: inline-flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+  .field-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field-inline .mini {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .field-inline input[type="date"] {
+    min-width: 150px;
+  }
+</style>
+
+<script>
+(function(){
+  function fmt(d){ const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+  function plusDays(iso, n){
+    if(!iso) return '';
+    const d=new Date(iso); if(isNaN(d)) return '';
+    d.setDate(d.getDate()+n);
+    return fmt(d);
+  }
+  function todayIso(){ return fmt(new Date()); }
+
+  {% for r in rows %}
+  (function(){
+    const isLet = document.getElementById('islet{{ r.id }}');
+    const lu    = document.getElementById('lu{{ r.id }}');
+    const af    = document.getElementById('af{{ r.id }}');
+
+    function sync(){
+      const checked = isLet && isLet.checked;
+
+      if (checked) {
+        // Show + enable "Until"; ensure AF > LU
+        if (lu) lu.disabled = false;
+        if (lu && !lu.value) {
+          // default: 30 June next year
+          const now = new Date();
+          let y = now.getFullYear();
+          const afterJune30 = (now.getMonth()+1>6) || (now.getMonth()+1===6 && now.getDate()>30);
+          if (afterJune30) y = y+1;
+          lu.value = fmt(new Date(y, 5, 30)); // June=5
+        }
+        if (lu && af && (!af.value || new Date(af.value) <= new Date(lu.value))) {
+          af.value = plusDays(lu.value, 1);
+        }
+      } else {
+        // Disable "Until" and keep AF as today if blank; set LU = AF-1
+        if (lu) lu.disabled = true;
+        if (af && !af.value) af.value = todayIso();
+        if (lu && af && (!lu.value || new Date(lu.value) >= new Date(af.value))) {
+          lu.value = plusDays(af.value, -1);
+        }
+      }
+    }
+
+    if (isLet) isLet.addEventListener('change', sync);
+    if (lu)    lu.addEventListener('change', sync);
+    if (af)    af.addEventListener('change', sync);
+
+    sync();
+  })();
+  {% endfor %}
+})();
+</script>
+{% endblock %}
