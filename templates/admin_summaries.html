@@ -46,9 +46,9 @@
             <th>Bedrooms</th>
             <th>Rooms created</th>
             <th>Rooms available</th>
-            <th>Ensuites</th>
-            <th>Double beds</th>
-            <th>Couples OK</th>
+            <th>Ensuites (avail/total)</th>
+            <th>Double beds (avail/total)</th>
+            <th>Couples OK (avail/total)</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -61,9 +61,9 @@
               <td>{{ h.bedrooms_total }}</td>
               <td>{{ h.rooms_created }}</td>
               <td>{{ h.rooms_available }}</td>
-              <td>{{ h.ensuites_total }}</td>
-              <td>{{ h.double_beds_total }}</td>
-              <td>{{ h.suitable_for_couples_total }}</td>
+              <td>{{ h.ensuites_available }}/{{ h.ensuites_total }}</td>
+              <td>{{ h.double_beds_available }}/{{ h.double_beds_total }}</td>
+              <td>{{ h.couples_ok_available }}/{{ h.suitable_for_couples_total }}</td>
               <td>
                 {% if h.rooms_available > 0 %}
                   <span class="badge" style="background:#e5f9f5; color:#0f5132;">Advertised</span>
@@ -98,5 +98,8 @@
   font-weight: 700;
   line-height: 1.2;
 }
+.table td { vertical-align: middle; }
+.badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; }
+.muted { opacity:.75; }
 </style>
 {% endblock %}
