@@ -1,12 +1,48 @@
 from flask import render_template, request, redirect, url_for, flash
-from datetime import datetime as dt
+from datetime import datetime as dt, date, timedelta
 from db import get_db
 from utils import current_landlord_id, require_landlord, owned_house_or_none
 from .helpers import room_form_values, room_counts
 from . import bp
 
-# ✅ NEW: import the summaries utility
+# ✅ summaries recompute
 from utils_summaries import recompute_house_summaries
+
+
+def _parse_is_let(request):
+    """
+    Robustly parse the 'is_let' checkbox.
+    We expect a hidden 0 and an optional checkbox 1; use getlist to be safe.
+    """
+    values = [v.strip() for v in request.form.getlist("is_let")]
+    return 1 if "1" in values else 0
+
+
+def _normalize_dates_for_is_let(vals: dict) -> None:
+    """
+    Basic server-side guard:
+    - If not let, clear let_until (so it can’t linger).
+    - If let, ensure available_from is present; if missing but let_until exists,
+      set available_from = let_until + 1 day (matches the JS behaviour).
+    """
+    is_let = int(vals.get("is_let") or 0)
+    let_until = (vals.get("let_until") or "").strip()
+    available_from = (vals.get("available_from") or "").strip()
+
+    if not is_let:
+        vals["let_until"] = ""  # clear
+        # available_from stays as provided (could be today/future)
+        return
+
+    # is_let == 1
+    if not available_from and let_until:
+        try:
+            y, m, d = map(int, let_until.split("-"))
+            next_day = date(y, m, d) + timedelta(days=1)
+            vals["available_from"] = next_day.isoformat()
+        except Exception:
+            # If parsing fails, leave as-is (optional)
+            pass
 
 
 @bp.route("/landlord/houses/<int:hid>/rooms")
@@ -54,6 +90,11 @@ def room_new(hid):
 
     if request.method == "POST":
         vals, errors = room_form_values(request)
+
+        # ✅ Force correct parsing of is_let regardless of helper behaviour
+        vals["is_let"] = _parse_is_let(request)
+        _normalize_dates_for_is_let(vals)
+
         if errors:
             for e in errors: flash(e, "error")
             conn.close()
@@ -82,7 +123,7 @@ def room_new(hid):
         ))
         rid = cur.lastrowid
 
-        # ✅ NEW: recompute summaries
+        # ✅ Recompute summaries
         recompute_house_summaries(conn, hid)
 
         conn.commit()
@@ -117,10 +158,16 @@ def room_edit(hid, rid):
 
     if request.method == "POST":
         vals, errors = room_form_values(request)
+
+        # ✅ Force correct parsing of is_let regardless of helper behaviour
+        vals["is_let"] = _parse_is_let(request)
+        _normalize_dates_for_is_let(vals)
+
         if errors:
             for e in errors: flash(e, "error")
             conn.close()
             return render_template("room_form.html", house=house, form=vals, mode="edit", room=room)
+
         conn.execute("""
           UPDATE rooms SET
             name=?, description=?, ensuite=?, bed_size=?, tv=?, desk_chair=?, wardrobe=?, chest_drawers=?, 
@@ -141,7 +188,7 @@ def room_edit(hid, rid):
             rid, hid
         ))
 
-        # ✅ NEW: recompute summaries
+        # ✅ Recompute summaries
         recompute_house_summaries(conn, hid)
 
         conn.commit()
@@ -171,7 +218,7 @@ def room_delete(hid, rid):
         return redirect(url_for("landlord.landlord_houses"))
     conn.execute("DELETE FROM rooms WHERE id=? AND house_id=?", (rid, hid))
 
-    # ✅ NEW: recompute summaries
+    # ✅ Recompute summaries
     recompute_house_summaries(conn, hid)
 
     conn.commit()
