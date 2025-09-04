@@ -13,24 +13,30 @@
   <!-- ADD CITY -->
   <div class="card" style="margin-bottom:14px">
     <h2 class="mt-0">Add a city</h2>
-    <form method="post" class="grid grid-2" action="{{ url_for('admin.admin_cities') }}">
+    <form method="post" class="grid grid-2 grid-equal" action="{{ url_for('admin.admin_cities') }}">
       <input type="hidden" name="action" value="add">
 
-      <!-- City name -->
-      <label class="field" style="grid-column:1/-1">
+      <!-- City name (half width) -->
+      <label class="field">
         <span class="label">City name</span>
         <input type="text" name="name" id="city_name_input" required placeholder="e.g., Cardiff">
       </label>
 
-      <!-- Postcodes -->
+      <!-- Suggest button (half width) -->
+      <div class="field" style="display:flex; align-items:flex-end;">
+        <button class="btn btn-outline" type="button" id="suggest_pc_btn" style="margin-top:auto;">
+          Suggest postcodes
+        </button>
+      </div>
+
+      <!-- Postcodes (full width) -->
       <label class="field" style="grid-column:1/-1">
         <span class="label">Allowed postcode prefixes</span>
-        <input type="text" name="postcode_prefixes" id="postcode_prefixes_input" 
+        <input type="text" name="postcode_prefixes" id="postcode_prefixes_input"
                placeholder="e.g., CF, CF3, CF5" value="">
         <p class="help">
-          Enter one or more outward codes, separated by commas.  
-          Example: <code>CF</code> or <code>CF, CF3, CF5</code>.  
-          We’ll prefill the most common prefix based on city name, but you can edit.
+          Enter one or more outward codes, separated by commas. Example: <code>CF</code> or
+          <code>CF, CF3, CF5</code>. You can edit the suggestion before saving.
         </p>
       </label>
 
@@ -106,12 +112,14 @@
 
 </section>
 
-<!-- JS: Prefill postcode suggestion -->
+<!-- JS: Suggest postcodes from city name -->
 <script>
 (function() {
   const cityInput = document.getElementById("city_name_input");
-  const postcodeInput = document.getElementById("postcode_prefixes_input");
+  const pcInput   = document.getElementById("postcode_prefixes_input");
+  const btn       = document.getElementById("suggest_pc_btn");
 
+  // Minimal, easy-to-extend defaults map
   const defaults = {
     "Cardiff": "CF",
     "Swansea": "SA",
@@ -119,19 +127,53 @@
     "Sheffield": "S",
     "Manchester": "M",
     "Bristol": "BS",
-    // Add more defaults as needed
+    "Birmingham": "B",
+    "Liverpool": "L",
+    "Nottingham": "NG",
+    "Newcastle": "NE",
+    "Edinburgh": "EH",
+    "Glasgow": "G",
+    "Belfast": "BT",
+    "London": "E, EC, N, NW, SE, SW, W, WC" // if you ever enable London later
   };
 
-  if (cityInput && postcodeInput) {
-    cityInput.addEventListener("blur", function() {
-      const city = cityInput.value.trim();
-      if (city && !postcodeInput.value.trim()) {
-        if (defaults[city]) {
-          postcodeInput.value = defaults[city];
-        }
+  function titleCase(s){
+    return (s||"").trim().toLowerCase().replace(/(^|\s)\S/g, m => m.toUpperCase());
+  }
+
+  if (btn && cityInput && pcInput) {
+    btn.addEventListener("click", function() {
+      const city = titleCase(cityInput.value);
+      const suggestion = defaults[city] || "";
+
+      if (!suggestion) {
+        alert("No suggestion available for that city. Please enter prefixes manually (e.g., CF, CF3).");
+        return;
+      }
+
+      const current = pcInput.value.trim();
+      if (!current) {
+        pcInput.value = suggestion;
+        return;
+      }
+
+      // If already includes the suggestion, do nothing; otherwise ask to replace.
+      const currentList = current.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+      const suggestionList = suggestion.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+
+      const alreadyCovered = suggestionList.every(s => currentList.includes(s));
+      if (alreadyCovered) return;
+
+      if (confirm(`Replace existing prefixes with suggestion "${suggestion}"?`)) {
+        pcInput.value = suggestion;
       }
     });
   }
 })();
 </script>
+
+<style>
+  .table td .mono.small { word-break: break-word; white-space: normal; }
+  .table td .muted { opacity: .7; }
+</style>
 {% endblock %}
