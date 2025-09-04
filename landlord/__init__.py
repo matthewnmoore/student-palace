@@ -15,7 +15,7 @@ from . import room_photos as _room_photos  # noqa: F401,E402
 from . import profile as _profile          # noqa: F401,E402
 from . import rooms as _rooms              # noqa: F401,E402
 from . import epc as _epc                  # ← NEW: EPC routes
-
+from . import rooms_all as _rooms_all    # noqa: F401,E402  # NEW
 
 
 
