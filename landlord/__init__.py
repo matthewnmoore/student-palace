@@ -16,7 +16,9 @@ from . import profile as _profile          # noqa: F401,E402
 from . import rooms as _rooms              # noqa: F401,E402
 from . import epc as _epc                  # ← NEW: EPC routes
 from . import rooms_all as _rooms_all    # noqa: F401,E402  # NEW
-from . import bulk_edit as _bulk_edit    # noqa: F401,E402  # NEW: Whole-house edit routes
+from . import bulk as _bulk  # Whole-house edit routes
+
+
 
 
 
