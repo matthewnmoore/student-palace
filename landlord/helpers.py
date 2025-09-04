@@ -118,7 +118,7 @@ def room_form_values(request):
         "ensuite": ensuite,
         "bed_size": bed_size,
         "tv": tv,
-        "desk_chair": desk_chair",
+        "desk_chair": desk_chair,
         "wardrobe": wardrobe,
         "chest_drawers": chest_drawers,
         "lockable_door": lockable_door,
