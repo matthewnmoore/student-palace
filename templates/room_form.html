@@ -165,10 +165,26 @@
     return y+'-'+m+'-'+dd;
   }
 
+  function prevDay(iso){
+    if(!iso) return '';
+    var d=new Date(iso);
+    if(isNaN(d.getTime())) return '';
+    d.setDate(d.getDate()-1);
+    var y=d.getFullYear();
+    var m=String(d.getMonth()+1).padStart(2,'0');
+    var dd=String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+dd;
+  }
+
   function syncVisibility(){
-    var checked=isLet&&isLet.checked;
+    var checked=isLet && isLet.checked;
     if(rowLetUntil) rowLetUntil.style.display=checked?'block':'none';
-    if(!checked && letUntil) letUntil.value='';
+
+    if(!checked && letUntil){
+      // room is available → force let_until to day before available_from (or today)
+      var af = availFrom && availFrom.value ? availFrom.value : new Date().toISOString().slice(0,10);
+      letUntil.value = prevDay(af);
+    }
   }
 
   function wireAutoNextDay(){
