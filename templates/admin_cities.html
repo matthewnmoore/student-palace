@@ -112,60 +112,80 @@
 
 </section>
 
-<!-- JS: Suggest postcodes from city name -->
+<!-- JS: Suggest postcodes from server (live via /admin/cities/suggest_prefixes) -->
 <script>
 (function() {
   const cityInput = document.getElementById("city_name_input");
   const pcInput   = document.getElementById("postcode_prefixes_input");
   const btn       = document.getElementById("suggest_pc_btn");
 
-  // Minimal, easy-to-extend defaults map
-  const defaults = {
-    "Cardiff": "CF",
-    "Swansea": "SA",
-    "Leeds": "LS",
-    "Sheffield": "S",
-    "Manchester": "M",
-    "Bristol": "BS",
-    "Birmingham": "B",
-    "Liverpool": "L",
-    "Nottingham": "NG",
-    "Newcastle": "NE",
-    "Edinburgh": "EH",
-    "Glasgow": "G",
-    "Belfast": "BT",
-    "London": "E, EC, N, NW, SE, SW, W, WC" // if you ever enable London later
-  };
+  // Small helper: normalise CSV → unique, trimmed, uppercase
+  function normaliseCSV(csv) {
+    if (!csv) return [];
+    const parts = csv.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+    const seen = new Set();
+    const out = [];
+    for (const p of parts) {
+      if (!seen.has(p)) { seen.add(p); out.push(p); }
+    }
+    return out;
+  }
 
-  function titleCase(s){
-    return (s||"").trim().toLowerCase().replace(/(^|\s)\S/g, m => m.toUpperCase());
+  async function fetchSuggestions(city) {
+    const url = "{{ url_for('admin.admin_cities_suggest_prefixes') }}?city=" + encodeURIComponent(city);
+    const res = await fetch(url, { credentials: "same-origin" });
+    if (!res.ok) throw new Error("Network error");
+    const data = await res.json();
+    return Array.isArray(data.prefixes) ? data.prefixes : [];
+  }
+
+  function setBusy(state) {
+    if (!btn) return;
+    btn.disabled = !!state;
+    btn.textContent = state ? "Suggesting…" : "Suggest postcodes";
   }
 
   if (btn && cityInput && pcInput) {
-    btn.addEventListener("click", function() {
-      const city = titleCase(cityInput.value);
-      const suggestion = defaults[city] || "";
-
-      if (!suggestion) {
-        alert("No suggestion available for that city. Please enter prefixes manually (e.g., CF, CF3).");
+    btn.addEventListener("click", async function() {
+      const city = (cityInput.value || "").trim();
+      if (!city) {
+        alert("Enter a city name first.");
         return;
       }
+      try {
+        setBusy(true);
+        const suggestions = await fetchSuggestions(city); // live list from server
+        if (!suggestions.length) {
+          alert("No live suggestions found. You can still enter prefixes manually (e.g., CF, CF3).");
+          return;
+        }
 
-      const current = pcInput.value.trim();
-      if (!current) {
-        pcInput.value = suggestion;
-        return;
-      }
+        const currentList = normaliseCSV(pcInput.value);
+        const suggestionList = normaliseCSV(suggestions.join(","));
 
-      // If already includes the suggestion, do nothing; otherwise ask to replace.
-      const currentList = current.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
-      const suggestionList = suggestion.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+        if (!currentList.length) {
+          pcInput.value = suggestionList.join(", ");
+          return;
+        }
 
-      const alreadyCovered = suggestionList.every(s => currentList.includes(s));
-      if (alreadyCovered) return;
-
-      if (confirm(`Replace existing prefixes with suggestion "${suggestion}"?`)) {
-        pcInput.value = suggestion;
+        // Ask whether to replace or append
+        const choice = confirm(
+          "Replace existing prefixes with the live suggestion?\n\n" +
+          "OK = Replace\nCancel = Append"
+        );
+        if (choice) {
+          pcInput.value = suggestionList.join(", ");
+        } else {
+          // Append any that aren't already present
+          const set = new Set(currentList);
+          for (const s of suggestionList) set.add(s);
+          pcInput.value = Array.from(set).sort((a,b)=> a.length-b.length || a.localeCompare(b)).join(", ");
+        }
+      } catch (e) {
+        console.error(e);
+        alert("Couldn’t fetch suggestions right now. Please enter prefixes manually.");
+      } finally {
+        setBusy(false);
       }
     });
   }
