@@ -19,8 +19,9 @@ def _fetch_totals(conn: sqlite3.Connection) -> dict:
         "SELECT COALESCE(SUM(bedrooms_total), 0) FROM houses"
     ).fetchone()[0] or 0
     rooms_created = conn.execute("SELECT COUNT(*) FROM rooms").fetchone()[0] or 0
+    # Use stored rollup for available rooms (same as public pages)
     rooms_available = conn.execute(
-        "SELECT COALESCE(SUM(CASE WHEN is_let = 0 THEN 1 ELSE 0 END), 0) FROM rooms"
+        "SELECT COALESCE(SUM(available_rooms_total), 0) FROM houses"
     ).fetchone()[0] or 0
     return {
         "houses": houses,
@@ -32,12 +33,9 @@ def _fetch_totals(conn: sqlite3.Connection) -> dict:
 
 def _fetch_houses(conn: sqlite3.Connection):
     """
-    Per-house rollups for the table.
-    LEFT JOIN ensures houses with zero rooms still appear.
-    Also returns precomputed columns stored on houses:
-      - ensuites_total
-      - double_beds_total
-      - suitable_for_couples_total
+    Per-house rollups sourced from the *houses* table (stored fields),
+    so admin sees exactly what public pages will use.
+    We still include rooms_created via COUNT(rooms.id) for visibility.
     """
     rows = conn.execute(
         """
@@ -46,11 +44,19 @@ def _fetch_houses(conn: sqlite3.Connection):
           h.title,
           h.city,
           h.bedrooms_total,
+
+          -- created rooms (for admin visibility only)
           COALESCE(COUNT(r.id), 0)                                        AS rooms_created,
-          COALESCE(SUM(CASE WHEN r.is_let = 0 THEN 1 ELSE 0 END), 0)       AS rooms_available,
+
+          -- STORED rollups (authoritative for public pages)
+          COALESCE(h.available_rooms_total, 0)                             AS rooms_available,
           COALESCE(h.ensuites_total, 0)                                    AS ensuites_total,
           COALESCE(h.double_beds_total, 0)                                 AS double_beds_total,
-          COALESCE(h.suitable_for_couples_total, 0)                        AS suitable_for_couples_total
+          COALESCE(h.suitable_for_couples_total, 0)                        AS suitable_for_couples_total,
+          COALESCE(h.ensuites_available, 0)                                AS ensuites_available,
+          COALESCE(h.double_beds_available, 0)                             AS double_beds_available,
+          COALESCE(h.couples_ok_available, 0)                              AS couples_ok_available
+
         FROM houses h
         LEFT JOIN rooms r ON r.house_id = h.id
         GROUP BY h.id
