@@ -10,20 +10,37 @@
     </div>
   </div>
 
+  <!-- ADD CITY -->
   <div class="card" style="margin-bottom:14px">
     <h2 class="mt-0">Add a city</h2>
     <form method="post" class="grid grid-2" action="{{ url_for('admin.admin_cities') }}">
       <input type="hidden" name="action" value="add">
+
+      <!-- City name -->
       <label class="field" style="grid-column:1/-1">
         <span class="label">City name</span>
-        <input type="text" name="name" required placeholder="e.g., Cardiff">
+        <input type="text" name="name" id="city_name_input" required placeholder="e.g., Cardiff">
       </label>
+
+      <!-- Postcodes -->
+      <label class="field" style="grid-column:1/-1">
+        <span class="label">Allowed postcode prefixes</span>
+        <input type="text" name="postcode_prefixes" id="postcode_prefixes_input" 
+               placeholder="e.g., CF, CF3, CF5" value="">
+        <p class="help">
+          Enter one or more outward codes, separated by commas.  
+          Example: <code>CF</code> or <code>CF, CF3, CF5</code>.  
+          We’ll prefill the most common prefix based on city name, but you can edit.
+        </p>
+      </label>
+
       <div style="grid-column:1/-1">
         <button class="btn" type="submit">Add city</button>
       </div>
     </form>
   </div>
 
+  <!-- CITIES LIST -->
   <div class="card">
     <h2 class="mt-0">Cities</h2>
     {% if cities and cities|length %}
@@ -32,6 +49,7 @@
           <tr>
             <th style="width:60px">ID</th>
             <th>Name</th>
+            <th>Postcodes</th>
             <th style="width:120px">Status</th>
             <th style="width:320px">Actions</th>
           </tr>
@@ -41,6 +59,13 @@
             <tr>
               <td>{{ c.id }}</td>
               <td>{{ c.name }}</td>
+              <td>
+                {% if c.postcode_prefixes %}
+                  <span class="mono small">{{ c.postcode_prefixes }}</span>
+                {% else %}
+                  <span class="muted">None set</span>
+                {% endif %}
+              </td>
               <td>
                 {% if c.is_active %}
                   <span class="badge">Active</span>
@@ -80,4 +105,33 @@
   </div>
 
 </section>
+
+<!-- JS: Prefill postcode suggestion -->
+<script>
+(function() {
+  const cityInput = document.getElementById("city_name_input");
+  const postcodeInput = document.getElementById("postcode_prefixes_input");
+
+  const defaults = {
+    "Cardiff": "CF",
+    "Swansea": "SA",
+    "Leeds": "LS",
+    "Sheffield": "S",
+    "Manchester": "M",
+    "Bristol": "BS",
+    // Add more defaults as needed
+  };
+
+  if (cityInput && postcodeInput) {
+    cityInput.addEventListener("blur", function() {
+      const city = cityInput.value.trim();
+      if (city && !postcodeInput.value.trim()) {
+        if (defaults[city]) {
+          postcodeInput.value = defaults[city];
+        }
+      }
+    });
+  }
+})();
+</script>
 {% endblock %}
