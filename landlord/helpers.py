@@ -1,6 +1,6 @@
 from utils import clean_bool
-from db import get_db
-from datetime import datetime as dt
+from db import get_db  # kept for parity with your file, even if unused here
+from datetime import datetime as dt, date, timedelta
 
 def _parse_uk_date(value: str) -> str:
     """
@@ -19,6 +19,22 @@ def _parse_uk_date(value: str) -> str:
         except Exception:
             continue
     return ""
+
+def _to_date(iso_str: str) -> date | None:
+    """Convert 'YYYY-MM-DD' to date or None."""
+    if not iso_str:
+        return None
+    try:
+        return dt.strptime(iso_str, "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+def _iso(d: date | None) -> str:
+    return d.isoformat() if d else ""
+
+def _june_30_next_year(today: date) -> date:
+    """Always 30 June next calendar year from 'today'."""
+    return date(today.year + 1, 6, 30)
 
 def room_form_values(request):
     name = (request.form.get("name") or "").strip()
@@ -58,8 +74,31 @@ def room_form_values(request):
     available_from_in = (request.form.get("available_from") or "").strip()
     let_until_in = (request.form.get("let_until") or "").strip()
 
-    available_from = _parse_uk_date(available_from_in)
-    let_until = _parse_uk_date(let_until_in)
+    available_from_iso = _parse_uk_date(available_from_in)
+    let_until_iso = _parse_uk_date(let_until_in)
+
+    # Self-healing date logic
+    today = date.today()
+    af = _to_date(available_from_iso)
+    lu = _to_date(let_until_iso)
+
+    if is_let:
+        # Default let_until to 30 June next year if missing
+        if not lu:
+            lu = _june_30_next_year(today)
+        # available_from must be day after let_until
+        if not af or af <= lu:
+            af = lu + timedelta(days=1)
+    else:
+        # Room available now
+        if not af:
+            af = today
+        # Force let_until to two days before available_from
+        lu = af - timedelta(days=2)
+
+    # Back to ISO for DB
+    available_from_iso = _iso(af)
+    let_until_iso = _iso(lu)
 
     errors = []
     if not name:
@@ -71,15 +110,7 @@ def room_form_values(request):
     if bed_size not in ("Single","Small double","Double","King"):
         errors.append("Please choose a valid bed size.")
 
-    # Correct ordering: available_from must be AFTER let_until (strictly >)
-    try:
-        if available_from and let_until:
-            af = dt.strptime(available_from, "%Y-%m-%d").date()
-            lu = dt.strptime(let_until, "%Y-%m-%d").date()
-            if af <= lu:
-                errors.append("‘Available from’ must be after ‘Let until’ (usually the next day).")
-    except Exception:
-        errors.append("Invalid dates provided. Please use DD/MM/YYYY.")
+    # NOTE: We no longer error on ordering; we fixed it above.
 
     return ({
         "name": name,
@@ -87,7 +118,7 @@ def room_form_values(request):
         "ensuite": ensuite,
         "bed_size": bed_size,
         "tv": tv,
-        "desk_chair": desk_chair,
+        "desk_chair": desk_chair",
         "wardrobe": wardrobe,
         "chest_drawers": chest_drawers,
         "lockable_door": lockable_door,
@@ -105,10 +136,10 @@ def room_form_values(request):
         # NEW SEARCHABLE FIELDS
         "couples_ok": couples_ok,
         "disabled_ok": disabled_ok,
-        # NEW AVAILABILITY FIELDS
+        # AVAILABILITY (healed)
         "is_let": is_let,
-        "available_from": available_from,
-        "let_until": let_until,
+        "available_from": available_from_iso,
+        "let_until": let_until_iso,
     }, errors)
 
 def room_counts(conn, hid):
