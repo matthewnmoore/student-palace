@@ -27,7 +27,7 @@ from . import auth as _auth            # noqa: F401,E402
 from . import cities as _cities        # noqa: F401,E402
 from . import landlords as _landlords  # noqa: F401,E402
 from . import images as _images        # noqa: F401,E402
-from . import summaries as _summaries  # ✅ register /admin/summaries routes  # noqa: F401,E402
+from . import summaries as _summaries  # ✅ NEW: register /admin/summaries routes  # noqa: F401,E402
 
 # ---- Import optional modules if present (avoid hard dependency/circulars) ----
 # If any of these files aren't present or raise during import, we skip them.
@@ -37,28 +37,3 @@ for _mod in ("dashboard", "backup", "backups", "stats"):
     except Exception:
         # Safe to ignore missing or import-time errors here to prevent circulars
         pass
-
-# ------------- TEMPORARY: one-off migration route -------------
-# After running once successfully, DELETE this route (and the migrate file).
-try:
-    from admin import migrate_add_house_columns
-except Exception:
-    migrate_add_house_columns = None
-
-@bp.route("/migrate_add_house_columns")
-def migrate_add_house_columns_route():
-    # Protect with admin session
-    redir = require_admin()
-    if redir:
-        return redir
-
-    if migrate_add_house_columns is None:
-        return "Migration module not found.", 500
-
-    try:
-        status = migrate_add_house_columns.run()
-    except Exception as e:
-        return f"Migration failed: {e}", 500
-
-    return f"Migration done. {status}"
-# ---------------------------------------------------------------
