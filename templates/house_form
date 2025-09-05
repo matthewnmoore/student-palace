@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add house' if mode=='new' else 'Edit house' }} – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+
+  <form method="post" id="house-form">
+
+    <!-- BASICS -->
+    <div class="card card--accent-edges">
+      <h2 class="mt-0">Basics</h2>
+
+      <div class="grid grid-2 grid-equal">
+        <!-- Title -->
+        <label class="field">
+          <span class="label">Title</span>
+          <input type="text" name="title" id="title_input"
+                 value="{{ (form.title or '') if form else '' }}"
+                 maxlength="20" required>
+          <div class="help">
+            <span id="title_counter">0</span>/20 characters.
+          </div>
+        </label>
+
+        <!-- City -->
+        <label class="field">
+          <span class="label">City</span>
+          <select name="city" id="city_select" required>
+            <option value="">Select a city</option>
+            {% for c in cities %}
+              <option value="{{ c }}" {% if form and form.city==c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+          <p class="help">Only admin-listed cities are available.</p>
+        </label>
+      </div>
+
+      <!-- One row: EPC + Listed As + Bills Included -->
+      <div class="grid grid-3 grid-equal">
+        <!-- EPC rating -->
+        <label class="field">
+          <span class="label">EPC rating</span>
+          {% set epc_val = (form.epc_rating or '') if form else '' %}
+          <select name="epc_rating" id="epc_rating">
+            <option value="" {% if not epc_val %}selected{% endif %}>Please choose</option>
+            {% for rating in ['A','B','C','D','E','F','G'] %}
+              <option value="{{ rating }}" {% if epc_val==rating %}selected{% endif %}>{{ rating }}</option>
+            {% endfor %}
+          </select>
+          <p class="help">Select the property’s Energy Performance Certificate band.</p>
+        </label>
+
+        <!-- Listing type -->
+        <label class="field">
+          <span class="label">Listed as</span>
+          {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
+          <select name="listing_type" required>
+            <option value="owner" {% if lt=='owner' %}selected{% endif %}>Owner</option>
+            <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
+          </select>
+          <p class="help">Defaults to your profile preference; change per house if needed.</p>
+        </label>
+
+        <!-- Bills included -->
+        {% set bi = (form.bills_option or 'no') if form else 'no' %}
+        <label class="field">
+          <span class="label">Bills included</span>
+          <select name="bills_included" id="bills_included">
+            <option value="no" {% if bi=='no' %}selected{% endif %}>No</option>
+            <option value="yes" {% if bi=='yes' %}selected{% endif %}>Yes</option>
+            <option value="some" {% if bi=='some' %}selected{% endif %}>Some</option>
+          </select>
+          <p class="help">Choose “Some” to specify which utilities are covered.</p>
+        </label>
+      </div>
+
+      <div class="grid grid-3 grid-equal">
+        <!-- Letting type -->
+        <label class="field">
+          <span class="label">Letting type</span>
+          <select name="letting_type" required>
+            <option value="whole" {% if form and form.letting_type=='whole' %}selected{% endif %}>Whole property</option>
+            <option value="share" {% if form and form.letting_type=='share' %}selected{% endif %}>House share (rooms)</option>
+          </select>
+        </label>
+
+        <!-- Bedrooms + Rooms configured (EDIT only) -->
+        {% if mode=='edit' and house and house.id %}
+          <div class="field field-group">
+            <span class="label">Bedrooms &amp; already configured</span>
+            <div class="subgrid-2">
+              <div class="field">
+                <span class="label label-small">Bedrooms (total)</span>
+                <input type="number" name="bedrooms_total"
+                       min="{{ rooms_count if mode=='edit' else 1 }}"
+                       value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
+              </div>
+              <div class="field">
+                <span class="label label-small">Rooms configured</span>
+                <input type="text" value="{{ rooms_count or 0 }}" readonly>
+              </div>
+            </div>
+          </div>
+        {% else %}
+          <!-- NEW mode: keep original single field -->
+          <label class="field">
+            <span class="label">Bedrooms (total)</span>
+            <input type="number" name="bedrooms_total"
+                   min="1"
+                   value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
+          </label>
+        {% endif %}
+
+        <!-- Gender preference -->
+        <label class="field">
+          <span class="label">This house identifies as</span>
+          {% set g = (form.gender_preference or '') if form else '' %}
+          <select name="gender_preference" required>
+            <option value="" {% if not g %}selected{% endif %}>Please choose one</option>
+            <option value="Male"   {% if g in ['Male','Male Only'] %}selected{% endif %}>Male Only</option>
+            <option value="Female" {% if g in ['Female','Female Only'] %}selected{% endif %}>Female Only</option>
+            <option value="Mixed"  {% if g in ['Mixed','Anyone/Mixed','Either'] %}selected{% endif %}>Anyone/Mixed</option>
+          </select>
+        </label>
+      </div>
+
+      {% if mode == 'edit' and house and house.id and rooms_count is not none %}
+        <p class="help" style="margin-top:6px">
+          You have configured <strong>{{ rooms_count }}</strong> {{ 'room' if rooms_count==1 else 'rooms' }}.
+        </p>
+      {% endif %}
+    </div>
+
+    <!-- rest of your form unchanged … -->
+
+    <!-- ACTIONS -->
+    <div class="card card--accent-edges">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="btn" type="submit">{{ 'Create house' if mode=='new' else 'Save changes' }}</button>
+        <a class="btn btn-outline" href="{{ url_for('landlord.landlord_houses') }}">Cancel</a>
+        {% if mode=='edit' and house and house.id %}
+          <a class="btn btn-outline" href="{{ url_for('public.property_public', house_id=house.id) }}" target="_blank" rel="noopener">
+            View public page
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+  </form>
+</section>
+
+<!-- JS and styles unchanged … -->
