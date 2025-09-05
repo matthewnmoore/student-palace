@@ -1,4 +1,84 @@
+Student Palace – Handover List (rolled back to bulk editing pages stable point) 05/09/2025
+===========================================================================================
+
+	1.	Current baseline
+
+	•	Website rolled back to stable point after bulk editing pages were completed.
+	•	All files confirmed working at this stage.
+	•	DB intact at /static/uploads/houses/student_palace.db.
+
+	2.	Files last edited in this thread (now rolled back)
+
+	•	landlord/houses.py
+	•	templates/house_form.html
+	•	landlord/house_form.py
+	•	landlord/house_repo.py
+	•	landlord/rooms.py
+	•	landlord/init.py
+
+	3.	Main feature requests still pending
+
+	•	House edit page should display “You have configured X rooms” underneath the basics section (Letting type / Bedrooms / Gender preference).
+	•	Postcode verification still to be added on the house form (we parked this).
+	•	Room table idea (showing list of rooms under house edit) is parked for later — currently only the simple count message is required.
+
+	4.	Design rules to remember
+
+	•	Additions should be minimal and scoped (avoid changing multiple files in one step).
+	•	Show room count only on “Edit” house page, never on “New” house page.
+	•	No complex imports to avoid circular dependencies.
+	•	Always keep working backups before edits.
+
+	5.	Future roadmap (based on discussions)
+
+	•	Postcode verification on house form (address section).
+	•	Add rules: bedrooms_total must be >= number of configured rooms.
+	•	Optional: expand from room count to room table (with edit + delete only, no photos).
+	•	Admin enhancements (backup/export confirmed working).
+	•	Security: potential future work on landlord ID verification and 2FA.
+
+	6.	Reminders
+
+	•	Stable rollback point tag: “baseline-stable-2025-08-31”.
+	•	Use incremental testing — deploy one small change at a time.
+	•	If things break, roll back files touched since the last good deploy.
+
+added:
+
+landlord/houses.py
+Main controller for landlord house pages. Handles routes for listing houses, adding a new house, editing an existing house, deleting a house. Validates and saves house data.
+
+landlord/house_form.py
+Helper functions for parsing and validating the house form inputs. Provides defaults like landlord listing type (owner/agent).
+
+landlord/house_repo.py
+Repository layer for houses. Contains database insert/update queries for houses. Keeps persistence logic separate from controller.
+
+landlord/rooms.py
+Manages room-level routes for landlords. Handles adding, editing, deleting individual rooms under a house.
+
+landlord/init.py
+Initialises the landlord blueprint. Imports submodules (houses, rooms, photos, etc.) so their routes register under the landlord namespace.
+
+templates/house_form.html
+Jinja template for the landlord house form. Used for both “New house” and “Edit house” pages. Contains all input fields (title, city, EPC, letting type, bedrooms, gender preference, address, bathrooms, amenities, description, media links).
+
+utils_summaries.py
+Helper functions for recomputing and updating house/room summary data in the database when houses or rooms change.
+
+
+
+
+
+
+
+
+
+
+
+
 Student Palace – Handover Summary (as of 3rd Sept 2025)
+=======================================================
 	1.	Core architecture
 
 	•	Flask app using Blueprints (public, landlord, admin).
