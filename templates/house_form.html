@@ -83,20 +83,23 @@
           </select>
         </label>
 
-        <!-- Bedrooms + Rooms configured (EDIT: split 50/50) -->
+        <!-- Bedrooms + Rooms configured (EDIT only, fits within one column width) -->
         {% if mode=='edit' and house and house.id %}
-          <div class="field-split-2">
-            <label class="field">
-              <span class="label">Bedrooms (total)</span>
-              <input type="number" name="bedrooms_total" min="1" value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
-            </label>
-            <label class="field">
-              <span class="label">Rooms configured</span>
-              <input type="text" value="{{ rooms_count or 0 }}" readonly>
-            </label>
+          <div class="field field-group">
+            <span class="label">Bedrooms &amp; already configured</span>
+            <div class="subgrid-2">
+              <div class="field">
+                <span class="label label-small">Bedrooms (total)</span>
+                <input type="number" name="bedrooms_total" min="1" value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
+              </div>
+              <div class="field">
+                <span class="label label-small">Rooms configured</span>
+                <input type="text" value="{{ rooms_count or 0 }}" readonly>
+              </div>
+            </div>
           </div>
         {% else %}
-          <!-- NEW mode: keep original single field (full width of this column) -->
+          <!-- NEW mode: keep original single field (same single-column width) -->
           <label class="field">
             <span class="label">Bedrooms (total)</span>
             <input type="number" name="bedrooms_total" min="1" value="{{ (form.bedrooms_total or 1) if form else 1 }}" required>
@@ -116,7 +119,6 @@
         </label>
       </div>
 
-      {# (We keep the earlier informational line from the previous step.) #}
       {% if mode == 'edit' and house and house.id and rooms_count is not none %}
         <p class="help" style="margin-top:6px">
           You have configured <strong>{{ rooms_count }}</strong> {{ 'room' if rooms_count==1 else 'rooms' }}.
@@ -253,7 +255,7 @@
         <!-- Connectivity / Media -->
         <label class="field checkbox"><input type="checkbox" name="wifi" {% if (not form) or form.wifi in ['1',1,'on',True] %}checked{% endif %}><span>Wi-Fi</span></label>
         <label class="field checkbox"><input type="checkbox" name="wired_internet" {% if form and form.wired_internet in ['1',1,'on',True] %}checked{% endif %}><span>Wired internet</span></label>
-        <label class="field checkbox"><input type="checkbox" name="common_area_tv" {% if form and form.common_area_tv in ['1',1,'on',True] %}checked{% endif %}><span>Common area TV</span></label>
+        <label class="field checkbox"><input type="checkbox" name="common_area_tv" {% if form and form.common_area_tv in ['1',1,'on,True'] %}checked{% endif %}><span>Common area TV</span></label>
 
         <!-- Security / Access -->
         <label class="field checkbox"><input type="checkbox" name="cctv" {% if form and form.cctv in ['1',1,'on',True] %}checked{% endif %}><span>CCTV</span></label>
@@ -286,7 +288,7 @@
       </label>
     </div>
 
-    <!-- MEDIA & documents -->
+    <!-- MEDIA (accented) -->
     <div class="card card--accent-edges">
       <h2 class="mt-0">Media &amp; documents</h2>
 
@@ -481,11 +483,17 @@
   .grid-equal > .field > select,
   .grid-equal > .field > textarea { flex:1; }
 
-  /* NEW: split a single column into two equal fields */
-  .field-split-2{
+  /* Group label that spans two small fields */
+  .field-group .label { margin-bottom:6px; }
+
+  /* Two small boxes that fit within ONE grid column (same width as “Listed as”) */
+  .subgrid-2{
     display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+    gap:8px; /* this gap is inside the single column, so total width == the column width */
+  }
+  .label-small{
+    font-weight:600; font-size:12px; color:var(--muted); margin-bottom:4px;
   }
 
   .address-preview { margin-top: 8px; }
