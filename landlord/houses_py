@@ -368,14 +368,14 @@ def house_edit(hid):
             existing_address=house.get("address")
         )
 
-        # ✅ NEW GUARD: bedrooms_total cannot be set below the number of existing rooms
+        # ✅ GUARD: bedrooms_total cannot be less than the number of existing rooms
         try:
             existing_rooms = conn.execute(
                 "SELECT COUNT(1) AS c FROM rooms WHERE house_id=?", (hid,)
             ).fetchone()
             existing_rooms_count = (existing_rooms["c"] if hasattr(existing_rooms, "keys") else existing_rooms[0]) or 0
         except Exception:
-            existing_rooms_count = 0  # fail-safe: don't block edits if query fails
+            existing_rooms_count = 0  # fail-safe
 
         if isinstance(payload.get("bedrooms_total"), int) and payload["bedrooms_total"] < existing_rooms_count:
             errors.append(
