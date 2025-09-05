@@ -1,4 +1,4 @@
-#houses.py 
+#houses.py
 
 from __future__ import annotations
 
@@ -48,58 +48,40 @@ def _normalize_postcode(pc: str) -> str:
 
 
 def _normalize_full_address(s: str) -> str:
-    """
-    Normalize the one-line preview address:
-    - Title-case non-postcode parts split by commas
-    - Uppercase and space the final postcode (if present)
-    """
     s = (s or "").strip()
     if not s:
         return ""
     bits = [b.strip() for b in s.split(",") if b.strip()]
     if not bits:
         return ""
-    # assume last is postcode
     last = _normalize_postcode(bits[-1])
     prior = [_title_case_wordish(b) for b in bits[:-1]]
     if last:
         return ", ".join(prior + [last])
-    return ", ".join(prior)  # no obvious postcode; just title-case parts
+    return ", ".join(prior)
 
 
 def _normalize_youtube_url(u: str) -> str:
-    """
-    Accept empty, youtube.com/watch?v=..., youtu.be/..., shorts/...
-    Return a standard full watch URL (https://www.youtube.com/watch?v=VIDEOID)
-    if recognisable; otherwise return the original string trimmed.
-    """
     u = (u or "").strip()
     if not u:
         return ""
     lower = u.lower()
-
-    # Be forgiving about missing scheme (allow youtu.be/... or www.youtu.be/...)
     if lower.startswith("youtu.be/") or lower.startswith("www.youtu.be/"):
         vid = u.split("/")[-1].split("?")[0].split("#")[0]
         return f"https://www.youtube.com/watch?v={vid}" if vid else u
-
     if "youtube.com" in lower:
-        # /watch?v=ID
         if "watch?v=" in lower:
             q = u.split("watch?v=", 1)[1]
             vid = q.split("&", 1)[0].split("#", 1)[0]
             return f"https://www.youtube.com/watch?v={vid}" if vid else u
-        # /shorts/ID
         if "/shorts/" in lower:
             vid = u.split("/shorts/", 1)[1].split("?", 1)[0].split("#", 1)[0]
             return f"https://www.youtube.com/watch?v={vid}" if vid else u
-
-    # Not a YouTube URL — store trimmed as-is
     return u
 
 
 # -----------------------------------------
-# Schema safety: ensure columns exist
+# Schema safety
 # -----------------------------------------
 def _ensure_houses_has_youtube(conn) -> None:
     try:
@@ -121,7 +103,7 @@ def _ensure_houses_has_description(conn) -> None:
 # Postcode helper
 # -----------------------------------------
 def _postcode_prefix(addr: str) -> str:
-    """Extract the first part (outcode) of a UK postcode, e.g. 'SW1A'."""
+    """Extract the first part (outcode) of a UK postcode, e.g. 'SA1'."""
     if not addr:
         return ""
     parts = addr.strip().upper().split()
@@ -129,7 +111,7 @@ def _postcode_prefix(addr: str) -> str:
 
 
 # -------------------------------------------------------
-# Parser wrapper (uses house_form.parse_house_form if set)
+# Parser
 # -------------------------------------------------------
 def _parse_or_delegate(form, mode: str, default_listing_type: str,
                        existing_address: str | None = None, conn=None):
@@ -249,12 +231,12 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str,
     if epc_rating_raw and epc_rating == "":
         errors.append("Invalid EPC rating (choose A–G).")
 
-    # ✅ NEW: Postcode validation against DB
+    # ✅ NEW: Postcode validation
     if conn is not None:
         pc_prefix = _postcode_prefix(payload["address"])
         if city_raw and pc_prefix:
             row = conn.execute(
-                "SELECT 1 FROM city_postcodes WHERE city=? AND prefix=? LIMIT 1",
+                "SELECT 1 FROM cities WHERE name=? AND post_code_prefix=? LIMIT 1",
                 (city_raw.strip(), pc_prefix)
             ).fetchone()
             if not row:
@@ -269,8 +251,7 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str,
 @bp.route("/landlord/houses")
 def landlord_houses():
     r = require_landlord()
-    if r:
-        return r
+    if r: return r
     lid = current_landlord_id()
     conn = get_db()
     prof = conn.execute(
@@ -287,8 +268,7 @@ def landlord_houses():
 @bp.route("/landlord/houses/new", methods=["GET","POST"])
 def house_new():
     r = require_landlord()
-    if r:
-        return r
+    if r: return r
     lid = current_landlord_id()
     cities = get_active_cities_safe()
     conn = get_db()
