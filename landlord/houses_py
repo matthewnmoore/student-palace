@@ -1,3 +1,4 @@
+# landlord/houses.py
 from __future__ import annotations
 
 import sqlite3
@@ -9,9 +10,9 @@ from utils import (
     owned_house_or_none, validate_city_active, clean_bool, valid_choice
 )
 from . import bp
-from . import house_form, house_repo
+from . import house_repo
 
-# ✅ NEW: summaries helper
+# ✅ summaries helper
 from utils_summaries import recompute_house_summaries
 
 
@@ -126,7 +127,34 @@ def _ensure_houses_has_description(conn) -> None:
 
 
 # -------------------------------------------------------
-# Parser wrapper (uses house_form.parse_house_form if set)
+# Default listing-type helper (inlined to avoid circular imports)
+# -------------------------------------------------------
+def _get_default_listing_type(conn, landlord_id: int, existing: dict | None = None) -> str:
+    """Choose default listing type following the same rules as before."""
+    # 1) keep existing if valid
+    if existing:
+        try:
+            lt = existing.get("listing_type")
+        except AttributeError:
+            lt = existing["listing_type"] if "listing_type" in existing.keys() else None
+        if isinstance(lt, str) and lt.lower() in ("owner", "agent"):
+            return lt.lower()
+
+    # 2) landlord profile role
+    try:
+        row = conn.execute("SELECT role FROM landlord_profiles WHERE landlord_id=?", (landlord_id,)).fetchone()
+        role = row["role"] if row else None
+    except Exception:
+        role = None
+    if isinstance(role, str) and role.lower() in ("owner", "agent"):
+        return role.lower()
+
+    # 3) fallback
+    return "owner"
+
+
+# -------------------------------------------------------
+# Parser (fallback kept as the only path to avoid importing house_form)
 # -------------------------------------------------------
 def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_address: str | None = None):
     """
@@ -135,17 +163,14 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
     - If empty in EDIT mode, keep existing DB value.
     - If empty in NEW mode, error: address is required.
     """
-    if hasattr(house_form, "parse_house_form"):
-        return house_form.parse_house_form(form, mode=mode, default_listing_type=default_listing_type)
-
-    # ---- Fallback parser ----
+    # ---- Parser ----
     fget = lambda k, default="": (form.get(k) or default).strip()
 
     title_raw = fget("title")
     # limit title to 20 chars (server-side safety)
-    title     = _title_case_wordish(title_raw)[:20]
+    title = _title_case_wordish(title_raw)[:20]
 
-    # NEW: description with 1200-char limit
+    # description with 1200-char limit
     description_raw = fget("description")
     description = description_raw[:1200]
 
@@ -201,8 +226,8 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
 
     payload = {
         "title": title,
-        "description": description,  # NEW
-        "city": _title_case_wordish(city_raw),  # keep city tidy
+        "description": description,
+        "city": _title_case_wordish(city_raw),
         "address": address,
         "letting_type": letting_type,
         "bedrooms_total": bedrooms_total,
@@ -235,7 +260,7 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
         "cleaning_service": (form.get("cleaning_service") or "none").strip(),
         "listing_type": listing_type,
         "epc_rating": epc_rating,
-        "youtube_url": youtube_url,  # NEW
+        "youtube_url": youtube_url,
     }
     payload.update(bills_util)
 
@@ -261,7 +286,7 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
         errors.append("Invalid EPC rating (choose A, B, C, D, E, F or G).")
 
     return payload, errors
-    # ---- End fallback ----
+    # ---- End parser ----
 
 
 @bp.route("/landlord/houses")
@@ -293,7 +318,7 @@ def house_new():
     conn = get_db()
     _ensure_houses_has_youtube(conn)       # ensure schema
     _ensure_houses_has_description(conn)   # ensure schema
-    default_listing_type = house_form.get_default_listing_type(conn, lid)
+    default_listing_type = _get_default_listing_type(conn, lid)
 
     if request.method == "POST":
         payload, errors = _parse_or_delegate(request.form, mode="new", default_listing_type=default_listing_type)
@@ -313,14 +338,14 @@ def house_new():
         payload["created_at"] = dt.utcnow().isoformat()
         house_repo.insert_house(conn, lid, payload)
 
-        # ✅ NEW: initialise summaries for the newly inserted house
+        # ✅ initialise summaries for the newly inserted house
         try:
             hid_row = conn.execute("SELECT last_insert_rowid() AS id").fetchone()
             new_hid = (hid_row["id"] if hasattr(hid_row, "keys") else hid_row[0]) if hid_row else None
             if new_hid:
                 recompute_house_summaries(conn, new_hid)
         except Exception:
-            # As a fallback (rare), initialise the most recent house for this landlord
+            # Fallback: initialise the most recent house for this landlord
             try:
                 hid_row = conn.execute(
                     "SELECT id FROM houses WHERE landlord_id=? ORDER BY id DESC LIMIT 1",
@@ -358,7 +383,7 @@ def house_edit(hid):
         return redirect(url_for("landlord.landlord_houses"))
 
     house = dict(house_row)
-    default_listing_type = house_form.get_default_listing_type(conn, lid, existing=house)
+    default_listing_type = _get_default_listing_type(conn, lid, existing=house)
 
     if request.method == "POST":
         payload, errors = _parse_or_delegate(
@@ -368,12 +393,6 @@ def house_edit(hid):
         )
 
         if errors:
-            # ✅ also load rooms so the table shows when we re-render with errors
-            rooms_for_house = conn.execute(
-                "SELECT id, name, bed_size, price_pcm, is_let FROM rooms WHERE house_id=? ORDER BY id ASC",
-                (hid,)
-            ).fetchall()
-            rooms_count = len(rooms_for_house)
             for e in errors:
                 flash(e, "error")
             conn.close()
@@ -384,13 +403,11 @@ def house_edit(hid):
                 mode="edit",
                 house=house,
                 default_listing_type=default_listing_type,
-                rooms_for_house=rooms_for_house,
-                rooms_count=rooms_count,
             )
 
         house_repo.update_house(conn, lid, hid, payload)
 
-        # ✅ NEW: keep summaries in sync after edits
+        # ✅ keep summaries in sync after edits
         try:
             recompute_house_summaries(conn, hid)
         except Exception:
@@ -403,14 +420,6 @@ def house_edit(hid):
     # GET
     form = dict(house)
     form.setdefault("bills_option", house.get("bills_option") or ("yes" if (house.get("bills_included") == 1) else "no"))
-
-    # ✅ load rooms for the summary table (edit page only)
-    rooms_for_house = conn.execute(
-        "SELECT id, name, bed_size, price_pcm, is_let FROM rooms WHERE house_id=? ORDER BY id ASC",
-        (hid,)
-    ).fetchall()
-    rooms_count = len(rooms_for_house)
-
     conn.close()
     return render_template(
         "house_form.html",
@@ -419,8 +428,6 @@ def house_edit(hid):
         mode="edit",
         house=house,
         default_listing_type=default_listing_type,
-        rooms_for_house=rooms_for_house,
-        rooms_count=rooms_count,
     )
 
 
