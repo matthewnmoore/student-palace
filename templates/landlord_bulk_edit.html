@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Bulk edit (all rooms in the house) – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Bulk edit (all rooms in the house)</h1>
+    <a class="btn btn-outline" href="{{ url_for('landlord.dashboard') }}">Back to dashboard</a>
+  </div>
+
+  <div class="card card--accent-lr">
+    <p class="muted" style="margin-top:-4px">
+      Synchronise all room prices and/or availability for every room in a house. You can still adjust individual rooms elsewhere.
+    </p>
+
+    {% if houses and houses|length %}
+      <table class="table" style="margin-top:8px">
+        <thead>
+          <tr>
+            <th>House</th>
+            <th>City</th>
+            <th>Rooms (avail/total)</th>
+            <th style="width:260px">Set price per month</th>
+            <th style="width:480px">Set availability <span class="small muted">(does not provide current status)</span></th>
+            <th style="width:120px">Apply</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for h in houses %}
+          <tr>
+            <td><strong>{{ h.title }}</strong></td>
+            <td>{{ h.city }}</td>
+            <td>{{ h.rooms_avail }} / {{ h.rooms_total }}</td>
+
+            <!-- Price: Monthly (editable) + Weekly (readonly, rounded up) -->
+            <td>
+              <form method="post" action="{{ url_for('landlord.bulk_apply', hid=h.id) }}" id="f{{ h.id }}">
+                <div class="price-row">
+                  <label class="price-field">
+                    <span class="small muted">Monthly (£)</span>
+                    <input type="number"
+                           name="price_pcm"
+                           id="pcm{{ h.id }}"
+                           inputmode="numeric"
+                           min="0"
+                           step="1"
+                           maxlength="4"
+                           value="{{ h.avg_price_pcm if h.avg_price_pcm else '' }}"
+                           placeholder="{{ h.avg_price_pcm if h.avg_price_pcm else '—' }}">
+                  </label>
+
+                  <label class="price-field">
+                    <span class="small muted">Weekly (£)</span>
+                    <input type="text"
+                           id="ppw{{ h.id }}"
+                           value=""
+                           readonly
+                           aria-readonly="true">
+                  </label>
+                </div>
+            </td>
+
+            <!-- Availability controls -->
+            <td>
+              <div class="avail-row">
+                <label class="check" style="align-self:end; white-space:nowrap">
+                  <input type="checkbox" name="is_let" value="1" id="islet{{ h.id }}">
+                  <span>Currently let</span>
+                </label>
+                <input type="hidden" name="is_let" value="0">
+
+                <label class="field" id="lurow{{ h.id }}" style="display:none">
+                  <span class="label-inline" style="margin-bottom:0">Let until</span>
+                  <input type="date" name="let_until" id="lu{{ h.id }}">
+                </label>
+
+                <label class="field" id="afrow{{ h.id }}">
+                  <span class="label-inline" style="margin-bottom:0">Available from</span>
+                  <input type="date" name="available_from" id="af{{ h.id }}">
+                </label>
+              </div>
+            </td>
+
+            <td>
+              <button class="btn" type="submit" form="f{{ h.id }}">Apply</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No houses found.</p>
+    {% endif %}
+  </div>
+</section>
+
+<style>
+  .price-row {
+    display:flex; gap:12px; align-items:end; flex-wrap:wrap;
+  }
+  .price-field { display:flex; flex-direction:column; gap:4px; }
+  /* Compact inputs: max 4 digits (+ £ sign visually) */
+  .price-field input[type="number"],
+  .price-field input[readonly] {
+    width: 96px;              /* snug for up to 4 digits */
+    padding: 8px 10px;
+  }
+  /* Availability row gets more room */
+  .avail-row {
+    display:flex; gap:12px; align-items:end; flex-wrap:wrap;
+    min-width: 440px;
+  }
+  .small.muted { font-size: 12px; color: var(--muted); }
+</style>
+
+<!-- Behaviour -->
+<script>
+(function(){
+  function fmt(d){
+    const z=n=>String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
+  }
+  function nextJune30(from){
+    const y = from.getMonth()+1 > 6 || (from.getMonth()+1===6 && from.getDate()>30)
+      ? from.getFullYear()+1
+      : from.getFullYear();
+    return new Date(y, 5, 30); // June is month index 5 (0-based)
+  }
+  function plusDays(iso, n){
+    if(!iso) return '';
+    const d=new Date(iso); if(isNaN(d)) return '';
+    d.setDate(d.getDate()+n);
+    return fmt(d);
+  }
+  function ceilWeekly(pcm){
+    if(!pcm) return '';
+    const n = parseFloat(pcm);
+    if(isNaN(n) || n <= 0) return '';
+    // Round up weekly rent
+    return Math.ceil((n * 12) / 52);
+  }
+
+  {% for h in houses %}
+    (function(){
+      const id = "{{ h.id }}";
+
+      // Elements
+      const isLet = document.getElementById('islet'+id);
+      const luRow = document.getElementById('lurow'+id);
+      const afRow = document.getElementById('afrow'+id);
+      const lu    = document.getElementById('lu'+id);
+      const af    = document.getElementById('af'+id);
+
+      const pcm   = document.getElementById('pcm'+id);
+      const ppw   = document.getElementById('ppw'+id);
+
+      function syncAvail(){
+        const now = new Date();
+        if(isLet && isLet.checked){
+          // Force Let until to next 30 June *every time you tick the box*
+          if(luRow) luRow.style.display = '';
+          const defLU = fmt(nextJune30(now));
+          lu.value = defLU;                // force default on tick
+          // Ensure AF = +1 day after LU
+          af.value = plusDays(defLU, 1);
+        } else {
+          // Hide 'let until'; default AF = today; ensure LU = day before AF
+          if(luRow) luRow.style.display = 'none';
+          if(!af.value) af.value = fmt(now);
+          if(!lu.value || new Date(lu.value) >= new Date(af.value)){
+            lu.value = plusDays(af.value, -1);
+          }
+        }
+      }
+
+      function syncWeekly(){
+        if(!ppw) return;
+        ppw.value = ceilWeekly(pcm && pcm.value ? pcm.value : '') || '';
+      }
+
+      // Listeners
+      if(isLet){
+        isLet.addEventListener('change', function(){
+          // On every toggle, apply our rules
+          syncAvail();
+        });
+      }
+      if(lu){ lu.addEventListener('change', syncAvail); }
+      if(af){ af.addEventListener('change', syncAvail); }
+
+      if(pcm){ pcm.addEventListener('input', syncWeekly); }
+
+      // Initial paint
+      syncAvail();
+      syncWeekly();
+    })();
+  {% endfor %}
+})();
+</script>
+{% endblock %}
