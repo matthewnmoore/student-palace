@@ -12,7 +12,7 @@ from utils import (
 from . import bp
 from . import house_form, house_repo
 
-# ✅ NEW: summaries helper
+# summaries helper
 from utils_summaries import recompute_house_summaries
 
 
@@ -93,7 +93,6 @@ def _normalize_youtube_url(u: str) -> str:
             vid = u.split("/shorts/", 1)[1].split("?", 1)[0].split("#", 1)[0]
             return f"https://www.youtube.com/watch?v={vid}" if vid else u
 
-    # Not a YouTube URL — store trimmed as-is (frontend won’t try to embed if it isn’t YouTube)
     return u
 
 
@@ -101,28 +100,18 @@ def _normalize_youtube_url(u: str) -> str:
 # Schema safety: ensure columns exist
 # -----------------------------------------
 def _ensure_houses_has_youtube(conn) -> None:
-    """
-    Adds houses.youtube_url TEXT if it does not exist.
-    Safe to call on every request.
-    """
     try:
         conn.execute("ALTER TABLE houses ADD COLUMN youtube_url TEXT")
         conn.commit()
     except sqlite3.OperationalError:
-        # Column already exists, ignore
         pass
 
 
 def _ensure_houses_has_description(conn) -> None:
-    """
-    Adds houses.description TEXT NOT NULL DEFAULT '' if it does not exist.
-    Safe to call on every request.
-    """
     try:
         conn.execute("ALTER TABLE houses ADD COLUMN description TEXT NOT NULL DEFAULT ''")
         conn.commit()
     except sqlite3.OperationalError:
-        # Column already exists, ignore
         pass
 
 
@@ -130,12 +119,6 @@ def _ensure_houses_has_description(conn) -> None:
 # Parser wrapper (uses house_form.parse_house_form if set)
 # -------------------------------------------------------
 def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_address: str | None = None):
-    """
-    STRICT RULE: Save ONLY the hidden preview address (name='address').
-    - If provided, normalize and use it.
-    - If empty in EDIT mode, keep existing DB value.
-    - If empty in NEW mode, error: address is required.
-    """
     if hasattr(house_form, "parse_house_form"):
         return house_form.parse_house_form(form, mode=mode, default_listing_type=default_listing_type)
 
@@ -143,10 +126,8 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
     fget = lambda k, default="": (form.get(k) or default).strip()
 
     title_raw = fget("title")
-    # limit title to 20 chars (server-side safety)
     title     = _title_case_wordish(title_raw)[:20]
 
-    # NEW: description with 1200-char limit
     description_raw = fget("description")
     description = description_raw[:1200]
 
@@ -154,17 +135,14 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
     letting_type = fget("letting_type")
     gender_pref = fget("gender_preference")
 
-    # Address: ONLY take hidden preview field
     address_hidden = fget("address")
     address = _normalize_full_address(address_hidden) if address_hidden else ""
 
-    # Bills dropdown -> houses.bills_option (+ legacy flag)
     bills_option = (form.get("bills_included") or "no").strip().lower()
     if bills_option not in ("yes", "no", "some"):
         bills_option = "no"
     bills_included_legacy = 1 if bills_option == "yes" else 0
 
-    # Detailed utilities
     if bills_option == "yes":
         bills_util = dict(
             bills_util_gas=1, bills_util_electric=1, bills_util_water=1,
@@ -188,22 +166,19 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
     bedrooms_total = int(form.get("bedrooms_total") or 0)
     listing_type = (form.get("listing_type") or default_listing_type or "owner").strip()
 
-    # EPC rating (optional A–G). Store empty string if not valid/selected.
     epc_rating_raw = (form.get("epc_rating") or "").strip().upper()
     epc_rating = epc_rating_raw if epc_rating_raw in ("A", "B", "C", "D", "E", "F", "G") else ""
 
-    # YouTube (optional)
     youtube_url = _normalize_youtube_url(fget("youtube_url"))
 
-    # If address missing: on edit keep existing; on new error
     if not address:
         if mode == "edit" and existing_address:
             address = _normalize_full_address(existing_address)
 
     payload = {
         "title": title,
-        "description": description,  # NEW
-        "city": _title_case_wordish(city_raw),  # keep city tidy
+        "description": description,
+        "city": _title_case_wordish(city_raw),
         "address": address,
         "letting_type": letting_type,
         "bedrooms_total": bedrooms_total,
@@ -236,11 +211,10 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str, existing_addr
         "cleaning_service": (form.get("cleaning_service") or "none").strip(),
         "listing_type": listing_type,
         "epc_rating": epc_rating,
-        "youtube_url": youtube_url,  # NEW
+        "youtube_url": youtube_url,
     }
     payload.update(bills_util)
 
-    # Validation
     errors = []
     if not title:
         errors.append("Title is required.")
@@ -292,8 +266,8 @@ def house_new():
     cities = get_active_cities_safe()
 
     conn = get_db()
-    _ensure_houses_has_youtube(conn)       # ensure schema
-    _ensure_houses_has_description(conn)   # ensure schema
+    _ensure_houses_has_youtube(conn)
+    _ensure_houses_has_description(conn)
     default_listing_type = house_form.get_default_listing_type(conn, lid)
 
     if request.method == "POST":
@@ -314,14 +288,13 @@ def house_new():
         payload["created_at"] = dt.utcnow().isoformat()
         house_repo.insert_house(conn, lid, payload)
 
-        # ✅ NEW: initialise summaries for the newly inserted house
+        # initialise summaries for the newly inserted house
         try:
             hid_row = conn.execute("SELECT last_insert_rowid() AS id").fetchone()
             new_hid = (hid_row["id"] if hasattr(hid_row, "keys") else hid_row[0]) if hid_row else None
             if new_hid:
                 recompute_house_summaries(conn, new_hid)
         except Exception:
-            # As a fallback (rare), initialise the most recent house for this landlord
             try:
                 hid_row = conn.execute(
                     "SELECT id FROM houses WHERE landlord_id=? ORDER BY id DESC LIMIT 1",
@@ -349,8 +322,8 @@ def house_edit(hid):
     lid = current_landlord_id()
     cities = get_active_cities_safe()
     conn = get_db()
-    _ensure_houses_has_youtube(conn)       # ensure schema
-    _ensure_houses_has_description(conn)   # ensure schema
+    _ensure_houses_has_youtube(conn)
+    _ensure_houses_has_description(conn)
 
     house_row = owned_house_or_none(conn, hid, lid)
     if not house_row:
@@ -368,7 +341,7 @@ def house_edit(hid):
             existing_address=house.get("address")
         )
 
-        # ✅ GUARD: bedrooms_total cannot be less than the number of existing rooms
+        # Guard: bedrooms_total cannot be set below the number of existing rooms
         try:
             existing_rooms = conn.execute(
                 "SELECT COUNT(1) AS c FROM rooms WHERE house_id=?", (hid,)
@@ -398,7 +371,7 @@ def house_edit(hid):
 
         house_repo.update_house(conn, lid, hid, payload)
 
-        # ✅ NEW: keep summaries in sync after edits
+        # keep summaries in sync after edits
         try:
             recompute_house_summaries(conn, hid)
         except Exception:
