@@ -21,11 +21,11 @@
             <th>City</th>
             <th>Rooms (avail/total)</th>
 
-            <!-- Price column header -->
-            <th style="width:300px">Set price £/month</th>
+            <!-- Narrow price column; heading kept as requested -->
+            <th style="width:220px">Set price £/month</th>
 
-            <!-- Availability column header + helper -->
-            <th style="width:380px">
+            <!-- Wider availability column + helper -->
+            <th style="width:520px">
               Set availability
               <div class="small muted" style="font-weight:normal">(does not provide current status)</div>
             </th>
@@ -40,11 +40,11 @@
             <td>{{ h.city }}</td>
             <td>{{ h.rooms_avail }} / {{ h.rooms_total }}</td>
 
-            <!-- PRICE: monthly (editable) + weekly (readonly) side-by-side -->
+            <!-- PRICE: monthly (editable) + weekly (readonly) side-by-side, narrow inputs -->
             <td>
               <form method="post" action="{{ url_for('landlord.bulk_apply', hid=h.id) }}" id="f{{ h.id }}">
                 <div style="display:flex; gap:10px; align-items:end; flex-wrap:nowrap">
-                  <label class="field" style="min-width:140px">
+                  <label class="field" style="min-width:90px">
                     <span class="label-inline" style="margin-bottom:0">£ per month</span>
                     <input type="number"
                            name="price_pcm"
@@ -55,21 +55,21 @@
                            step="1"
                            value="{{ h.avg_price_pcm if h.avg_price_pcm else '' }}"
                            placeholder="{{ h.avg_price_pcm if h.avg_price_pcm else '—' }}"
-                           style="width: 140px">
+                           style="width: 90px; text-align:right">
                   </label>
 
-                  <label class="field" style="min-width:140px">
+                  <label class="field" style="min-width:90px">
                     <span class="label-inline" style="margin-bottom:0">Weekly rent</span>
                     <input type="text"
                            id="ppw{{ h.id }}"
                            value=""
                            readonly
-                           style="width: 140px; background:#f7f7f9">
+                           style="width: 90px; background:#f7f7f9; text-align:right">
                   </label>
                 </div>
             </td>
 
-            <!-- AVAILABILITY -->
+            <!-- AVAILABILITY (wider column) -->
             <td>
               <div style="display:flex; gap:12px; align-items:end; flex-wrap:wrap">
                 <label class="check" style="align-self:end; white-space:nowrap">
@@ -78,7 +78,7 @@
                 </label>
                 <input type="hidden" name="is_let" value="0">
 
-                <label class="field" id="lurow{{ h.id }}" style="display:none">
+                <label class="field" id="lurow{{ h.id }}">
                   <span class="label-inline" style="margin-bottom:0">Let until</span>
                   <input type="date" name="let_until" id="lu{{ h.id }}">
                 </label>
@@ -109,7 +109,7 @@
   function fmt(d){ const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
   function nextJune30(from){
     const y = from.getMonth()+1 > 6 || (from.getMonth()+1===6 && from.getDate()>30) ? from.getFullYear()+1 : from.getFullYear();
-    return new Date(y, 5, 30); // month index is 0-based
+    return new Date(y, 5, 30); // 0-based month
   }
   function plusDays(iso, n){
     if(!iso) return '';
@@ -117,7 +117,7 @@
     d.setDate(d.getDate()+n); return fmt(d);
   }
 
-  // Convert monthly to weekly — ALWAYS ROUND UP
+  // Monthly → Weekly, always round UP
   function pcmToPpw(val){
     const num = parseFloat(val);
     if (isNaN(num) || num <= 0) return '';
@@ -132,14 +132,12 @@
 
       function clampAndSyncPPW(){
         if (!pcm || !ppw) return;
-        // Clamp 0..9999 and coerce integer
         let v = pcm.value.trim();
         let n = v === '' ? NaN : Math.max(0, Math.min(9999, Math.floor(Number(v))));
         if (!isNaN(n)) {
           if (String(n) !== v) pcm.value = String(n);
           ppw.value = pcmToPpw(n);
         } else {
-          // If empty or invalid, clear weekly
           ppw.value = '';
         }
       }
@@ -149,7 +147,7 @@
         clampAndSyncPPW();
       }
 
-      // Availability wiring
+      // Availability wiring (wider column gives both calendars room)
       const isLet = document.getElementById('islet'+id);
       const luRow = document.getElementById('lurow'+id);
       const af    = document.getElementById('af'+id);
@@ -158,7 +156,6 @@
       function syncAvail(){
         const now = new Date();
         if(isLet && isLet.checked){
-          // Show 'let until'; default to next 30 June; ensure af = +1 day
           if(luRow) luRow.style.display='';
           const defLU = fmt(nextJune30(now));
           if(!lu.value) lu.value = defLU;
@@ -166,7 +163,6 @@
             af.value = plusDays(lu.value, 1);
           }
         } else {
-          // Hide 'let until'; default af=today; ensure lu = day before
           if(luRow) luRow.style.display='none';
           if(!af.value) af.value = fmt(now);
           if(!lu.value || new Date(lu.value) >= new Date(af.value)){
