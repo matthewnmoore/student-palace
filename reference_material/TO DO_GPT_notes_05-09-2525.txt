@@ -1,1 +1,12 @@
 
+Got it — here’s the short punch-list in plain English, one line per item:
+	•	Double-check ownership checks on every landlord route (prevent IDOR).
+	•	Add indexes on FKs (houses.landlord_id, rooms.house_id) for speed.
+	•	Enforce or validate enum/text field values (listing_type, bills_option, cleaning_service, epc_rating).
+	•	Decide if available_from / let_until should be NULL instead of ‘’ for clarity.
+	•	Ensure room photo pipeline fully mirrors house/floorplans (5-image cap, watermark).
+	•	Confirm public search hides let/unpublished houses and applies academic year rules.
+	•	Audit admin vs landlord routes separation (no cross-access).
+	•	Document and consistently apply restore point/version labels when backing up DB.
+	•	Verify DNS/SSL is fully propagated with no legacy IPs.
+	•	Future-proof by considering UUIDs instead of IDs for public URLs.
