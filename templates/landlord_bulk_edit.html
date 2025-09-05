@@ -1,3 +1,4 @@
+<!-- templates/landlord_bulk_edit.html -->
 {% extends "base.html" %}
 {% block title %}Bulk edit – Student Palace{% endblock %}
 {% block content %}
@@ -19,11 +20,16 @@
             <th>House</th>
             <th>City</th>
             <th>Rooms (avail/total)</th>
-            <th style="width:260px">Set price £/month</th>
+
+            <!-- Price column header -->
+            <th style="width:300px">Set price £/month</th>
+
+            <!-- Availability column header + helper -->
             <th style="width:380px">
               Set availability
               <div class="small muted" style="font-weight:normal">(does not provide current status)</div>
             </th>
+
             <th style="width:120px">Apply</th>
           </tr>
         </thead>
@@ -34,9 +40,10 @@
             <td>{{ h.city }}</td>
             <td>{{ h.rooms_avail }} / {{ h.rooms_total }}</td>
 
+            <!-- PRICE: monthly (editable) + weekly (readonly) side-by-side -->
             <td>
               <form method="post" action="{{ url_for('landlord.bulk_apply', hid=h.id) }}" id="f{{ h.id }}">
-                <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap">
+                <div style="display:flex; gap:10px; align-items:end; flex-wrap:nowrap">
                   <label class="field" style="min-width:140px">
                     <span class="label-inline" style="margin-bottom:0">£ per month</span>
                     <input type="number"
@@ -44,22 +51,25 @@
                            id="pcm{{ h.id }}"
                            inputmode="numeric"
                            min="0"
+                           max="9999"
                            step="1"
                            value="{{ h.avg_price_pcm if h.avg_price_pcm else '' }}"
                            placeholder="{{ h.avg_price_pcm if h.avg_price_pcm else '—' }}"
                            style="width: 140px">
                   </label>
-                  <label class="field" style="min-width:120px">
+
+                  <label class="field" style="min-width:140px">
                     <span class="label-inline" style="margin-bottom:0">Weekly rent</span>
                     <input type="text"
                            id="ppw{{ h.id }}"
                            value=""
                            readonly
-                           style="width: 120px; background:#f7f7f9">
+                           style="width: 140px; background:#f7f7f9">
                   </label>
                 </div>
             </td>
 
+            <!-- AVAILABILITY -->
             <td>
               <div style="display:flex; gap:12px; align-items:end; flex-wrap:wrap">
                 <label class="check" style="align-self:end; white-space:nowrap">
@@ -99,33 +109,44 @@
   function fmt(d){ const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
   function nextJune30(from){
     const y = from.getMonth()+1 > 6 || (from.getMonth()+1===6 && from.getDate()>30) ? from.getFullYear()+1 : from.getFullYear();
-    return new Date(y, 5, 30); // month is 0-based
+    return new Date(y, 5, 30); // month index is 0-based
   }
   function plusDays(iso, n){
     if(!iso) return '';
     const d=new Date(iso); if(isNaN(d)) return '';
     d.setDate(d.getDate()+n); return fmt(d);
   }
+
+  // Convert monthly to weekly — ALWAYS ROUND UP
   function pcmToPpw(val){
     const num = parseFloat(val);
     if (isNaN(num) || num <= 0) return '';
-    return String(Math.round((num * 12) / 52));
+    return String(Math.ceil((num * 12) / 52));
   }
 
   {% for h in houses %}
     (function(){
-      const id = "{{ h.id }}";
+      const id   = "{{ h.id }}";
+      const pcm  = document.getElementById('pcm'+id);
+      const ppw  = document.getElementById('ppw'+id);
 
-      // Price wiring: monthly -> weekly (readonly)
-      const pcm = document.getElementById('pcm'+id);
-      const ppw = document.getElementById('ppw'+id);
-      function syncPPW(){
+      function clampAndSyncPPW(){
         if (!pcm || !ppw) return;
-        ppw.value = pcmToPpw(pcm.value || pcm.placeholder);
+        // Clamp 0..9999 and coerce integer
+        let v = pcm.value.trim();
+        let n = v === '' ? NaN : Math.max(0, Math.min(9999, Math.floor(Number(v))));
+        if (!isNaN(n)) {
+          if (String(n) !== v) pcm.value = String(n);
+          ppw.value = pcmToPpw(n);
+        } else {
+          // If empty or invalid, clear weekly
+          ppw.value = '';
+        }
       }
       if (pcm){
-        pcm.addEventListener('input', syncPPW);
-        syncPPW();
+        pcm.addEventListener('input', clampAndSyncPPW);
+        pcm.addEventListener('change', clampAndSyncPPW);
+        clampAndSyncPPW();
       }
 
       // Availability wiring
