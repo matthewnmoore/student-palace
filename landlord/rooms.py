@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from flask import render_template, request, redirect, url_for, flash
 from datetime import datetime as dt, date, timedelta
+
 from db import get_db
 from utils import current_landlord_id, require_landlord, owned_house_or_none, clean_bool
 from . import bp
@@ -11,9 +12,6 @@ from . import bp
 from utils_summaries import recompute_house_summaries
 
 
-# -----------------------------
-# Helpers for room forms
-# -----------------------------
 def _parse_is_let(request):
     """
     Robustly parse the 'is_let' checkbox.
@@ -63,7 +61,7 @@ def _june_30_next_year(today: date) -> date:
 
 def _normalize_dates_for_is_let(vals: dict) -> None:
     """
-    Server-side guard:
+    Basic server-side guard:
     - If not let, clear let_until (so it can’t linger).
     - If let, ensure available_from is present; if missing but let_until exists,
       set available_from = let_until + 1 day (matches the JS behaviour).
@@ -97,10 +95,10 @@ def room_form_values(request):
     wired_internet = clean_bool("wired_internet")
     room_size = (request.form.get("room_size") or "").strip()
 
-    # description
+    # NEW FIELD: description
     description = (request.form.get("description") or "").strip()
 
-    # pricing
+    # NEW FIELDS
     raw_price = (request.form.get("price_pcm") or "").strip()
     try:
         price_pcm = int(raw_price.replace(",", ""))
@@ -114,32 +112,38 @@ def room_form_values(request):
     curtains = clean_bool("curtains")
     sofa = clean_bool("sofa")
 
-    # searchable flags
+    # NEW SEARCHABLE FIELDS
     couples_ok = clean_bool("couples_ok")
     disabled_ok = clean_bool("disabled_ok")
 
-    # availability
+    # NEW AVAILABILITY FIELDS
     is_let = clean_bool("is_let")
     available_from_in = (request.form.get("available_from") or "").strip()
     let_until_in = (request.form.get("let_until") or "").strip()
+
     available_from_iso = _parse_uk_date(available_from_in)
     let_until_iso = _parse_uk_date(let_until_in)
 
-    # self-healing date logic
+    # Self-healing date logic
     today = date.today()
     af = _to_date(available_from_iso)
     lu = _to_date(let_until_iso)
 
     if is_let:
+        # Default let_until to 30 June next year if missing
         if not lu:
             lu = _june_30_next_year(today)
+        # available_from must be day after let_until
         if not af or af <= lu:
             af = lu + timedelta(days=1)
     else:
+        # Room available now
         if not af:
             af = today
+        # Force let_until to two days before available_from
         lu = af - timedelta(days=2)
 
+    # Back to ISO for DB
     available_from_iso = _iso(af)
     let_until_iso = _iso(lu)
 
@@ -195,13 +199,10 @@ def room_counts(conn, hid):
     return max_rooms, int(cnt)
 
 
-# -----------------------------
-# Routes
-# -----------------------------
 @bp.route("/landlord/houses/<int:hid>/rooms")
 def rooms_list(hid):
     r = require_landlord()
-    if r: 
+    if r:
         return r
     lid = current_landlord_id()
     conn = get_db()
@@ -210,7 +211,6 @@ def rooms_list(hid):
         conn.close()
         flash("House not found.", "error")
         return redirect(url_for("landlord.landlord_houses"))
-
     rows = conn.execute("SELECT * FROM rooms WHERE house_id=? ORDER BY id ASC", (hid,)).fetchall()
     max_rooms, cnt = room_counts(conn, hid)
     conn.close()
@@ -229,7 +229,7 @@ def rooms_list(hid):
 @bp.route("/landlord/houses/<int:hid>/rooms/new", methods=["GET", "POST"])
 def room_new(hid):
     r = require_landlord()
-    if r: 
+    if r:
         return r
     lid = current_landlord_id()
     conn = get_db()
@@ -246,6 +246,8 @@ def room_new(hid):
 
     if request.method == "POST":
         vals, errors = room_form_values(request)
+
+        # Force correct parsing of is_let regardless of helper behaviour
         vals["is_let"] = _parse_is_let(request)
         _normalize_dates_for_is_let(vals)
 
@@ -278,7 +280,7 @@ def room_new(hid):
         ))
         rid = cur.lastrowid
 
-        # summaries
+        # Recompute summaries
         recompute_house_summaries(conn, hid)
 
         conn.commit()
@@ -298,7 +300,7 @@ def room_new(hid):
 @bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/edit", methods=["GET", "POST"])
 def room_edit(hid, rid):
     r = require_landlord()
-    if r: 
+    if r:
         return r
     lid = current_landlord_id()
     conn = get_db()
@@ -306,7 +308,6 @@ def room_edit(hid, rid):
     if not house:
         conn.close()
         return redirect(url_for("landlord.landlord_houses"))
-
     room = conn.execute("SELECT * FROM rooms WHERE id=? AND house_id=?", (rid, hid)).fetchone()
     if not room:
         conn.close()
@@ -315,6 +316,8 @@ def room_edit(hid, rid):
 
     if request.method == "POST":
         vals, errors = room_form_values(request)
+
+        # Force correct parsing of is_let regardless of helper behaviour
         vals["is_let"] = _parse_is_let(request)
         _normalize_dates_for_is_let(vals)
 
@@ -344,7 +347,7 @@ def room_edit(hid, rid):
             rid, hid
         ))
 
-        # summaries
+        # Recompute summaries
         recompute_house_summaries(conn, hid)
 
         conn.commit()
@@ -365,7 +368,7 @@ def room_edit(hid, rid):
 @bp.route("/landlord/houses/<int:hid>/rooms/<int:rid>/delete", methods=["POST"])
 def room_delete(hid, rid):
     r = require_landlord()
-    if r: 
+    if r:
         return r
     lid = current_landlord_id()
     conn = get_db()
@@ -373,10 +376,9 @@ def room_delete(hid, rid):
     if not house:
         conn.close()
         return redirect(url_for("landlord.landlord_houses"))
-
     conn.execute("DELETE FROM rooms WHERE id=? AND house_id=?", (rid, hid))
 
-    # summaries
+    # Recompute summaries
     recompute_house_summaries(conn, hid)
 
     conn.commit()
