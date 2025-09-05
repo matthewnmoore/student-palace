@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from typing import Dict, Any, Sequence
 
-# Columns we set on both INSERT and UPDATE (excluding landlord_id / created_at / id filters)
+# Columns used on both INSERT and UPDATE (excluding landlord_id / created_at / id filters)
 _COMMON_COLS: Sequence[str] = (
     "title",
-    "description",   # persist description
+    "description",
     "city",
     "address",
     "letting_type",
@@ -44,24 +44,22 @@ _COMMON_COLS: Sequence[str] = (
     "cinema_room",
     "cleaning_service",
     "listing_type",
-    "epc_rating",     # optional A–G (or empty)
-    "youtube_url",    # persist YouTube link
+    "epc_rating",
+    "youtube_url",
 )
 
 def _values_from_payload(payload: Dict[str, Any], cols: Sequence[str]) -> list:
-    """Extract values from payload in column order (no casting here)."""
+    """Extract values from payload in column order."""
     return [payload.get(c) for c in cols]
 
 def insert_house(conn, landlord_id: int, payload: Dict[str, Any]) -> int:
     """
-    Insert a house row for a given landlord.
-    Expects payload to already be validated/normalized.
+    Insert a house for the landlord. `payload` must already be validated/normalized.
     Returns the new house id.
     """
     cols = ["landlord_id", *list(_COMMON_COLS), "created_at"]
     placeholders = ",".join(["?"] * len(cols))
     sql = f"INSERT INTO houses({','.join(cols)}) VALUES ({placeholders})"
-
     vals = [landlord_id, *_values_from_payload(payload, _COMMON_COLS), payload.get("created_at")]
     cur = conn.execute(sql, vals)
     conn.commit()
@@ -69,8 +67,7 @@ def insert_house(conn, landlord_id: int, payload: Dict[str, Any]) -> int:
 
 def update_house(conn, landlord_id: int, house_id: int, payload: Dict[str, Any]) -> None:
     """
-    Update a landlord-owned house by id.
-    Expects payload to already be validated/normalized.
+    Update a landlord-owned house by id. `payload` must already be validated/normalized.
     """
     assignments = ", ".join([f"{c}=?" for c in _COMMON_COLS])
     sql = f"""
