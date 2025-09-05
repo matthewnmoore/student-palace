@@ -45,27 +45,44 @@ Student Palace – Handover List (rolled back to bulk editing pages stable point
 
 added:
 
+Landlord-side
+
 landlord/houses.py
-Main controller for landlord house pages. Handles routes for listing houses, adding a new house, editing an existing house, deleting a house. Validates and saves house data.
+Routes for listing, creating, editing, and deleting houses. Connects form input with DB via house_repo.
 
 landlord/house_form.py
-Helper functions for parsing and validating the house form inputs. Provides defaults like landlord listing type (owner/agent).
+Helper for parsing/validating house form data. Provides defaults like landlord listing type.
 
 landlord/house_repo.py
-Repository layer for houses. Contains database insert/update queries for houses. Keeps persistence logic separate from controller.
+Repository layer with SQL for inserting/updating houses.
 
 landlord/rooms.py
-Manages room-level routes for landlords. Handles adding, editing, deleting individual rooms under a house.
+Routes for room-level CRUD (add, edit, delete rooms under a house).
 
 landlord/init.py
-Initialises the landlord blueprint. Imports submodules (houses, rooms, photos, etc.) so their routes register under the landlord namespace.
+Sets up the landlord blueprint and imports all landlord modules so their routes are registered.
 
 templates/house_form.html
-Jinja template for the landlord house form. Used for both “New house” and “Edit house” pages. Contains all input fields (title, city, EPC, letting type, bedrooms, gender preference, address, bathrooms, amenities, description, media links).
+Jinja template for house create/edit. Full page with title, city, EPC, letting type, bedrooms, gender preference, address, bathrooms, amenities, description, media.
 
 utils_summaries.py
-Helper functions for recomputing and updating house/room summary data in the database when houses or rooms change.
+Helper to recompute and update summary data for houses/rooms (keeps counts and availability consistent).
 
+⸻
+
+Admin-side
+
+admin/dashboard.py
+Routes for the admin dashboard page. Shows key counters and stats for landlords, houses, rooms, etc.
+
+admin/admin.py
+Contains the admin login/logout, backup download, and general admin routes.
+
+templates/admin_home.html
+Admin home/dashboard template. Contains buttons for logout, backup download, and navigation to dashboard.
+
+templates/admin_dashboard.html
+Template for the admin dashboard, showing counters and overview stats.
 
 
 
