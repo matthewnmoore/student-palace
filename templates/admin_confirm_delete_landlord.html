@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Confirm delete · Landlord {{ landlord.id }}{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="card">
+    <h1 class="mt-0" style="color:#b51f1f">Delete landlord</h1>
+    <p><strong>ID:</strong> {{ landlord.id }}</p>
+    <p><strong>Email:</strong> {{ landlord.email }}</p>
+    <p class="help">This will remove the landlord and all their data.</p>
+
+    {% if counts %}
+    <ul class="bills-list">
+      <li>Houses: {{ counts.houses }}</li>
+      <li>Rooms: {{ counts.rooms }}</li>
+      <li>Photos: {{ counts.photos }}</li>
+    </ul>
+    {% endif %}
+
+    <hr style="margin:12px 0">
+    <form method="post" action="{{ url_for('admin.delete_landlord_confirm2', lid=landlord.id) }}" style="display:grid; gap:10px; max-width:420px">
+      <label class="field">
+        <span class="label">Admin password/token</span>
+        <input type="password" name="admin_token" required>
+      </label>
+      <div class="inline-actions">
+        <button class="btn btn-admin" type="submit">Continue</button>
+        <a class="btn btn-outline" href="{{ url_for('admin.admin_landlord_detail', lid=landlord.id) }}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
