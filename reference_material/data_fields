@@ -1,12 +1,190 @@
 
 
 
-
-
-
 UPDATED WITH NEW FIELDS
 =======================
 
+
+
+06/09/2025
+
+📍 Table: cities
+	•	id – PK, auto-increment.
+	•	name – City name (unique).
+	•	is_active – 1 = selectable, 0 = hidden.
+
+⸻
+
+📍 Table: landlords
+	•	id – PK, auto-increment.
+	•	email – Unique login email.
+	•	password_hash – Hashed password.
+	•	created_at – Timestamp created.
+
+⸻
+
+📍 Table: landlord_profiles
+	•	landlord_id – PK, FK → landlords.id.
+	•	display_name – Public name.
+	•	phone – Phone number.
+	•	website – Website URL.
+	•	bio – Description text.
+	•	public_slug – Unique profile slug.
+	•	profile_views – Counter.
+	•	is_verified – 1 = verified.
+	•	role – “owner” / “agent”.
+	•	logo_path – Optional logo path.
+	•	photo_path – Optional photo path.
+	•	enable_new_landlord – Admin toggle (1 = allow new landlord signups). [NEW]
+
+⸻
+
+📍 Table: houses
+	•	id – PK, auto-increment.
+	•	landlord_id – FK → landlords.id.
+	•	title – Listing title.
+	•	city – City (FK → cities.name).
+	•	address – Full address.
+	•	letting_type – “whole” / “share”.
+	•	bedrooms_total – Total bedrooms.
+	•	gender_preference – “Male”/“Female”/“Mixed”/“Either”.
+	•	bills_included – Legacy flag.
+	•	shared_bathrooms – Number.
+	•	off_street_parking – 1/0.
+	•	local_parking – 1/0.
+	•	cctv – 1/0.
+	•	video_door_entry – 1/0.
+	•	bike_storage – 1/0.
+	•	cleaning_service – Text.
+	•	wifi – 1/0.
+	•	wired_internet – 1/0.
+	•	common_area_tv – 1/0.
+	•	created_at – Timestamp.
+	•	listing_type – “owner” / “agent”.
+	•	bills_option – “yes” / “some” / “no”.
+	•	bills_util_gas – 1/0.
+	•	bills_util_electric – 1/0.
+	•	bills_util_water – 1/0.
+	•	bills_util_broadband – 1/0.
+	•	bills_util_tv – 1/0.
+	•	washing_machine – 1/0.
+	•	tumble_dryer – 1/0.
+	•	dishwasher – 1/0.
+	•	cooker – 1/0.
+	•	microwave – 1/0.
+	•	coffee_maker – 1/0.
+	•	central_heating – 1/0.
+	•	air_con – 1/0.
+	•	vacuum – 1/0.
+	•	fob_entry – 1/0.
+	•	garden – 1/0.
+	•	roof_terrace – 1/0.
+	•	games_room – 1/0.
+	•	cinema_room – 1/0.
+	•	epc_rating – Text.
+	•	description – Property description.
+	•	ensuites_total – Precomputed ensuite count. [NEW]
+	•	available_rooms_total – Precomputed available room count. [NEW]
+	•	available_rooms_prices – Precomputed price summary. [NEW]
+	•	double_beds_total – Precomputed count of double+ beds. [NEW]
+	•	suitable_for_couples_total – Precomputed couples_ok count. [NEW]
+	•	post_code_prefix – Restriction prefix. [NEW]
+
+⸻
+
+📍 Table: rooms
+	•	id – PK, auto-increment.
+	•	house_id – FK → houses.id.
+	•	name – Room label.
+	•	ensuite – 1/0.
+	•	bed_size – “Single”/“Double”/etc.
+	•	tv – 1/0.
+	•	desk_chair – 1/0.
+	•	wardrobe – 1/0.
+	•	chest_drawers – 1/0.
+	•	lockable_door – 1/0.
+	•	wired_internet – 1/0.
+	•	room_size – Free text.
+	•	created_at – Timestamp.
+	•	price_pcm – Rent in GBP.
+	•	safe – 1/0.
+	•	dressing_table – 1/0.
+	•	mirror – 1/0.
+	•	bedside_table – 1/0.
+	•	blinds – 1/0.
+	•	curtains – 1/0.
+	•	sofa – 1/0.
+	•	couples_ok – 1/0.
+	•	disabled_ok – 1/0.
+	•	is_let – 1 = let, 0 = available.
+	•	available_from – Date.
+	•	let_until – Date.
+	•	description – Room description.
+
+⸻
+
+📍 Table: house_images
+	•	id – PK, auto-increment.
+	•	house_id – FK → houses.id.
+	•	file_name – Original name.
+	•	filename – Synced/clean name.
+	•	file_path – Storage path.
+	•	width – px width.
+	•	height – px height.
+	•	bytes – File size.
+	•	is_primary – 1/0.
+	•	created_at – Upload time.
+	•	sort_order – Sort index.
+
+⸻
+
+📍 Table: house_documents
+	•	id – PK, auto-increment.
+	•	house_id – FK → houses.id.
+	•	doc_type – “epc”, etc.
+	•	file_name – Original filename.
+	•	file_path – Storage path.
+	•	bytes – File size.
+	•	created_at – Upload time.
+	•	is_current – 1/0.
+
+⸻
+
+📍 Table: students [NEW]
+	•	id – PK, auto-increment.
+	•	email – Unique login email.
+	•	name – Student name.
+	•	phone_number – Contact number. [NEW]
+	•	created_at – Timestamp created.
+	•	updated_at – Timestamp updated.
+
+⸻
+
+📍 Table: student_favourites [NEW]
+	•	student_id – FK → students.id.
+	•	house_id – FK → houses.id.
+	•	created_at – Timestamp saved.
+	•	(PK = student_id, house_id).
+
+⸻
+
+📍 Table: site_settings [NEW]
+	•	key – Setting key (e.g. “show_metric_landlords”).
+	•	value – Setting value (string).
+	•	Defaults include:
+	•	show_metric_landlords
+	•	show_metric_houses
+	•	show_metric_rooms
+	•	show_metric_students
+	•	show_metric_photos
+
+
+
+
+
+
+
+05/09/2025
 
 TABLE: cities
 	•	id (INTEGER, PK) → Auto-increment ID.
