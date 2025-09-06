@@ -10,6 +10,7 @@
     <div class="card card--accent-lr"><p class="help">This listing doesn’t exist.</p></div>
   {% else %}
 
+
     {# Verified banner #}
     {% set verified = landlord and (landlord.is_verified|default(0, true)) %}
     <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
