@@ -29,6 +29,13 @@ from . import landlords as _landlords  # noqa: F401,E402
 from . import images as _images        # noqa: F401,E402
 from . import summaries as _summaries  # ✅ NEW: register /admin/summaries routes  # noqa: F401,E402
 from . import accreditations as _accreditations  # registers /admin/accreditations
+from .schema import ensure_extra_schema
+ensure_extra_schema()
+
+
+
+
+
 
 # ---- Import optional modules if present (avoid hard dependency/circulars) ----
 # If any of these files aren't present or raise during import, we skip them.
