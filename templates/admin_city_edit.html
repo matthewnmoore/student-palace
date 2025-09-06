@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Admin · Edit City{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:14px">
+    <h1 class="mt-0">Admin · Edit City</h1>
+    <div class="inline-actions">
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_cities') }}">Back to cities</a>
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Admin logout</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card">
+    <h2 class="mt-0">Edit: {{ city.name }}</h2>
+    <form method="post" class="grid grid-2 grid-equal">
+      <!-- City name -->
+      <label class="field">
+        <span class="label">City name</span>
+        <input type="text" name="name" value="{{ city.name }}" required>
+      </label>
+
+      <!-- Spacer to keep grid tidy -->
+      <div class="field" style="display:flex; align-items:flex-end;">
+        <span class="muted small">ID: {{ city.id }}</span>
+      </div>
+
+      <!-- Postcode prefixes -->
+      <label class="field" style="grid-column:1/-1">
+        <span class="label">Allowed postcode prefixes</span>
+        <input type="text" name="postcode_prefixes" value="{{ city.postcode_prefixes or '' }}"
+               placeholder="e.g., CF, CF3, CF5">
+        <p class="help">
+          Comma-separated list of outward codes. Examples: <code>CF</code> or
+          <code>CF, CF3, CF5</code>. Letters/digits only; we’ll tidy the format.
+        </p>
+      </label>
+
+      <div style="grid-column:1/-1">
+        <button class="btn" type="submit">Save changes</button>
+        <a class="btn btn-outline" href="{{ url_for('admin.admin_cities') }}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
