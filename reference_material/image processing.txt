@@ -1,0 +1,150 @@
+
+
+
+
+Full Detailed Flow
+
+Step 1. Upload validation
+	•	Maximum 5 files per house/room/floorplan.
+	•	Maximum file size: 5 MB.
+	•	Allowed MIME types: JPEG, PNG, WebP, GIF.
+	•	If validation fails → upload rejected with message.
+
+Step 2. Read file safely
+	•	File is read with a size-limit function (read_limited).
+	•	Stream is rewound so Pillow can open it again.
+
+Step 3. Open with Pillow
+	•	Image is opened via Image.open.
+	•	Auto-orientation applied via ImageOps.exif_transpose (so portrait vs landscape rotates correctly).
+	•	Image converted to RGB to standardize (removes transparency, color modes, weird profiles).
+	•	If image has alpha (RGBA) → flattened onto a white background.
+	•	If grayscale (L) → converted to RGB.
+
+Step 4. Resize
+	•	Longest side (width or height) is resized to 1600 pixels maximum.
+	•	Resize uses LANCZOS filter (best quality for downscaling).
+	•	If already smaller than 1600px → kept as is.
+
+Step 5. Padding (new fix for portrait/letterbox images)
+	•	If image is extremely narrow/tall, padding is added.
+	•	Padding uses brand-light purple (#7D3FC6 / RGB 125,63,198).
+	•	Image is centered on the padded canvas.
+	•	Padding ensures watermark won’t get clipped.
+
+Step 6. Watermark
+	•	Text: “Student Palace”.
+	•	Font: DejaVuSans Bold (fallback to default if missing).
+	•	Font size: ~1/16 of image width (minimum 14px).
+	•	Placement: Top-left corner, with padding.
+	•	Style:
+	•	Shadow (1px offset, semi-transparent black).
+	•	Foreground (white, 170 alpha).
+	•	Ensures visible on all backgrounds.
+
+Step 7. Save processed image
+	•	Format: JPEG.
+	•	Quality: 85, optimized + progressive for web.
+	•	Filename format:
+	•	Houses → house{hid}_{timestamp}_{token}.jpg
+	•	Rooms → room{rid}_{timestamp}_{token}.jpg
+	•	Floorplans → {uuid}.jpg
+	•	File written to correct upload folder under /static/uploads/....
+
+Step 8. Database insert
+	•	Each image stored in DB with metadata:
+	•	file_name / filename
+	•	file_path (relative under /static)
+	•	width, height, bytes
+	•	is_primary flag
+	•	sort_order
+	•	created_at (UTC ISO string)
+	•	Ensures schema exists (tables auto-created/altered if missing columns).
+	•	First uploaded image is auto-marked as primary.
+
+Step 9. Usage in site
+	•	Public pages load these stored file paths.
+	•	Thumbnails and full-size images both come from these processed files.
+	•	Because of padding + watermark, every image is consistent, branded, and won’t clip.
+
+⸻
+
+Cheat Sheet Version
+
+Student Palace Image Pipeline
+	1.	Validate → max 5 MB, allowed MIME, max 5 images.
+	2.	Open safely → EXIF rotate, force RGB.
+	3.	Resize longest side to 1600px.
+	4.	Pad thin images with brand-light purple.
+	5.	Watermark “Student Palace” top-left (white + shadow).
+	6.	Save JPEG (quality 85, progressive).
+	7.	Insert into DB (with metadata + is_primary flag).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Image processing pipeline – Student Palace (all images: houses, rooms, floorplans)
+	1.	Upload received
+	•	File comes in via Flask/Werkzeug file_storage.
+	•	Checks:
+• Maximum file size: 5 MB
+• Allowed MIME types: jpeg, png, webp, gif
+• Maximum files per house/room/floorplan: 5
+	2.	Read file
+	•	File is read into memory with read_limited, enforcing size limit.
+	•	Stream is rewound afterwards so it can be re-read if needed.
+	3.	Open image safely
+	•	Pillow (Image.open) creates a Pillow Image object.
+	•	EXIF orientation is respected (rotated if necessary).
+	•	Image is converted to RGB:
+• If already RGB or L (grayscale), keep it.
+• Otherwise, convert through RGBA → flatten onto white background → back to RGB.
+	4.	Resize
+	•	Longest side of the image is resized down to 1600 pixels maximum.
+	•	Aspect ratio is always preserved.
+	•	High-quality resampling: LANCZOS.
+	5.	Padding (only when needed)
+	•	If an image is too “thin” (very tall portrait or very narrow letterbox), padding bars are added.
+	•	Padding colour: light brand purple (#7D3FC6 → RGB 125,63,198).
+	•	Padding is added left/right or top/bottom to center the image on a consistent canvas.
+	•	Purpose: prevents watermark clipping and ensures consistent display.
+	6.	Watermark
+	•	Text: “Student Palace” (from environment variable, defaults to this).
+	•	Placement: always top-left corner, offset with padding.
+	•	Font:
+• Size ≈ width ÷ 16, min 14px.
+• Fonts tried in order: DejaVuSans-Bold, DejaVuSans (system paths), else default bitmap font.
+	•	Style:
+• White text, opacity ~170/255.
+• Soft black shadow offset by 1px for visibility.
+	7.	Save processed image
+	•	Format: JPEG.
+	•	Quality: 85.
+	•	Options: optimize=True, progressive=True.
+	•	Final file always ends as .jpg regardless of input type.
+	•	Disk location depends on type:
+• Houses → static/uploads/houses/
+• Rooms → static/uploads/rooms/
+• Floorplans → static/uploads/floorplans/
+	•	Filenames include entity ID + timestamp + random token/UUID.
+	8.	Database insert
+	•	Records width, height, file size (bytes), file path, filename, created_at timestamp.
+	•	Ensures at least one “primary” image exists per entity (first one uploaded).
+	•	Sort order is auto-incremented.
+	9.	Serving
+	•	Images are then referenced via /static/uploads/... and displayed on the site.
+	•	Since all are normalized to JPEG, browsers always see a consistent format.
+	10.	Error handling
+	•	If reading or processing fails, user gets an error message.
+	•	If DB insert fails after saving, file is deleted to avoid orphans.
+	•	Logs are written with details of success/failure for debugging.
