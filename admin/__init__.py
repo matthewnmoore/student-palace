@@ -31,6 +31,7 @@ from . import summaries as _summaries  # ✅ NEW: register /admin/summaries rout
 from . import accreditations as _accreditations  # registers /admin/accreditations
 from . import db_report as _db_report  # registers /admin/db-report
 from . import settings as _settings   # registers /admin/settings
+from . import admin_delete as _admin_delete  # registers delete routes
 from .schema import ensure_extra_schema
 ensure_extra_schema()
 
