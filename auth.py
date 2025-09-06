@@ -4,7 +4,6 @@ from __future__ import annotations
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime as dt
-from markupsafe import escape
 from db import get_db
 from utils import current_landlord_id  # if you use this elsewhere
 
@@ -24,27 +23,22 @@ def _signups_enabled(conn) -> bool:
 
 def _get_terms_html(conn) -> str:
     """
-    Read admin-managed terms from site_settings.LANDLORD_TERMS_MD.
-    We return basic HTML (very light conversion: line breaks -> <br>).
-    If you later store real HTML, just save it as-is and we’ll serve it.
+    Read admin-managed terms from site_settings. We first try the new key
+    'terms_landlords_html' and fall back to the legacy 'LANDLORD_TERMS_MD'
+    if present.
     """
+    html = _get_setting(conn, "terms_landlords_html", "").strip()
+    if html:
+        return html
+
+    # Back-compat: if an older Markdown key was used, show it as preformatted text.
     md = _get_setting(conn, "LANDLORD_TERMS_MD", "").strip()
-    if not md:
-        # Friendly placeholder so the modal isn't empty if admin hasn't set content yet
-        md = (
-            "# Terms & Conditions\n\n"
-            "Please add your landlord terms in Admin → Site settings. "
-            "Until then, this placeholder is shown."
-        )
-    # ultra-light rendering: escape then convert newlines to <br>; treat lines starting with '# ' as a heading
-    lines = []
-    for line in md.splitlines():
-        if line.startswith("# "):
-            lines.append(f"<h2>{escape(line[2:].strip())}</h2>")
-        else:
-            lines.append(escape(line).replace("  ", "&nbsp;&nbsp;").replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;"))
-    html = "<br>".join(lines)
-    return f'<div class="terms-content">{html}</div>'
+    if md:
+        # Minimal safe rendering: wrap in <pre> so it displays legibly.
+        from markupsafe import escape
+        return f"<pre>{escape(md)}</pre>"
+
+    return ""  # no terms configured
 
 # -------------------------
 # Entry page
@@ -54,7 +48,7 @@ def landlords_entry():
     return render_template("landlords_entry.html")
 
 # -------------------------
-# Terms endpoint (for modal)
+# Optional Terms endpoint (not required for inline, but harmless to keep)
 # -------------------------
 @auth_bp.route("/terms/landlord", methods=["GET"])
 def landlord_terms_page():
@@ -63,8 +57,7 @@ def landlord_terms_page():
         html = _get_terms_html(conn)
     finally:
         conn.close()
-    # Return as HTML snippet (used by the modal on the signup page)
-    resp = make_response(html, 200)
+    resp = make_response(html or "<p>No terms configured.</p>", 200)
     resp.headers["Content-Type"] = "text/html; charset=utf-8"
     return resp
 
@@ -75,35 +68,38 @@ def landlord_terms_page():
 def signup():
     conn = get_db()
     try:
+        terms_html = _get_terms_html(conn)
+
         if request.method == "POST":
             # Global kill-switch for signups
             if not _signups_enabled(conn):
                 flash("Signups are currently disabled. Please try again later.", "error")
-                return render_template("signup.html")
+                return render_template("signup.html", terms_html=terms_html)
 
             email = (request.form.get("email") or "").strip().lower()
             password = (request.form.get("password") or "")
-            agreed = (request.form.get("agree_terms") == "on")
+            accepted = (request.form.get("accept_terms") == "on")  # <-- matches template
 
             # Basic validation
             if not email or not password:
                 flash("Email and password are required.", "error")
-                return render_template("signup.html")
+                return render_template("signup.html", terms_html=terms_html)
             if "@" not in email or "." not in email.split("@")[-1]:
                 flash("Please enter a valid email address.", "error")
-                return render_template("signup.html")
+                return render_template("signup.html", terms_html=terms_html)
             if len(password) < 6:
                 flash("Password must be at least 6 characters long.", "error")
-                return render_template("signup.html")
-            if not agreed:
+                return render_template("signup.html", terms_html=terms_html)
+            # Only enforce acceptance if terms are actually configured
+            if terms_html and not accepted:
                 flash("Please read and agree to the Terms & Conditions to continue.", "error")
-                return render_template("signup.html")
+                return render_template("signup.html", terms_html=terms_html)
 
             # Uniqueness check
             exists = conn.execute("SELECT id FROM landlords WHERE email=?", (email,)).fetchone()
             if exists:
                 flash("That email is already registered. Try logging in.", "error")
-                return render_template("signup.html")
+                return render_template("signup.html", terms_html=terms_html)
 
             # Create account
             ph = generate_password_hash(password)
@@ -128,11 +124,11 @@ def signup():
             return redirect(url_for("landlord.dashboard"))
 
         # GET
-        return render_template("signup.html")
+        return render_template("signup.html", terms_html=terms_html)
     except Exception as e:
         print("[ERROR] signup:", e)
         flash("Sign up failed. Please try again.", "error")
-        return render_template("signup.html")
+        return render_template("signup.html", terms_html=_get_terms_html(get_db()))
     finally:
         try:
             conn.close()
