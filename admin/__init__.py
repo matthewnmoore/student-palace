@@ -30,6 +30,7 @@ from . import images as _images        # noqa: F401,E402
 from . import summaries as _summaries  # ✅ NEW: register /admin/summaries routes  # noqa: F401,E402
 from . import accreditations as _accreditations  # registers /admin/accreditations
 from . import db_report as _db_report  # registers /admin/db-report
+from . import settings as _settings   # registers /admin/settings
 from .schema import ensure_extra_schema
 ensure_extra_schema()
 
