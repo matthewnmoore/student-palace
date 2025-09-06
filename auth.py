@@ -4,8 +4,8 @@ from __future__ import annotations
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime as dt
+from markupsafe import escape
 from db import get_db
-from utils import current_landlord_id  # if you use this elsewhere
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -21,24 +21,38 @@ def _signups_enabled(conn) -> bool:
     val = _get_setting(conn, "signups_enabled", "1")
     return str(val) == "1"
 
+def _render_md_basic(md_text: str) -> str:
+    """
+    Ultra-light Markdown-ish rendering:
+      - Lines starting with '# ' -> <h2>
+      - Blank line -> paragraph breaks
+      - Otherwise escape HTML and keep line breaks
+    This keeps things safe without bringing in a parser.
+    """
+    if not md_text:
+        return ""
+
+    lines = []
+    for raw in md_text.splitlines():
+        if raw.startswith("# "):
+            lines.append(f"<h2>{escape(raw[2:].strip())}</h2>")
+        else:
+            # escape, preserve double spaces/tabs as non-breaking
+            safe = escape(raw).replace("  ", "&nbsp;&nbsp;").replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
+            lines.append(safe)
+    # Convert single newlines to <br>, but keep some spacing between blocks
+    html = "<br>".join(lines)
+    return f'<div class="terms-content">{html}</div>'
+
 def _get_terms_html(conn) -> str:
     """
-    Read admin-managed terms from site_settings. We first try the new key
-    'terms_landlords_html' and fall back to the legacy 'LANDLORD_TERMS_MD'
-    if present.
+    Read admin-managed terms from site_settings. We use the admin key 'terms_md'.
+    If empty, return '' so the signup form hides the terms block and does not enforce acceptance.
     """
-    html = _get_setting(conn, "terms_landlords_html", "").strip()
-    if html:
-        return html
-
-    # Back-compat: if an older Markdown key was used, show it as preformatted text.
-    md = _get_setting(conn, "LANDLORD_TERMS_MD", "").strip()
-    if md:
-        # Minimal safe rendering: wrap in <pre> so it displays legibly.
-        from markupsafe import escape
-        return f"<pre>{escape(md)}</pre>"
-
-    return ""  # no terms configured
+    md = _get_setting(conn, "terms_md", "").strip()
+    if not md:
+        return ""
+    return _render_md_basic(md)
 
 # -------------------------
 # Entry page
@@ -48,7 +62,7 @@ def landlords_entry():
     return render_template("landlords_entry.html")
 
 # -------------------------
-# Optional Terms endpoint (not required for inline, but harmless to keep)
+# Optional Terms endpoint (handy if you want to open in a separate view)
 # -------------------------
 @auth_bp.route("/terms/landlord", methods=["GET"])
 def landlord_terms_page():
@@ -57,7 +71,9 @@ def landlord_terms_page():
         html = _get_terms_html(conn)
     finally:
         conn.close()
-    resp = make_response(html or "<p>No terms configured.</p>", 200)
+    if not html:
+        html = "<p>No terms configured.</p>"
+    resp = make_response(html, 200)
     resp.headers["Content-Type"] = "text/html; charset=utf-8"
     return resp
 
@@ -78,7 +94,7 @@ def signup():
 
             email = (request.form.get("email") or "").strip().lower()
             password = (request.form.get("password") or "")
-            accepted = (request.form.get("accept_terms") == "on")  # <-- matches template
+            accepted = (request.form.get("accept_terms") == "on")  # must match template
 
             # Basic validation
             if not email or not password:
@@ -90,7 +106,8 @@ def signup():
             if len(password) < 6:
                 flash("Password must be at least 6 characters long.", "error")
                 return render_template("signup.html", terms_html=terms_html)
-            # Only enforce acceptance if terms are actually configured
+
+            # Enforce acceptance only if terms exist
             if terms_html and not accepted:
                 flash("Please read and agree to the Terms & Conditions to continue.", "error")
                 return render_template("signup.html", terms_html=terms_html)
@@ -128,7 +145,12 @@ def signup():
     except Exception as e:
         print("[ERROR] signup:", e)
         flash("Sign up failed. Please try again.", "error")
-        return render_template("signup.html", terms_html=_get_terms_html(get_db()))
+        # Attempt a safe retry render
+        try:
+            terms_html_retry = _get_terms_html(get_db())
+        except Exception:
+            terms_html_retry = ""
+        return render_template("signup.html", terms_html=terms_html_retry)
     finally:
         try:
             conn.close()
