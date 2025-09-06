@@ -26,6 +26,52 @@ updated 06/09/2025
 ==================
 
 
+Landlord — house photos
+	•	Endpoint: GET /landlord/houses/<hid>/photos
+Template: house_photos.html
+Context keys: house, images, max_images
+Notes: Also rendered on POST when no files were chosen (validation error). On successful POST it redirects back to the same page.
+	•	Endpoint: POST /landlord/houses/<hid>/photos
+Template: (none — redirects or re-renders as above on error)
+	•	Endpoint: POST /landlord/houses/<hid>/photos/<img_id>/primary
+Template: (none — redirect to /landlord/houses/<hid>/photos)
+	•	Endpoint: POST /landlord/houses/<hid>/photos/<img_id>/delete
+Template: (none — redirect to /landlord/houses/<hid>/photos)
+	•	Endpoint: GET /landlord/houses/<hid>/photos/debug
+Response: JSON (no template)
+
+Landlord — room photos
+	•	Endpoint: GET /landlord/houses/<hid>/rooms/<rid>/photos
+Template: room_photos.html
+Context keys: house, room, images, max_images
+Notes: Also rendered on POST when no files were chosen (validation error). On successful POST it redirects back to the same page.
+	•	Endpoint: POST /landlord/houses/<hid>/rooms/<rid>/photos
+Template: (none — redirects or re-renders as above on error)
+	•	Endpoint: POST /landlord/houses/<hid>/rooms/<rid>/photos/<img_id>/primary
+Template: (none — redirect to /landlord/houses/<hid>/rooms/<rid>/photos)
+	•	Endpoint: POST /landlord/houses/<hid>/rooms/<rid>/photos/<img_id>/delete
+Template: (none — redirect to /landlord/houses/<hid>/rooms/<rid>/photos)
+
+Admin — images
+	•	Endpoint: GET /images
+Blueprint: admin
+Template: admin_images.html
+Context keys: items, page, limit, total, broken_only, prev_url, next_url
+	•	Endpoint: POST /images/<img_id>/delete
+Template: (none — redirect to /admin/images)
+	•	Endpoint: POST /images/cleanup-broken
+Template: (none — redirect to /admin/images?broken=1)
+
+Things we cannot assert from the shared code
+	•	Any other endpoints or templates outside these files (e.g., floorplans routes, dashboards, search pages, etc.).
+	•	Whether partials like _verified_banner.html are included in the above templates (not visible from the Python you shared).
+
+
+
+
+
+
+
 
 Student Palace – Image Pipeline Reference
 
