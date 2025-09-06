@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Confirm landlord to delete · Admin{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="card">
+    <h2 class="mt-0">Delete landlord – Step 1 of 3</h2>
+    <p class="help">
+      This will remove the landlord, all of their houses, rooms, images and documents.
+      Please confirm the target by typing either the landlord’s <strong>email</strong>
+      or their <strong>display name</strong>.
+    </p>
+
+    <p><strong>Landlord:</strong> {{ landlord.email }}{% if profile and profile.display_name %} — “{{ profile.display_name }}”{% endif %}</p>
+
+    <form method="post" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px">
+      <label class="field" style="margin:0; min-width:320px">
+        <span class="label">Type email or display name</span>
+        <input type="text" name="confirm_text" autofocus
+               style="padding:10px; border:1px solid var(--border); border-radius:8px; width:100%">
+      </label>
+      <button class="btn btn-admin" type="submit">Continue</button>
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_landlord_detail', lid=landlord.id) }}">Cancel</a>
+    </form>
+  </div>
+</section>
+{% endblock %}
