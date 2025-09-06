@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Admin · DB Report{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Admin · Database report</h1>
+    <div class="inline-actions">
+      <a class="btn" href="{{ url_for('admin.dashboard') }}">Back to dashboard</a>
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Log out</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% if report and report|length %}
+    {% for t in report %}
+      <div class="card" style="margin-bottom:14px">
+        <h3 class="mt-0" style="display:flex; gap:10px; align-items:baseline;">
+          <span class="mono">{{ t.name }}</span>
+          <span class="badge">{{ t.type }}</span>
+          <span class="small muted">rows: {{ t.count }}</span>
+        </h3>
+
+        <h4>Columns</h4>
+        <div class="table-wrapper">
+          <table class="table compact">
+            <thead>
+              <tr>
+                <th>#</th><th>Name</th><th>Type</th><th>NOT NULL</th><th>Default</th><th>PK</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in t.columns %}
+                <tr>
+                  <td class="mono small">{{ c.cid }}</td>
+                  <td class="mono">{{ c.name }}</td>
+                  <td class="mono small">{{ c.type }}</td>
+                  <td>{{ '✓' if c.notnull else '' }}</td>
+                  <td class="mono small">{{ c.dflt_value if c.dflt_value is not none else '' }}</td>
+                  <td>{{ '✓' if c.pk else '' }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if t.indexes and t.indexes|length %}
+          <h4 style="margin-top:10px;">Indexes</h4>
+          <div class="table-wrapper">
+            <table class="table compact">
+              <thead>
+                <tr>
+                  <th>Name</th><th>Unique</th><th>Origin</th><th>Partial</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for i in t.indexes %}
+                  <tr>
+                    <td class="mono">{{ i.name }}</td>
+                    <td>{{ '✓' if i.unique else '' }}</td>
+                    <td class="mono small">{{ i.origin }}</td>
+                    <td>{{ '✓' if i.partial else '' }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">No tables found.</p>
+  {% endif %}
+</section>
+
+<style>
+.table.compact th, .table.compact td { padding: 6px 8px; }
+.table-wrapper { overflow-x:auto; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.badge { background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; padding:2px 6px; border-radius:14px; font-size:12px; }
+.small { font-size: 12px; }
+.muted { color: var(--muted); }
+</style>
+{% endblock %}
