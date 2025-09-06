@@ -21,7 +21,7 @@ ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_BOUND = 1600
 WATERMARK_TEXT = os.environ.get("WATERMARK_TEXT", "Student Palace")
 
-# Letterbox target aspect (W:H) for portrait images. Only used to pad portrait images.
+# Target landscape aspect (W:H) for portrait images we letterbox
 _LB = os.environ.get("LANDSCAPE_ASPECT", "16:9")
 try:
     _num, _den = _LB.split(":")
@@ -29,8 +29,8 @@ try:
 except Exception:
     LANDSCAPE_ASPECT = 16.0 / 9.0
 
-# Side panel colour = brand light purple (#7D3FC6)
-LETTERBOX_COLOR = (125, 63, 198)
+# Side panel colour = page light purple (#f9f7ff)
+LETTERBOX_COLOR = (249, 247, 255)
 
 # ------------ FS helpers ------------
 
@@ -78,26 +78,26 @@ def resize_longest(im: Image.Image, bound: int = MAX_BOUND) -> Image.Image:
     return im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
 def pad_portrait_to_landscape(im: Image.Image, *, aspect: float = LANDSCAPE_ASPECT,
-                              color: Tuple[int,int,int] = LETTERBOX_COLOR) -> Image.Image:
+                              color: Tuple[int,int,int] = LETTERBOX_COLOR) -> Tuple[Image.Image, int]:
     """
-    If image is portrait, pad left/right to reach target landscape aspect (no cropping).
-    Landscape/square images are returned unchanged.
+    If portrait, pad left/right to reach target landscape aspect (no crop).
+    Returns (canvas, content_left_offset) so we can anchor watermark to the photo area.
     """
     w, h = im.size
     if h <= w:
-        return im
+        return im, 0  # already landscape/square; no letterbox
 
     target_w = int(math.ceil(h * aspect))
     if target_w <= w:
-        return im
+        return im, 0
 
     canvas = Image.new("RGB", (target_w, h), color)
     x = (target_w - w) // 2
     canvas.paste(im, (x, 0))
-    return canvas
+    return canvas, x
 
 def _load_font_for_short_side(short_side: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    # Scale by the *shorter* side so text looks consistent after letterboxing.
+    # Scale by the *shorter* side so text looks consistent across orientations.
     font_size = max(14, short_side // 16)
     candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -112,10 +112,9 @@ def _load_font_for_short_side(short_side: int) -> ImageFont.FreeTypeFont | Image
             pass
     return ImageFont.load_default()
 
-def watermark(im: Image.Image, text: str = WATERMARK_TEXT) -> Image.Image:
+def watermark(im: Image.Image, text: str, *, anchor_left: int = 0) -> Image.Image:
     """
-    Place watermark at top-center with padding to avoid edge/cropping.
-    Size is based on the shorter side for consistency across orientations.
+    Place watermark top-left, offset to the *photo* area (so it never sits on the purple bars).
     """
     out = im.copy().convert("RGBA")
     overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
@@ -123,14 +122,9 @@ def watermark(im: Image.Image, text: str = WATERMARK_TEXT) -> Image.Image:
     w, h = out.size
 
     font = _load_font_for_short_side(min(w, h))
-
-    # measure text
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
-
     pad = max(12, min(w, h) // 80)
-    x = (w - tw) // 2
+
+    x = max(pad, anchor_left + pad)  # ensure within canvas and inside content area
     y = pad
 
     # soft shadow + white text
@@ -142,12 +136,12 @@ def watermark(im: Image.Image, text: str = WATERMARK_TEXT) -> Image.Image:
 
 def process_image(buf: bytes) -> Image.Image:
     """
-    Pipeline: open -> resize (no crop) -> pad portrait to landscape (brand purple) -> watermark -> RGB
+    Pipeline: open -> resize (no crop) -> pad portrait to landscape (light purple) -> watermark (top-left of photo)
     """
     im = open_image_safely(buf)
     im = resize_longest(im, MAX_BOUND)
-    im = pad_portrait_to_landscape(im)
-    im = watermark(im, WATERMARK_TEXT)
+    im, left_pad = pad_portrait_to_landscape(im)
+    im = watermark(im, WATERMARK_TEXT, anchor_left=left_pad)
     return im
 
 def save_jpeg(im: Image.Image, abs_path: str) -> Tuple[int, int, int]:
