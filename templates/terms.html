@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Terms & Conditions – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="card">
+    <h1 class="mt-0">Terms & Conditions</h1>
+    <p class="help">Last updated: 06 Sep 2025</p>
+
+    <h3>1. Introduction</h3>
+    <p>These Terms & Conditions govern use of Student Palace by landlords and agents…</p>
+
+    <h3>2. Acceptable use</h3>
+    <p>No unlawful content, accurate listings, no spam, etc…</p>
+
+    <h3>3. Data & privacy</h3>
+    <p>We process your data to run the service. See our Privacy Policy.</p>
+
+    <h3>4. Fees</h3>
+    <p>(If applicable) …</p>
+
+    <h3>5. Liability</h3>
+    <p>Provided “as is”, limits of liability, etc…</p>
+
+    <h3>6. Contact</h3>
+    <p>Email: support@studentpalace.example</p>
+
+    <div style="margin-top:14px">
+      <a class="btn" href="{{ url_for('auth.signup') }}">Back to sign up</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
