@@ -21,16 +21,16 @@ ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_BOUND = 1600
 WATERMARK_TEXT = os.environ.get("WATERMARK_TEXT", "Student Palace")
 
-# Letterbox target aspect for portrait images (WIDTH:HEIGHT), default 16:9
-# Only used to pad portrait images (left/right), landscape images aren’t padded.
+# Letterbox target aspect (W:H) for portrait images. Only used to pad portrait images.
 _LB = os.environ.get("LANDSCAPE_ASPECT", "16:9")
 try:
     _num, _den = _LB.split(":")
     LANDSCAPE_ASPECT = max(1.0, float(_num) / float(_den))
 except Exception:
-    LANDSCAPE_ASPECT = 16.0 / 9.0  # safe default
+    LANDSCAPE_ASPECT = 16.0 / 9.0
 
-LETTERBOX_COLOR = (0, 0, 0)  # pure black side panels
+# Side panel colour = brand light purple (#7D3FC6)
+LETTERBOX_COLOR = (125, 63, 198)
 
 # ------------ FS helpers ------------
 
@@ -38,7 +38,6 @@ def ensure_upload_dir() -> None:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def static_rel_path(filename: str) -> str:
-    # store WITHOUT a leading slash; render with url_for('static', filename=...)
     return f"uploads/houses/{filename}"
 
 def file_abs_path(filename: str) -> str:
@@ -82,26 +81,24 @@ def pad_portrait_to_landscape(im: Image.Image, *, aspect: float = LANDSCAPE_ASPE
                               color: Tuple[int,int,int] = LETTERBOX_COLOR) -> Image.Image:
     """
     If image is portrait, pad left/right to reach target landscape aspect (no cropping).
-    Landscape images are returned unchanged.
+    Landscape/square images are returned unchanged.
     """
     w, h = im.size
     if h <= w:
-        return im  # already landscape or square; no padding requested for non-portrait
+        return im
 
-    # target width to achieve the desired landscape aspect with current height
     target_w = int(math.ceil(h * aspect))
     if target_w <= w:
-        return im  # already at or wider than target aspect
+        return im
 
-    # create new canvas and center the original
     canvas = Image.new("RGB", (target_w, h), color)
     x = (target_w - w) // 2
     canvas.paste(im, (x, 0))
     return canvas
 
-def _load_font_for_width(img_width: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    # ~6–8% of image width
-    font_size = max(14, img_width // 16)
+def _load_font_for_short_side(short_side: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    # Scale by the *shorter* side so text looks consistent after letterboxing.
+    font_size = max(14, short_side // 16)
     candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -117,31 +114,39 @@ def _load_font_for_width(img_width: int) -> ImageFont.FreeTypeFont | ImageFont.I
 
 def watermark(im: Image.Image, text: str = WATERMARK_TEXT) -> Image.Image:
     """
-    Place watermark top-left with padding on the final (possibly letterboxed) image.
+    Place watermark at top-center with padding to avoid edge/cropping.
+    Size is based on the shorter side for consistency across orientations.
     """
     out = im.copy().convert("RGBA")
     overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     w, h = out.size
-    font = _load_font_for_width(w)
 
-    pad = max(12, w // 80)
-    x, y = pad, pad
+    font = _load_font_for_short_side(min(w, h))
+
+    # measure text
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+
+    pad = max(12, min(w, h) // 80)
+    x = (w - tw) // 2
+    y = pad
 
     # soft shadow + white text
     draw.text((x + 1, y + 1), text, font=font, fill=(0, 0, 0, 120))
-    draw.text((x, y), text, font=font, fill=(255, 255, 255, 180))
+    draw.text((x, y), text, font=font, fill=(255, 255, 255, 185))
 
     composed = Image.alpha_composite(out, overlay)
     return composed.convert("RGB")
 
 def process_image(buf: bytes) -> Image.Image:
     """
-    Pipeline: open -> resize (no crop) -> pad portrait to landscape with black side panels -> watermark -> RGB
+    Pipeline: open -> resize (no crop) -> pad portrait to landscape (brand purple) -> watermark -> RGB
     """
     im = open_image_safely(buf)
     im = resize_longest(im, MAX_BOUND)
-    im = pad_portrait_to_landscape(im)   # <— only affects portrait
+    im = pad_portrait_to_landscape(im)
     im = watermark(im, WATERMARK_TEXT)
     return im
 
@@ -219,7 +224,7 @@ def select_images(conn, hid: int) -> List[Dict]:
     return [{
         "id": r["id"],
         "is_primary": int(r["is_primary"]) == 1,
-        "file_path": r["file_path"],      # relative path under /static
+        "file_path": r["file_path"],
         "filename": r["filename"],
         "width": int(r["width"]),
         "height": int(r["height"]),
