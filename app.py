@@ -70,10 +70,11 @@ def create_app() -> Flask:
             if want_students:
                 n = count("students")
                 footer_metrics.append(f"{n} student" if n == 1 else f"{n} students")
+            # sum both tables (safe even if room_images doesn't exist)
             if want_photos:
-                n = count("house_images")
+                n = count("house_images") + count("room_images")
                 footer_metrics.append(f"{n} photo" if n == 1 else f"{n} photos")
-
+            
             try:
                 conn.close()
             except Exception:
