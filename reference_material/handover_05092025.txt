@@ -1,5 +1,242 @@
-Student Palace – Handover List (rolled back to bulk editing pages stable point) 05/09/2025
+Student Palace – Handover List (rolled back to bulk editing pages stable point) 06/09/2025
 ===========================================================================================
+
+
+
+
+
+Student Palace – Handover Sheet
+
+Core stack:
+	•	Python 3 (Flask web app).
+	•	SQLite database (file at /opt/render/project/src/static/uploads/houses/student_palace.db).
+	•	Jinja2 templates.
+	•	Static assets in /static/ (css, img, uploads etc.).
+
+⸻
+
+Blueprints
+	•	admin: Admin dashboard, db-report, landlords, houses, images.
+	•	auth: Login/logout for landlords and admin.
+	•	public: Public property/student pages.
+	•	landlord: Main landlord features (houses, rooms, photos, floorplans, EPCs, bulk editing, profile, portfolio, delete).
+
+⸻
+
+Landlord blueprint routes (confirmed):
+	•	/landlord/houses → list landlord’s houses (houses_list.html template).
+	•	/landlord/houses/new → add new house (house_form.html).
+	•	/landlord/houses//edit → edit a house (house_form.html).
+	•	/landlord/houses//delete → delete a house, its rooms, all photos and documents (backend in landlord/delete.py).
+	•	/landlord/houses//rooms → list rooms for a house (rooms_list.html).
+	•	/landlord/houses//rooms/new → add new room (room_form.html).
+	•	/landlord/houses//rooms//edit → edit room (room_form.html).
+	•	/landlord/houses//rooms//delete → delete a single room and its images (backend in landlord/delete.py).
+	•	/landlord/houses//photos → manage house photos.
+	•	/landlord/houses//rooms//photos → manage room photos.
+	•	Floorplans, EPC uploads, bulk edits, portfolio also handled in landlord.
+
+⸻
+
+Delete functionality (critical parts done):
+	1.	House delete (landlord/delete.py)
+	•	Deletes house row, its rooms, house images, room images, floorplans, EPC/documents.
+	•	Also deletes associated files from /static/uploads/... after DB cleanup.
+	•	Triggered from the “Delete” button on houses_list.html.
+	2.	Room delete (landlord/delete.py)
+	•	Deletes one room and its associated room_images.
+	•	Removes image files from static storage.
+	•	Triggered from the “Delete” button on rooms_list.html and on room_form.html (edit mode only).
+
+⸻
+
+Templates with delete buttons:
+	•	houses_list.html → has delete house button.
+	•	rooms_list.html → has delete room button.
+	•	room_form.html → shows delete room button in edit mode only.
+
+All delete buttons use <form method="post"> with a confirmation prompt.
+
+⸻
+
+Auto calculations:
+	•	Room edit form (room_form.html) includes Price per week auto-calculation:
+	•	Listens for changes on price per month input.
+	•	Updates readonly PPW field live using (pcm * 12) / 52.
+	•	Room availability logic:
+	•	If “Currently let” checked, sets let_until = 30 June next year and available_from = following day.
+	•	If unchecked, sets available_from = today and hides let_until.
+
+⸻
+
+Admin
+	•	/admin/db-report shows schema and live row counts for all tables (used for verifying delete worked).
+	•	Admin backup page allows download of full DB snapshot.
+
+⸻
+
+Database tables relevant to deletes:
+	•	houses: master house info.
+	•	rooms: linked by house_id.
+	•	house_images: linked by house_id.
+	•	room_images: linked by room_id (rooms → house).
+	•	house_floorplans: linked by house_id.
+	•	house_documents: linked by house_id (EPCs and PDFs).
+	•	Other tables: landlords, landlord_profiles, students, favourites, accreditation tables etc. not touched by deletes.
+
+⸻
+
+Current working state (last tested):
+	•	House delete → removes house, rooms, all images (house and room), floorplans, documents, and underlying files.
+	•	Room delete → removes room and its room_images + file cleanup.
+	•	Counts in /admin/db-report confirmed house/room/image records removed correctly.
+	•	PDFs in house_documents are also deleted.
+	•	Verified that templates render correctly after fixes (except when wrong url_for parameter names were used).
+
+⸻
+
+Known issues fixed:
+	•	houses_list.html template name mismatch corrected (was houses_list.html, not house_list.html).
+	•	url_for parameter mismatch fixed: must use hid and rid consistently, not house_id and room_id.
+
+⸻
+
+Next step not yet implemented (but planned):
+	•	Admin-level landlord delete → would remove landlord, all their houses, rooms, photos, documents, and files.
+	•	Button placement would be in Admin landlord detail/list page.
+	•	Backend logic would need to:
+	1.	Gather all landlord’s house IDs.
+	2.	Reuse house_delete logic for each.
+	3.	Finally remove landlord and landlord_profile rows.
+
+
+
+Student Palace – Handover Sheet (with Developer Actions)
+
+Core stack:
+	•	Python 3 (Flask web app).
+	•	SQLite database at /opt/render/project/src/static/uploads/houses/student_palace.db.
+	•	Jinja2 templates for views.
+	•	Static files in /static/ (CSS, JS, images, uploads).
+
+⸻
+
+Blueprints
+	•	admin → site administration, backups, db report.
+	•	auth → login/logout for landlords/admin.
+	•	public → student-facing property/room pages.
+	•	landlord → landlord dashboard, houses, rooms, photos, floorplans, EPCs, bulk, portfolio, profile, delete.
+
+⸻
+
+Landlord Routes
+	•	/landlord/houses → list houses.
+	•	/landlord/houses/new → add house.
+	•	/landlord/houses/<hid>/edit → edit house.
+	•	/landlord/houses/<hid>/delete → delete house (+ rooms, images, floorplans, docs).
+	•	/landlord/houses/<hid>/rooms → list rooms.
+	•	/landlord/houses/<hid>/rooms/new → add room.
+	•	/landlord/houses/<hid>/rooms/<rid>/edit → edit room.
+	•	/landlord/houses/<hid>/rooms/<rid>/delete → delete single room + room images.
+	•	/landlord/houses/<hid>/photos → manage house photos.
+	•	/landlord/houses/<hid>/rooms/<rid>/photos → manage room photos.
+	•	Floorplans and EPC/documents also have upload and manage routes.
+
+⸻
+
+Delete Functionality
+
+1. House delete (landlord/delete.py):
+	•	Collects all file paths (house images, room images, floorplans, documents).
+	•	Deletes DB rows: room_images, house_images, house_floorplans, house_documents, rooms, then the house itself.
+	•	Deletes files from disk.
+	•	Triggered by delete button in houses_list.html.
+
+2. Room delete (landlord/delete.py):
+	•	Collects all file paths for that room’s images.
+	•	Deletes DB rows: room_images, then the room itself.
+	•	Deletes image files from disk.
+	•	Triggered by delete button in rooms_list.html and room_form.html.
+
+⸻
+
+Templates with Delete Buttons
+	•	houses_list.html → delete house button (landlord.house_delete).
+	•	rooms_list.html → delete room button (landlord.room_delete).
+	•	room_form.html → delete room button visible only in edit mode.
+
+All wrapped in <form method="post"> with JS confirm(...).
+
+⸻
+
+Auto Calculations (Room Edit Page)
+	•	Price per week is auto-calculated live from price per month.
+	•	Availability fields auto-adjust:
+	•	If “Currently let” ticked → set let_until = 30 June next year, available_from = day after.
+	•	If unticked → set available_from = today, let_until = two days before today (hidden).
+
+⸻
+
+Admin
+	•	/admin/db-report → live DB schema and row counts. Used to confirm deletes worked.
+	•	/admin/backup → download database backup snapshot.
+
+⸻
+
+Database Tables (relevant to delete)
+	•	houses → parent of rooms, images, docs.
+	•	rooms → child of houses.
+	•	house_images → images per house.
+	•	room_images → images per room.
+	•	house_floorplans → floorplans per house.
+	•	house_documents → PDFs/docs per house (e.g., EPC).
+	•	landlords and landlord_profiles → for owner info.
+	•	Others: students, favourites, accreditation tables (untouched by current delete).
+
+⸻
+
+Current Working State
+	•	House delete: ✅ removes house + all children + files.
+	•	Room delete: ✅ removes one room + its images + files.
+	•	Templates: ✅ render correctly (parameter names fixed to hid/rid).
+	•	DB report: ✅ shows counts updating correctly.
+	•	PDFs in house_documents are deleted along with house.
+
+⸻
+
+Developer Actions (Step-by-Step)
+
+House Delete:
+	1.	Backend: landlord/delete.py → delete_house (already implemented).
+	2.	Template: houses_list.html form posts to url_for('landlord.house_delete', hid=h.id).
+
+Room Delete:
+	1.	Backend: landlord/delete.py → delete_room (already implemented).
+	2.	Template:
+	•	rooms_list.html form posts to url_for('landlord.room_delete', hid=house.id, rid=r.id).
+	•	room_form.html form posts to url_for('landlord.room_delete', hid=house.id, rid=room.id) and only shows in edit mode.
+
+Testing Deletes:
+	•	Add house with photos, rooms, and room photos.
+	•	Delete at house level → check house, rooms, photos, floorplans, EPCs gone.
+	•	Delete at room level → check room row + images gone, other rooms unaffected.
+	•	Verify with /admin/db-report.
+	•	Check uploads folder to confirm files removed.
+
+Next (not yet done):
+	•	Admin-level landlord delete:
+	•	Button on admin landlord page.
+	•	Backend route should:
+	1.	Gather all landlord houses.
+	2.	Call same logic as house delete for each.
+	3.	Delete landlord + profile rows last.
+
+
+
+
+
+05/09/2025
+===========
 
 	1.	Current baseline
 
