@@ -22,6 +22,217 @@ HISTORY:
 
 
 
+updated 06/09/2025
+==================
+
+
+
+TABLE: accreditation_schemes
+	•	id
+	•	name
+	•	is_active
+
+TABLE: accreditation_types
+	•	id
+	•	name
+	•	slug
+	•	is_active
+	•	sort_order
+	•	help_text
+
+TABLE: cities
+	•	id
+	•	name
+	•	is_active
+	•	postcode_prefixes
+	•	sort_order
+
+TABLE: city_postcodes
+	•	id
+	•	city
+	•	prefix
+
+TABLE: houses
+	•	id
+	•	landlord_id
+	•	title
+	•	city
+	•	address
+	•	letting_type
+	•	bedrooms_total
+	•	gender_preference
+	•	bills_included
+	•	shared_bathrooms
+	•	off_street_parking
+	•	local_parking
+	•	cctv
+	•	video_door_entry
+	•	bike_storage
+	•	cleaning_service
+	•	wifi
+	•	wired_internet
+	•	common_area_tv
+	•	created_at
+	•	listing_type
+	•	bills_option
+	•	bills_util_gas
+	•	bills_util_electric
+	•	bills_util_water
+	•	bills_util_broadband
+	•	bills_util_tv
+	•	washing_machine
+	•	tumble_dryer
+	•	dishwasher
+	•	cooker
+	•	microwave
+	•	coffee_maker
+	•	central_heating
+	•	air_con
+	•	vacuum
+	•	fob_entry
+	•	garden
+	•	roof_terrace
+	•	games_room
+	•	cinema_room
+	•	epc_rating
+	•	description
+	•	ensuites_total
+	•	available_rooms_total
+	•	available_rooms_prices
+	•	double_beds_total
+	•	suitable_for_couples_total
+	•	post_code_prefix
+	•	youtube_url
+	•	ensuites_available
+	•	double_beds_available
+	•	couples_ok_available
+
+TABLE: rooms
+	•	id
+	•	house_id
+	•	name
+	•	ensuite
+	•	bed_size
+	•	tv
+	•	desk_chair
+	•	wardrobe
+	•	chest_drawers
+	•	lockable_door
+	•	wired_internet
+	•	room_size
+	•	created_at
+	•	price_pcm
+	•	safe
+	•	dressing_table
+	•	mirror
+	•	bedside_table
+	•	blinds
+	•	curtains
+	•	sofa
+	•	couples_ok
+	•	disabled_ok
+	•	is_let
+	•	available_from
+	•	let_until
+	•	description
+
+TABLE: room_images
+	•	id
+	•	room_id
+	•	file_name
+	•	file_path
+	•	width
+	•	height
+	•	bytes
+	•	is_primary
+	•	created_at
+	•	filename
+	•	sort_order
+
+TABLE: house_images
+	•	id
+	•	house_id
+	•	file_name
+	•	file_path
+	•	width
+	•	height
+	•	bytes
+	•	is_primary
+	•	created_at
+	•	filename
+	•	sort_order
+
+TABLE: house_documents
+	•	id
+	•	house_id
+	•	doc_type
+	•	file_name
+	•	file_path
+	•	bytes
+	•	created_at
+	•	is_current
+
+TABLE: landlords
+	•	id
+	•	email
+	•	password_hash
+	•	created_at
+
+TABLE: landlord_profiles
+	•	landlord_id
+	•	display_name
+	•	public_slug
+	•	phone
+	•	website
+	•	bio
+	•	profile_views
+	•	is_verified
+	•	role
+	•	logo_path
+	•	photo_path
+	•	enable_new_landlord
+
+TABLE: landlord_accreditations
+	•	landlord_id
+	•	scheme_id
+	•	extra_text
+
+TABLE: students
+	•	id
+	•	email
+	•	password_hash
+	•	created_at
+	•	display_name
+	•	phone
+	•	phone_number
+	•	updated_at
+
+TABLE: student_favourites
+	•	student_id
+	•	house_id
+	•	room_id
+	•	created_at
+
+TABLE: site_settings
+	•	key
+	•	value
+Metrics Tables / Fields to Display Totals
+	•	Landlords → count from landlords.id
+	•	Houses → count from houses.id
+	•	Rooms → count from rooms.id
+	•	Photos → count from house_images.id (or room_images.id if you want per-room too)
+	•	Students → count from students.id
+
+Visibility toggles (controlled via site_settings):
+	•	show_metric_landlords
+	•	show_metric_houses
+	•	show_metric_rooms
+	•	show_metric_students
+	•	show_metric_photos
+
+
+
+
 Updated 04/09/2025
 ===================
 
