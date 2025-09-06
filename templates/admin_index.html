@@ -1,0 +1,104 @@
+#admin_index.html
+
+{% extends "base.html" %}
+{% block title %}Admin · Home{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Admin</h1>
+    <div class="inline-actions">
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Log out</a>
+      <a class="btn" href="{{ url_for('admin.admin_backup') }}">Download backup</a>
+      <a class="btn btn-outline" href="{{ url_for('admin.dashboard') }}">Dashboard</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- Key metrics (also shown on dashboard) -->
+  <div class="card" style="margin-bottom:16px">
+    <h3 class="mt-0">Key metrics (totals)</h3>
+    <div class="grid grid-4" style="gap:12px;">
+      <div class="stat-card">
+        <div class="stat-label">Landlords</div>
+        <div class="stat-value">{{ (totals.landlords if totals is defined and totals.landlords is defined else 0) }}</div>
+        <div class="stat-delta">Last 24h: {{ (deltas.landlords if deltas is defined and deltas.landlords is defined else 0) }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Properties</div>
+        <div class="stat-value">{{ (totals.houses if totals is defined and totals.houses is defined else 0) }}</div>
+        <div class="stat-delta">Last 24h: {{ (deltas.houses if deltas is defined and deltas.houses is defined else 0) }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Rooms</div>
+        <div class="stat-value">{{ (totals.rooms if totals is defined and totals.rooms is defined else 0) }}</div>
+        <div class="stat-delta">Last 24h: {{ (deltas.rooms if deltas is defined and deltas.rooms is defined else 0) }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Photos</div>
+        <div class="stat-value">{{ (totals.photos if totals is defined and totals.photos is defined else 0) }}</div>
+        <div class="stat-delta">Last 24h: {{ (deltas.photos if deltas is defined and deltas.photos is defined else 0) }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistics list (your existing section) -->
+  <div class="card" style="margin-bottom:16px">
+    <h3 class="mt-0">Statistics (current / last 24h)</h3>
+    <ul style="margin:0; padding-left:18px; line-height:1.8;">
+      <li>
+        Landlords:
+        {{ (stats.landlords_total if stats is defined and stats.landlords_total is defined else 0) }}
+        <small>(+{{ (stats.landlords_24h if stats is defined and stats.landlords_24h is defined else 0) }})</small>
+      </li>
+      <li>
+        Properties:
+        {{ (stats.houses_total if stats is defined and stats.houses_total is defined else 0) }}
+        <small>(+{{ (stats.houses_24h if stats is defined and stats.houses_24h is defined else 0) }})</small>
+      </li>
+      <li>
+        Rooms:
+        {{ (stats.rooms_total if stats is defined and stats.rooms_total is defined else 0) }}
+        <small>(+{{ (stats.rooms_24h if stats is defined and stats.rooms_24h is defined else 0) }})</small>
+      </li>
+      <li>
+        Photos:
+        {{ (stats.photos_total if stats is defined and stats.photos_total is defined else 0) }}
+        <small>(+{{ (stats.photos_24h if stats is defined and stats.photos_24h is defined else 0) }})</small>
+      </li>
+    </ul>
+    <p class="small muted" style="margin-top:8px;">
+      Tip: for more details, open the <a href="{{ url_for('admin.dashboard') }}">Dashboard</a>.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3 class="mt-0">Sections</h3>
+    <ul style="margin:0; padding-left:18px; line-height:1.8;">
+      <li><a href="{{ url_for('admin.admin_cities') }}">Manage cities</a></li>
+      <li><a href="{{ url_for('admin.admin_landlords') }}">Manage landlords</a></li>
+      <li><a href="{{ url_for('admin.admin_images') }}">All images (broken &amp; valid)</a></li>
+      <li><a href="{{ url_for('admin.dashboard') }}">Stats (dashboard)</a></li>
+      <li><a href="{{ url_for('admin.admin_accreditations') }}">Manage accreditations</a></li>
+    </ul>
+  </div>
+</section>
+
+<style>
+.stat-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+}
+.stat-label { font-size:12px; color:var(--muted); margin-bottom:6px; }
+.stat-value { font-size:28px; font-weight:700; line-height:1.2; }
+.stat-delta { font-size:12px; color:var(--muted); margin-top:6px; }
+</style>
+{% endblock %}
