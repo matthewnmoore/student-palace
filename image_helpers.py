@@ -84,50 +84,44 @@ def _load_font_for_width(img_width: int) -> ImageFont.FreeTypeFont | ImageFont.I
     return ImageFont.load_default()
 
 def _measure_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> Tuple[int, int]:
-    """Robust measurement across Pillow versions/fonts."""
     try:
         bbox = draw.textbbox((0, 0), text, font=font)
         return (bbox[2] - bbox[0], bbox[3] - bbox[1])
     except Exception:
         try:
-            # Older fallback
             return draw.textsize(text, font=font)
         except Exception:
-            # Absolute fallback — prevents zero width/height
             return (len(text) * 8, 12)
 
 def watermark(im: Image.Image, text: str = WATERMARK_TEXT) -> Image.Image:
-    # Always render inside the image and with contrast
+    """
+    Robust watermark: full-width semi-transparent bar across the bottom with centered text.
+    This guarantees visibility regardless of image content or font fallback.
+    """
     out = im.copy().convert("RGBA")
     overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     W, H = out.size
     font = _load_font_for_width(W)
 
+    # Bar height proportional to image height, clamped
+    bar_h = max(28, min(H // 10, 80))
+    pad_x = max(10, W // 80)
+
+    # Bar rectangle (full width)
+    y0 = H - bar_h
+    y1 = H
+    # Stronger alpha to ensure contrast
+    draw.rectangle([0, y0, W, y1], fill=(0, 0, 0, 150))
+
+    # Measure and center text
     tw, th = _measure_text(draw, text, font)
+    tx = max(pad_x, (W - tw) // 2)
+    ty = y0 + max(0, (bar_h - th) // 2)
 
-    pad_outer = max(12, W // 80)   # margin from edges
-    pad_inner = max(8, W // 200)   # padding inside the capsule
-
-    # Clamp text box within image bounds
-    x = max(pad_outer, W - tw - pad_outer)
-    y = max(pad_outer, H - th - pad_outer)
-
-    # Background capsule (rounded rect) for contrast
-    bg_x0 = max(0, x - pad_inner)
-    bg_y0 = max(0, y - pad_inner)
-    bg_x1 = min(W, x + tw + pad_inner)
-    bg_y1 = min(H, y + th + pad_inner)
-    try:
-        draw.rounded_rectangle([bg_x0, bg_y0, bg_x1, bg_y1], radius=max(6, pad_inner//2), fill=(0, 0, 0, 110))
-    except Exception:
-        # Some older Pillow builds may not have rounded_rectangle
-        draw.rectangle([bg_x0, bg_y0, bg_x1, bg_y1], fill=(0, 0, 0, 110))
-
-    # Soft shadow + bright text
-    shadow_off = max(1, tw // 200 or 1)
-    draw.text((x + shadow_off, y + shadow_off), text, font=font, fill=(0, 0, 0, 160))
-    draw.text((x, y), text, font=font, fill=(255, 255, 255, 235))
+    # Shadow + bright text
+    draw.text((tx + 1, ty + 1), text, font=font, fill=(0, 0, 0, 200))
+    draw.text((tx, ty), text, font=font, fill=(255, 255, 255, 240))
 
     composed = Image.alpha_composite(out, overlay)
     return composed.convert("RGB")
