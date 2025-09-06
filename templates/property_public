@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}
+  {{ (house.title ~ " – " ~ house.city ~ " – Student Palace") if house else "Property – Student Palace" }}
+{% endblock %}
+
+{% block content %}
+<section class="wrap">
+  {% if not house %}
+    <h1>Property not found</h1>
+    <div class="card card--accent-lr"><p class="help">This listing doesn’t exist.</p></div>
+  {% else %}
+
+    {# Verified banner #}
+    {% set verified = landlord and (landlord.is_verified|default(0, true)) %}
+    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
+      {% if verified %}
+        <span aria-hidden="true" style="font-size:20px">✅</span>
+        <div style="font-weight:600">This is a Verified landlord.</div>
+      {% else %}
+        <span aria-hidden="true" style="font-size:20px">❌</span>
+        <div style="font-weight:600">This is not a Not verified landlord.</div>
+      {% endif %}
+    </div>
+
+    {# Title + meta #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+        <div>
+          <h1 class="mt-0" style="margin:0">{{ house.title }}</h1>
+
+          {# SHORT ADDRESS (street + rest, no number/house name) #}
+          {% set full_addr = (house.address or '') ~ (', ' ~ house.city if house.city) %}
+          <p id="short-address" class="muted" style="margin:6px 0 0"
+             data-full="{{ full_addr|e }}">
+            {{ full_addr }}
+          </p>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          {% if epc_label %}
+            <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px; font-weight:600">{{ epc_label }}</span>
+          {% endif %}
+          {% if bills_label %}
+            <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px">{{ bills_label }}</span>
+          {% endif %}
+          {% if house.listing_type in ("owner","agent") %}
+            <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px">
+              {{ "Letting Agent" if house.listing_type=="agent" else "Owner / Landlord" }}
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# MEDIA: main image + thumbs + highlights #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      {% if images and images|length > 0 %}
+        <div class="media-grid">
+          <div class="media-left">
+            {# Main image = first image #}
+            {% set main = images[0] %}
+            {% set main_src = url_for('static', filename=main.file_path) %}
+            <div class="hero-img">
+              <img src="{{ main_src }}" alt="Main photo" loading="lazy">
+            </div>
+
+            {# Thumbnails: include main as first thumb + up to 4 more (total 5). Show only if >1 image. #}
+            {% if images|length > 1 %}
+              <div class="thumb-row">
+                {% for img in images[0:5] %}
+                  {% set tsrc = url_for('static', filename=img.file_path) %}
+                  <button class="thumb {% if loop.index0 == 0 %}is-active{% endif %}" type="button" data-full="{{ tsrc }}">
+                    <img src="{{ tsrc }}" alt="Photo {{ loop.index }}" loading="lazy">
+                  </button>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          {# === HIGHLIGHTS (ordered per spec) === #}
+          <aside class="media-right">
+            <h3 class="mt-0" style="margin-top:0">Highlights</h3>
+
+            {% set T = ['1', 1, true, 'on'] %}
+
+            {# Available rooms & ensuites #}
+            {% set ns = namespace(ens=0, avail=0) %}
+            {% if rooms %}
+              {% for r in rooms %}
+                {% if r.ensuite in T %}{% set ns.ens = ns.ens + 1 %}{% endif %}
+                {% if not (r.is_let in T) %}{% set ns.avail = ns.avail + 1 %}{% endif %}
+              {% endfor %}
+            {% endif %}
+
+            {# Bills summary #}
+            {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
+            {% set any_util = (house.bills_util_gas in T) or (house.bills_util_electric in T) or
+                              (house.bills_util_water in T) or (house.bills_util_broadband in T) or
+                              (house.bills_util_tv in T) %}
+
+            <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5; list-style:disc;">
+              {% if bills_mode == 'yes' %}
+                <li>All bills included</li>
+              {% elif bills_mode == 'some' and any_util %}
+                <li>Some bills included</li>
+              {% else %}
+                <li>No bills included</li>
+              {% endif %}
+
+              <li>{{ house.bedrooms_total|default(0) }} bedrooms</li>
+              <li>{{ ns.ens }} ensuites</li>
+              <li>{{ ns.avail }} rooms available now</li>
+            </ul>
+          </aside>
+        </div>
+      {% else %}
+        <div style="aspect-ratio:4/3; border:1px dashed var(--border); border-radius:12px; display:flex;align-items:center;justify-content:center; color:#b9a6ff; font-weight:700">
+          NO PHOTOS YET
+        </div>
+      {% endif %}
+    </div>
+
+    {# --- FACILITIES (amenities) --- #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      <h2 style="margin:0 0 10px">Facilities</h2>
+      ...
+    </div>
+
+    {# --- BILLS INCLUDED (icons style) --- #}
+    ...
+{% endblock %}
