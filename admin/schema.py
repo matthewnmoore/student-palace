@@ -1,56 +1,80 @@
 # admin/schema.py
 from __future__ import annotations
+
 import sqlite3
 from db import get_db
 
+def _table_has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    try:
+        cols = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        names = [r["name"] if isinstance(r, sqlite3.Row) else r[1] for r in cols]
+        return column in names
+    except Exception:
+        return False
+
 def ensure_extra_schema() -> None:
-    """Make sure students, favourites, and site_settings tables exist safely."""
+    """
+    Add-only, idempotent schema tweaks:
+      - site_settings (key,value) + default flags
+      - students table (with phone_number)
+      - student_favourites mapping (no-op if it already exists)
+    """
     conn = get_db()
     try:
-        # Students
+        # 1) site_settings (key/value)
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS students (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                display_name TEXT NOT NULL DEFAULT '',
-                phone TEXT NOT NULL DEFAULT ''
+            CREATE TABLE IF NOT EXISTS site_settings(
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL DEFAULT ''
             )
         """)
 
-        # Student favourites
+        # Defaults (use key, not id)
+        defaults = {
+            "show_metric_landlords": "1",
+            "show_metric_houses": "1",
+            "show_metric_rooms": "1",
+            "show_metric_students": "0",
+            "show_metric_photos": "0",
+        }
+        for k, v in defaults.items():
+            conn.execute(
+                "INSERT OR IGNORE INTO site_settings (key, value) VALUES (?, ?)",
+                (k, v),
+            )
+
+        # 2) students table (simple)
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS student_favourites (
+            CREATE TABLE IF NOT EXISTS students(
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                email         TEXT UNIQUE NOT NULL,
+                name          TEXT NOT NULL DEFAULT '',
+                phone_number  TEXT NOT NULL DEFAULT '',
+                created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f','now')),
+                updated_at    TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        # If students already existed without phone_number, add it
+        if not _table_has_column(conn, "students", "phone_number"):
+            conn.execute("ALTER TABLE students ADD COLUMN phone_number TEXT NOT NULL DEFAULT ''")
+        if not _table_has_column(conn, "students", "updated_at"):
+            conn.execute("ALTER TABLE students ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''")
+
+        # 3) favourites (optional; safe if already present)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS student_favourites(
                 student_id INTEGER NOT NULL,
-                house_id INTEGER,
-                room_id INTEGER,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (student_id, house_id, room_id),
+                house_id   INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f','now')),
+                PRIMARY KEY (student_id, house_id),
                 FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-                FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE CASCADE,
-                FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+                FOREIGN KEY (house_id)   REFERENCES houses(id)   ON DELETE CASCADE
             )
         """)
-
-        # Site settings (admin controls display of counts)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS site_settings (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                show_landlords INTEGER NOT NULL DEFAULT 1,
-                show_houses INTEGER NOT NULL DEFAULT 1,
-                show_rooms INTEGER NOT NULL DEFAULT 1,
-                show_photos INTEGER NOT NULL DEFAULT 1,
-                show_students INTEGER NOT NULL DEFAULT 1
-            )
-        """)
-        conn.execute("INSERT OR IGNORE INTO site_settings (id) VALUES (1)")
-
-        # Add created_at to house_images if missing
-        cols = [r[1] for r in conn.execute("PRAGMA table_info(house_images)").fetchall()]
-        if "created_at" not in cols:
-            conn.execute("ALTER TABLE house_images ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP")
 
         conn.commit()
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
