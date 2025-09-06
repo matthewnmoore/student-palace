@@ -28,7 +28,7 @@ from . import cities as _cities        # noqa: F401,E402
 from . import landlords as _landlords  # noqa: F401,E402
 from . import images as _images        # noqa: F401,E402
 from . import summaries as _summaries  # ✅ NEW: register /admin/summaries routes  # noqa: F401,E402
-
+from . import home as _home   # registers /admin/
 
 
 
