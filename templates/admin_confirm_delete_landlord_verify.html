@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Final confirm · Landlord {{ landlord.id }}{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="card">
+    <h1 class="mt-0" style="color:#b51f1f">Final confirmation</h1>
+    <p>To proceed, type the landlord’s email exactly:</p>
+    <p style="margin:8px 0; font-family:monospace; background:#f8f6ff; padding:8px 10px; border-radius:8px">
+      {{ landlord.email }}
+    </p>
+
+    <form method="post" style="display:grid; gap:10px; max-width:480px">
+      <label class="field">
+        <span class="label">Type email to confirm</span>
+        <input type="text" name="confirm_text" required autocomplete="off" autocapitalize="none" spellcheck="false">
+      </label>
+      <div class="inline-actions">
+        <button class="btn btn-admin" type="submit">Delete landlord now</button>
+        <a class="btn btn-outline" href="{{ url_for('admin.admin_landlord_detail', lid=landlord.id) }}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
