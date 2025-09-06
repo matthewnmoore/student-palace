@@ -130,10 +130,7 @@
         </div>
         <div style="flex-grow:1"></div>
         {% if mode == 'edit' and room %}
-          <form method="post"
-                action="{{ url_for('landlord.room_delete', house_id=house.id, room_id=room.id) }}"
-                onsubmit="return confirm('Delete this room?');"
-                style="display:inline">
+          <form method="post" action="{{ url_for('landlord.room_delete', hid=house.id, rid=room.id) }}" onsubmit="return confirm('Delete this room?');" style="display:inline">
             <button class="btn btn-admin" type="submit">Delete room</button>
           </form>
         {% endif %}
@@ -207,7 +204,7 @@
     if(!letUntil || !availFrom) return;
     letUntil.addEventListener('change', function(){
       if(!letUntil.value) return;
-      availFrom.value = nextDay(let_until.value);
+      availFrom.value = nextDay(letUntil.value);
     });
   }
 
