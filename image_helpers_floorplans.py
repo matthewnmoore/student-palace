@@ -2,24 +2,23 @@
 from __future__ import annotations
 
 import os, io, uuid, datetime, logging
-from typing import List, Tuple, Optional
+from typing import Tuple, Optional
 
-from PIL import Image, ImageOps, ImageDraw, ImageFont
+from PIL import Image
 
-# Reuse the proven house-photo pipeline bits
+# Reuse the shared house-photo pipeline (identical look & behavior)
 from image_helpers import (
-    logger,                    # same logger name: "student_palace.uploads"
+    logger,                    # "student_palace.uploads"
     read_limited,              # size-limited reader with stream reset
     FILE_SIZE_LIMIT_BYTES,     # 5 MB
     ALLOWED_MIMES,             # {"image/jpeg","image/png","image/webp","image/gif"}
+    process_image,             # open → EXIF fix → resize(1600) → portrait letterbox (light pink) → watermark (top-left; +2ch on landscape)
 )
 
 # === Config ===
 MAX_FILES_PER_HOUSE_PLANS = 5
 # Relative under /static
 FLOORPLAN_UPLOAD_DIR = "uploads/floorplans"
-# Brand light purple (from CSS var --brand-light)
-BRAND_LIGHT_RGB = (125, 63, 198)
 
 def _ensure_upload_dir_abs() -> str:
     base = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
@@ -35,109 +34,14 @@ def file_abs_path_plan(filename_only: str) -> str:
     folder = _ensure_upload_dir_abs()
     return os.path.join(folder, filename_only)
 
-# ---------- Image processing ----------
-def _load_font_for_width(img_width: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    # scale ~1/16 of width, clamped
-    font_size = max(14, img_width // 16)
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "DejaVuSans-Bold.ttf",
-        "DejaVuSans.ttf",
-    ]
-    for p in candidates:
-        try:
-            return ImageFont.truetype(p, font_size)
-        except Exception:
-            pass
-    return ImageFont.load_default()
-
-def _open_image_safely(buf: bytes) -> Image.Image:
-    im = Image.open(io.BytesIO(buf))
-    try:
-        im = ImageOps.exif_transpose(im)
-    except Exception:
-        pass
-    # ensure RGB for a consistent pipeline
-    if im.mode not in ("RGB", "L"):
-        im = im.convert("RGBA")
-        bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
-        bg.alpha_composite(im)
-        im = bg.convert("RGB")
-    else:
-        im = im.convert("RGB")
-    return im
-
-def _resize_longest(im: Image.Image, bound: int = 1600) -> Image.Image:
-    w, h = im.size
-    longest = max(w, h)
-    if longest <= bound:
-        return im.copy()
-    scale = bound / float(longest)
-    return im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-
-def _pad_to_canvas(im: Image.Image, canvas_color = BRAND_LIGHT_RGB) -> Image.Image:
-    """
-    No cropping. If image is portrait or ultra-wide, add padding bars so
-    the *canvas* longest side is 1600 and the short side is the natural scaled size.
-    Bars use brand-light purple.
-    """
-    w, h = im.size
-    # Choose a simple target: longest side already limited to 1600 by _resize_longest.
-    # Keep that, and center the image in a canvas that matches the resized dimensions,
-    # adding bars only if we want a minimum short side (optional). Here we don't enforce
-    # a fixed aspect; we only add bars if needed to avoid edge issues in very thin images.
-    # For consistency with house pipeline, we only return im (no bars) unless the image
-    # becomes extremely thin; then we add small margins to ensure watermark visibility.
-    MIN_SHORT = 400  # give some room for the watermark to never clip
-    if min(w, h) >= MIN_SHORT:
-        return im
-
-    if w < MIN_SHORT:
-        canvas_w = MIN_SHORT
-        canvas_h = h
-    else:
-        canvas_w = w
-        canvas_h = MIN_SHORT
-
-    canvas = Image.new("RGB", (canvas_w, canvas_h), canvas_color)
-    x = (canvas_w - w) // 2
-    y = (canvas_h - h) // 2
-    canvas.paste(im, (x, y))
-    return canvas
-
-def _watermark_top_left(im: Image.Image, text: str = "Student Palace") -> Image.Image:
-    """
-    Always place watermark at top-left with padding, shadow + white text,
-    with clamping to avoid clipping even on narrow canvases.
-    """
-    out = im.copy().convert("RGBA")
-    overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    w, h = out.size
-    font = _load_font_for_width(w)
-
-    # dynamic padding from width, with clamps
-    pad = max(12, w // 80)
-    x, y = pad, pad
-
-    # Draw shadow then text
-    draw.text((x + 1, y + 1), text, font=font, fill=(0, 0, 0, 120))
-    draw.text((x, y), text, font=font, fill=(255, 255, 255, 170))
-
-    return Image.alpha_composite(out, overlay).convert("RGB")
-
+# ---------- Image processing (reuse shared pipeline, then JPEG to bytes) ----------
 def _process_plan_image(buf: bytes) -> Tuple[bytes, int, int]:
     """
-    Open → auto-rotate → RGB → resize longest to 1600 → optional padding (brand purple) →
-    top-left watermark → save as optimized JPEG.
-    Returns (jpeg_bytes, width, height).
+    Uses the shared process_image() so floorplans match photos/rooms:
+    open → EXIF fix → resize longest to 1600 → (portrait) add light-pink sidebars to reach 16:9 →
+    watermark top-left (landscape is nudged ~2 chars to the right) → save optimized JPEG to bytes.
     """
-    im = _open_image_safely(buf)
-    im = _resize_longest(im, 1600)
-    im = _pad_to_canvas(im, BRAND_LIGHT_RGB)
-    im = _watermark_top_left(im, "Student Palace")
-
+    im: Image.Image = process_image(buf)  # returns PIL Image already watermarked
     out = io.BytesIO()
     im.save(out, format="JPEG", quality=85, optimize=True, progressive=True)
     data = out.getvalue()
