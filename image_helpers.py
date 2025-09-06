@@ -1,10 +1,7 @@
-
-#image_helpers.py
-
-
+# image_helpers.py
 from __future__ import annotations
 
-import io, os, time, logging
+import io, os, time, logging, math
 from datetime import datetime as dt
 from typing import Dict, List, Tuple, Optional
 
@@ -24,12 +21,24 @@ ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_BOUND = 1600
 WATERMARK_TEXT = os.environ.get("WATERMARK_TEXT", "Student Palace")
 
+# Letterbox target aspect for portrait images (WIDTH:HEIGHT), default 16:9
+# Only used to pad portrait images (left/right), landscape images aren’t padded.
+_LB = os.environ.get("LANDSCAPE_ASPECT", "16:9")
+try:
+    _num, _den = _LB.split(":")
+    LANDSCAPE_ASPECT = max(1.0, float(_num) / float(_den))
+except Exception:
+    LANDSCAPE_ASPECT = 16.0 / 9.0  # safe default
+
+LETTERBOX_COLOR = (0, 0, 0)  # pure black side panels
+
 # ------------ FS helpers ------------
 
 def ensure_upload_dir() -> None:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def static_rel_path(filename: str) -> str:
+    # store WITHOUT a leading slash; render with url_for('static', filename=...)
     return f"uploads/houses/{filename}"
 
 def file_abs_path(filename: str) -> str:
@@ -69,7 +78,29 @@ def resize_longest(im: Image.Image, bound: int = MAX_BOUND) -> Image.Image:
     scale = bound / float(longest)
     return im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
+def pad_portrait_to_landscape(im: Image.Image, *, aspect: float = LANDSCAPE_ASPECT,
+                              color: Tuple[int,int,int] = LETTERBOX_COLOR) -> Image.Image:
+    """
+    If image is portrait, pad left/right to reach target landscape aspect (no cropping).
+    Landscape images are returned unchanged.
+    """
+    w, h = im.size
+    if h <= w:
+        return im  # already landscape or square; no padding requested for non-portrait
+
+    # target width to achieve the desired landscape aspect with current height
+    target_w = int(math.ceil(h * aspect))
+    if target_w <= w:
+        return im  # already at or wider than target aspect
+
+    # create new canvas and center the original
+    canvas = Image.new("RGB", (target_w, h), color)
+    x = (target_w - w) // 2
+    canvas.paste(im, (x, 0))
+    return canvas
+
 def _load_font_for_width(img_width: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    # ~6–8% of image width
     font_size = max(14, img_width // 16)
     candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -85,7 +116,9 @@ def _load_font_for_width(img_width: int) -> ImageFont.FreeTypeFont | ImageFont.I
     return ImageFont.load_default()
 
 def watermark(im: Image.Image, text: str = WATERMARK_TEXT) -> Image.Image:
-    """Always place watermark in top-left corner with padding."""
+    """
+    Place watermark top-left with padding on the final (possibly letterboxed) image.
+    """
     out = im.copy().convert("RGBA")
     overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
@@ -97,13 +130,20 @@ def watermark(im: Image.Image, text: str = WATERMARK_TEXT) -> Image.Image:
 
     # soft shadow + white text
     draw.text((x + 1, y + 1), text, font=font, fill=(0, 0, 0, 120))
-    draw.text((x, y), text, font=font, fill=(255, 255, 255, 170))
+    draw.text((x, y), text, font=font, fill=(255, 255, 255, 180))
 
     composed = Image.alpha_composite(out, overlay)
     return composed.convert("RGB")
 
 def process_image(buf: bytes) -> Image.Image:
-    return watermark(resize_longest(open_image_safely(buf), MAX_BOUND))
+    """
+    Pipeline: open -> resize (no crop) -> pad portrait to landscape with black side panels -> watermark -> RGB
+    """
+    im = open_image_safely(buf)
+    im = resize_longest(im, MAX_BOUND)
+    im = pad_portrait_to_landscape(im)   # <— only affects portrait
+    im = watermark(im, WATERMARK_TEXT)
+    return im
 
 def save_jpeg(im: Image.Image, abs_path: str) -> Tuple[int, int, int]:
     im.save(abs_path, format="JPEG", quality=85, optimize=True, progressive=True)
@@ -179,7 +219,7 @@ def select_images(conn, hid: int) -> List[Dict]:
     return [{
         "id": r["id"],
         "is_primary": int(r["is_primary"]) == 1,
-        "file_path": r["file_path"],
+        "file_path": r["file_path"],      # relative path under /static
         "filename": r["filename"],
         "width": int(r["width"]),
         "height": int(r["height"]),
@@ -203,28 +243,37 @@ def delete_image(conn, hid: int, img_id: int) -> Optional[str]:
     conn.execute("DELETE FROM house_images WHERE id=? AND house_id=?", (img_id, hid))
     return fname
 
-# ------------ One-shot upload flow ------------
+# ------------ One-shot upload flow with timing logs ------------
 
 def accept_upload(conn, hid: int, file_storage, *, enforce_limit: bool = True) -> Tuple[bool, str]:
+    """
+    Returns (ok, message). Saves to disk + DB or reports a reason.
+    Emits timing logs to stdout (Render Logs) at INFO level.
+    """
     start = time.perf_counter()
     original_name = getattr(file_storage, "filename", "") or "unnamed"
     mimetype = (getattr(file_storage, "mimetype", None) or "").lower()
 
     if enforce_limit and count_for_house(conn, hid) >= MAX_FILES_PER_HOUSE:
+        logger.info(f"[UPLOAD] house={hid} name={original_name!r} mime={mimetype} skipped=limit_reached")
         return False, f"House already has {MAX_FILES_PER_HOUSE} photos."
 
     if mimetype not in ALLOWED_MIMES:
+        logger.info(f"[UPLOAD] house={hid} name={original_name!r} mime={mimetype} skipped=bad_mime")
         return False, "Unsupported image type."
 
     data = read_limited(file_storage)
     if not data:
+        logger.info(f"[UPLOAD] house={hid} name={original_name!r} mime={mimetype} skipped=empty_read")
         return False, "Could not read the file."
     if len(data) > FILE_SIZE_LIMIT_BYTES:
+        logger.info(f"[UPLOAD] house={hid} name={original_name!r} mime={mimetype} skipped=too_large size={len(data)}")
         return False, "File is larger than 5 MB."
 
     try:
         im = process_image(data)
     except Exception:
+        logger.exception(f"[UPLOAD] house={hid} name={original_name!r} mime={mimetype} failed=invalid_image")
         return False, "File is not a valid image."
 
     ensure_upload_dir()
@@ -235,6 +284,7 @@ def accept_upload(conn, hid: int, file_storage, *, enforce_limit: bool = True) -
     try:
         w, h, byt = save_jpeg(im, abs_path)
     except Exception:
+        logger.exception(f"[UPLOAD] house={hid} name={original_name!r} mime={mimetype} failed=fs_write")
         return False, "Server storage is not available."
 
     try:
@@ -245,11 +295,12 @@ def accept_upload(conn, hid: int, file_storage, *, enforce_limit: bool = True) -
             os.remove(abs_path)
         except Exception:
             pass
+        logger.exception(f"[UPLOAD] house={hid} name={original_name!r} mime={mimetype} failed=db_insert")
         return False, f"Couldn’t record image in DB: {e}"
 
     elapsed = time.perf_counter() - start
     logger.info(
-        f"[UPLOAD] house={hid} name={original_name!r} saved={fname!r} "
+        f"[UPLOAD] house={hid} name={original_name!r} saved={fname!r} mime={mimetype} "
         f"size_bytes={byt} dims={w}x{h} elapsed={elapsed:.2f}s"
     )
     return True, "Uploaded"
