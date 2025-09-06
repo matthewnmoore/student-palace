@@ -1,14 +1,17 @@
-# routes/landlord_delete.py  (or inline in landlord blueprint file)
+# landlord/delete.py
 from __future__ import annotations
-import os, pathlib
-from flask import Blueprint, redirect, url_for, flash, request
+
+import os
+from flask import redirect, url_for, flash
 from db import get_db
 
-landlord_delete_bp = Blueprint("landlord_delete", __name__)
+# Use the shared landlord blueprint defined in landlord/__init__.py
+from . import bp
 
-# Adjust if your project root is defined elsewhere
-PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+# Resolve /static from project root (one level up from /landlord)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 STATIC_ROOT = os.path.join(PROJECT_ROOT, "static")
+
 
 def _abs_static_path(rel_path: str) -> str:
     """
@@ -22,6 +25,7 @@ def _abs_static_path(rel_path: str) -> str:
         return ""  # refuse anything suspicious
     return abs_path
 
+
 def _gather_house_file_paths(conn, house_id: int) -> list[str]:
     paths: list[str] = []
 
@@ -30,7 +34,8 @@ def _gather_house_file_paths(conn, house_id: int) -> list[str]:
         "SELECT file_path FROM house_images WHERE house_id=?", (house_id,)
     ).fetchall():
         p = _abs_static_path(r["file_path"])
-        if p: paths.append(p)
+        if p:
+            paths.append(p)
 
     # Room images (join rooms -> room_images)
     for r in conn.execute("""
@@ -40,9 +45,10 @@ def _gather_house_file_paths(conn, house_id: int) -> list[str]:
          WHERE r.house_id = ?
     """, (house_id,)).fetchall():
         p = _abs_static_path(r["file_path"])
-        if p: paths.append(p)
+        if p:
+            paths.append(p)
 
-    # Floorplans
+    # Floorplans (table may not exist on very old DBs)
     if conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='house_floorplans'"
     ).fetchone():
@@ -50,9 +56,10 @@ def _gather_house_file_paths(conn, house_id: int) -> list[str]:
             "SELECT file_path FROM house_floorplans WHERE house_id=?", (house_id,)
         ).fetchall():
             p = _abs_static_path(r["file_path"])
-            if p: paths.append(p)
+            if p:
+                paths.append(p)
 
-    # EPC / documents
+    # EPC / documents (optional table)
     if conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='house_documents'"
     ).fetchone():
@@ -60,10 +67,12 @@ def _gather_house_file_paths(conn, house_id: int) -> list[str]:
             "SELECT file_path FROM house_documents WHERE house_id=?", (house_id,)
         ).fetchall():
             p = _abs_static_path(r["file_path"])
-            if p: paths.append(p)
+            if p:
+                paths.append(p)
 
-    # De-dup
+    # De-dup while preserving order
     return list(dict.fromkeys(paths))
+
 
 def _unlink_quiet(path: str) -> None:
     try:
@@ -73,7 +82,8 @@ def _unlink_quiet(path: str) -> None:
         # swallow file errors; we don't want to block the delete
         pass
 
-@landlord_delete_bp.post("/landlord/houses/<int:house_id>/delete")
+
+@bp.post("/landlord/houses/<int:house_id>/delete")
 def delete_house(house_id: int):
     # (Optional) CSRF check if you use one:
     # csrf.protect()
@@ -94,7 +104,6 @@ def delete_house(house_id: int):
 
         flash("House and related data deleted.", "success")
     except Exception as e:
-        # If anything DB-related blew up, let the user know
         flash(f"Could not delete house: {e}", "error")
     finally:
         try:
