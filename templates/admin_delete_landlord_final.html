@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Final confirmation · Delete landlord{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="card">
+    <h2 class="mt-0" style="color:#b51f1f">Delete landlord – Step 3 of 3</h2>
+    <p><strong>Landlord:</strong> {{ landlord.email }}{% if profile and profile.display_name %} — “{{ profile.display_name }}”{% endif %}</p>
+
+    <div class="help" style="margin:10px 0 14px">
+      This is permanent. The following will be removed:
+      <ul style="margin:8px 0 0 18px; line-height:1.6">
+        <li>{{ counts.houses }} houses</li>
+        <li>{{ counts.rooms }} rooms</li>
+        <li>{{ counts.house_images }} house photos{% if counts.room_images %}, {{ counts.room_images }} room photos{% endif %}</li>
+        {% if counts.documents %}<li>{{ counts.documents }} documents</li>{% endif %}
+        {% if counts.floorplans %}<li>{{ counts.floorplans }} floorplans</li>{% endif %}
+      </ul>
+    </div>
+
+    <form method="post" style="margin-top:10px"
+          onsubmit="return confirm('This cannot be undone. Proceed with delete?');">
+      <label class="field" style="margin:0; max-width:360px">
+        <span class="label">Type <strong>DELETE</strong> to confirm</span>
+        <input type="text" name="final_confirm" placeholder="DELETE"
+               style="padding:10px; border:1px solid var(--border); border-radius:8px; width:100%">
+      </label>
+
+      <div class="inline-actions" style="margin-top:12px">
+        <button class="btn btn-admin" type="submit">Delete landlord now</button>
+        <a class="btn btn-outline" href="{{ url_for('admin.admin_landlord_detail', lid=landlord.id) }}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
