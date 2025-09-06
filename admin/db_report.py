@@ -39,6 +39,19 @@ def _count(conn: sqlite3.Connection, table: str) -> int:
     except Exception:
         return 0
 
+def _first_row_as_dict(conn: sqlite3.Connection, table: str) -> dict:
+    try:
+        cols = [c["name"] for c in _columns(conn, table)]
+        if not cols:
+            return {}
+        row = conn.execute(f"SELECT * FROM {table} LIMIT 1").fetchone()
+        if not row:
+            # Return empty values for known columns (so UI can still show structure)
+            return {k: "" for k in cols}
+        return {k: row[k] for k in cols}
+    except Exception:
+        return {}
+
 @bp.get("/db-report", endpoint="db_report")
 def admin_db_report():
     """Read-only overview of tables, columns and counts."""
@@ -61,17 +74,12 @@ def admin_db_report():
             }
             report.append(info)
 
-        # Optional: show key settings if site_settings exists
-        settings = []
-        try:
-            # Check table exists
-            has_ss = any(r["name"] == "site_settings" and r["type"] == "table" for r in tbls)
-            if has_ss:
-                settings = conn.execute("SELECT key, value FROM site_settings ORDER BY key").fetchall()
-        except Exception:
-            settings = []
+        # site_settings (generic: show whatever columns exist, first row)
+        site_settings = {}
+        if any(r["name"] == "site_settings" and r["type"] == "table" for r in tbls):
+            site_settings = _first_row_as_dict(conn, "site_settings")
 
-        # Optional: quick totals summary of common tables if present
+        # Quick totals for common tables if present
         quick_totals = {}
         for tname in ("landlords", "houses", "rooms", "house_images", "students"):
             if any(t["name"] == tname and t["type"] == "table" for t in tbls):
@@ -81,7 +89,7 @@ def admin_db_report():
             "admin_db_report.html",
             report=report,
             quick_totals=quick_totals,
-            settings=settings,
+            site_settings=site_settings,
         )
     finally:
         conn.close()
