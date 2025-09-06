@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import sqlite3
-from flask import render_template
+from flask import render_template, render_template_string
+from jinja2 import TemplateNotFound
 from db import get_db
 from . import bp, require_admin
 
 def _tables(conn: sqlite3.Connection):
-    # All user tables (skip sqlite_internal)
     return conn.execute("""
         SELECT name, type
           FROM sqlite_master
@@ -21,13 +21,27 @@ def _columns(conn: sqlite3.Connection, table: str):
     return conn.execute(f"PRAGMA table_info({table})").fetchall()
 
 def _indexes(conn: sqlite3.Connection, table: str):
+    """
+    Return list of indexes with metadata:
+      [{'name':..., 'unique':bool, 'origin':..., 'partial':bool, 'cols':[{'seqno':..,'cid':..,'name':..}, ...]}, ...]
+    """
     try:
-        idx = conn.execute(f"PRAGMA index_list({table})").fetchall()
+        idx_rows = conn.execute(f"PRAGMA index_list({table})").fetchall()
         out = []
-        for r in idx or []:
+        for r in idx_rows or []:
             idx_name = r["name"]
+            # SQLite exposes these columns in index_list
+            unique = bool(r["unique"]) if "unique" in r.keys() else False
+            origin = r["origin"] if "origin" in r.keys() else ""
+            partial = bool(r["partial"]) if "partial" in r.keys() else False
             cols = conn.execute(f"PRAGMA index_info({idx_name})").fetchall()
-            out.append({"name": idx_name, "unique": bool(r["unique"]), "cols": cols})
+            out.append({
+                "name": idx_name,
+                "unique": unique,
+                "origin": origin,
+                "partial": partial,
+                "cols": cols,
+            })
         return out
     except Exception:
         return []
@@ -39,22 +53,9 @@ def _count(conn: sqlite3.Connection, table: str) -> int:
     except Exception:
         return 0
 
-def _first_row_as_dict(conn: sqlite3.Connection, table: str) -> dict:
-    try:
-        cols = [c["name"] for c in _columns(conn, table)]
-        if not cols:
-            return {}
-        row = conn.execute(f"SELECT * FROM {table} LIMIT 1").fetchone()
-        if not row:
-            # Return empty values for known columns (so UI can still show structure)
-            return {k: "" for k in cols}
-        return {k: row[k] for k in cols}
-    except Exception:
-        return {}
-
 @bp.get("/db-report", endpoint="db_report")
 def admin_db_report():
-    """Read-only overview of tables, columns and counts."""
+    """Read-only overview of tables, columns, indexes and counts."""
     r = require_admin()
     if r:
         return r
@@ -74,22 +75,43 @@ def admin_db_report():
             }
             report.append(info)
 
-        # site_settings (generic: show whatever columns exist, first row)
-        site_settings = {}
-        if any(r["name"] == "site_settings" and r["type"] == "table" for r in tbls):
-            site_settings = _first_row_as_dict(conn, "site_settings")
+        settings = []
+        try:
+            if any(r["name"] == "site_settings" and r["type"] == "table" for r in tbls):
+                settings = conn.execute("SELECT key, value FROM site_settings ORDER BY key").fetchall()
+        except Exception:
+            settings = []
 
-        # Quick totals for common tables if present
         quick_totals = {}
         for tname in ("landlords", "houses", "rooms", "house_images", "students"):
             if any(t["name"] == tname and t["type"] == "table" for t in tbls):
                 quick_totals[tname] = _count(conn, tname)
 
-        return render_template(
-            "admin_db_report.html",
-            report=report,
-            quick_totals=quick_totals,
-            site_settings=site_settings,
-        )
+        # Try the real template first; if it's missing, render a minimal inline page.
+        try:
+            return render_template(
+                "admin_db_report.html",
+                report=report,
+                quick_totals=quick_totals,
+                settings=settings,
+            )
+        except TemplateNotFound:
+            # Fallback minimal HTML so you never get a 500
+            html = """
+            <h1>Database report (fallback)</h1>
+            <h2>Quick totals</h2>
+            <ul>
+            {% for k,v in quick_totals.items() %}
+              <li><strong>{{ k }}</strong>: {{ v }}</li>
+            {% endfor %}
+            </ul>
+            <h2>Tables</h2>
+            <ul>
+            {% for t in report %}
+              <li><strong>{{ t.name }}</strong> ({{ t.type }}) — rows: {{ t.count }}</li>
+            {% endfor %}
+            </ul>
+            """
+            return render_template_string(html, report=report, quick_totals=quick_totals)
     finally:
         conn.close()
