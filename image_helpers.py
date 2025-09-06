@@ -115,6 +115,7 @@ def _load_font_for_short_side(short_side: int) -> ImageFont.FreeTypeFont | Image
 def watermark(im: Image.Image, text: str, *, anchor_left: int = 0) -> Image.Image:
     """
     Place watermark top-left, offset to the *photo* area (so it never sits on the purple bars).
+    On landscape images (anchor_left == 0), nudge right by ~2 character widths.
     """
     out = im.copy().convert("RGBA")
     overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
@@ -124,7 +125,14 @@ def watermark(im: Image.Image, text: str, *, anchor_left: int = 0) -> Image.Imag
     font = _load_font_for_short_side(min(w, h))
     pad = max(12, min(w, h) // 80)
 
-    x = max(pad, anchor_left + pad)  # ensure within canvas and inside content area
+    # >>> Only change: add ~2 character widths on landscape
+    extra = font.size * 2  # rough width of two characters
+    if anchor_left == 0:
+        x = pad + extra
+    else:
+        x = anchor_left + pad
+    # <<<
+
     y = pad
 
     # soft shadow + white text
