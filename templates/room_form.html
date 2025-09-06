@@ -107,7 +107,7 @@
       </div>
     </div>
 
-    <!-- DESCRIPTION -->
+    <!-- DESCRIPTION (moved below Features) -->
     <div class="card card--accent-lr">
       <h2 class="card-title">Description</h2>
       <div class="field">
@@ -131,8 +131,8 @@
         <div style="flex-grow:1"></div>
         {% if mode == 'edit' and room %}
           <form method="post"
-                action="{{ url_for('landlord.delete_room', room_id=room.id) }}"
-                onsubmit="return confirm('Delete this room and its photos?');"
+                action="{{ url_for('landlord.room_delete', house_id=house.id, room_id=room.id) }}"
+                onsubmit="return confirm('Delete this room?');"
                 style="display:inline">
             <button class="btn btn-admin" type="submit">Delete room</button>
           </form>
@@ -149,8 +149,91 @@
   .actions .actions-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 </style>
 
-<!-- Behaviour (unchanged) -->
+<!-- Behaviour -->
 <script>
-  /* ... keep your script exactly as before ... */
+(function(){
+  var isLet=document.getElementById('is_let');
+  var rowLetUntil=document.getElementById('row_let_until');
+  var letUntil=document.getElementById('let_until');
+  var availFrom=document.getElementById('available_from');
+
+  // --- date helpers ---
+  function fmt(d){ // YYYY-MM-DD
+    var y=d.getFullYear();
+    var m=String(d.getMonth()+1).padStart(2,'0');
+    var da=String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+da;
+  }
+  function addDays(iso, n){
+    var d = iso ? new Date(iso) : new Date();
+    if(isNaN(d.getTime())) d = new Date();
+    d.setDate(d.getDate()+n);
+    return fmt(d);
+  }
+  function nextDay(iso){ return addDays(iso, 1); }
+  function prevDay(iso){ return addDays(iso, -1); }
+  function todayISO(){ return fmt(new Date()); }
+  function june30NextYear(){
+    var now=new Date();
+    var y=now.getFullYear()+1;
+    // Month index 5 = June
+    return fmt(new Date(y, 5, 30));
+  }
+
+  // When 'Currently let' is toggled, apply defaults as specified
+  function applyDefaultsForState(checked){
+    if(checked){
+      // LET: let_until = 30 June next year; available_from = +1 day
+      var lu = june30NextYear();
+      letUntil.value = lu;
+      availFrom.value = nextDay(lu);
+      rowLetUntil.style.display = 'block';
+    } else {
+      // AVAILABLE: available_from = today; let_until = two days before today (hidden)
+      var today = todayISO();
+      availFrom.value = today;
+      letUntil.value = addDays(today, -2);
+      rowLetUntil.style.display = 'none';
+    }
+  }
+
+  function syncVisibilityOnly(){
+    var checked = isLet && isLet.checked;
+    if(rowLetUntil) rowLetUntil.style.display = checked ? 'block' : 'none';
+  }
+
+  // Keep available_from = let_until + 1 when user edits let_until manually
+  function wireAutoNextDay(){
+    if(!letUntil || !availFrom) return;
+    letUntil.addEventListener('change', function(){
+      if(!letUntil.value) return;
+      availFrom.value = nextDay(let_until.value);
+    });
+  }
+
+  if(isLet){
+    isLet.addEventListener('change', function(){
+      applyDefaultsForState(isLet.checked);
+    });
+  }
+
+  // Initial visibility (do not overwrite existing values on load)
+  syncVisibilityOnly();
+  wireAutoNextDay();
+
+  // Price per week mirror
+  var pcmInput=document.getElementById('price_pcm');
+  var ppwInput=document.getElementById('price_ppw');
+  function updatePPW(){
+    var val=parseFloat(pcmInput.value);
+    if(!isNaN(val)&&val>0){
+      var weekly=Math.round((val*12)/52);
+      ppwInput.value=weekly;
+    }else{
+      ppwInput.value='';
+    }
+  }
+  if(pcmInput){ pcmInput.addEventListener('input', updatePPW); updatePPW(); }
+})();
 </script>
 {% endblock %}
