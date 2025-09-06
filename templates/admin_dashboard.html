@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Admin · Dashboard{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Admin · Dashboard</h1>
+    <div class="inline-actions">
+      <a class="btn" href="{{ url_for('admin.admin_backup') }}">Download backup</a>
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Log out</a>
+    </div>
+  </div>
+
+  <!-- Compact key metrics -->
+  <div class="card">
+    <h3 class="mt-0">Key metrics (totals)</h3>
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px;">
+      <div class="stat-card small">
+        <div class="stat-label">Landlords</div>
+        <div class="stat-value">{{ totals.landlords }}</div>
+        <div class="stat-delta">+{{ deltas.landlords }} / 24h</div>
+      </div>
+      <div class="stat-card small">
+        <div class="stat-label">Properties</div>
+        <div class="stat-value">{{ totals.houses }}</div>
+        <div class="stat-delta">+{{ deltas.houses }} / 24h</div>
+      </div>
+      <div class="stat-card small">
+        <div class="stat-label">Rooms</div>
+        <div class="stat-value">{{ totals.rooms }}</div>
+        <div class="stat-delta">+{{ deltas.rooms }} / 24h</div>
+      </div>
+      <div class="stat-card small">
+        <div class="stat-label">Photos</div>
+        <div class="stat-value">{{ totals.photos }}</div>
+        <div class="stat-delta">+{{ deltas.photos }} / 24h</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <div class="card" style="margin-top:14px;">
+    <h3 class="mt-0">Navigation</h3>
+    <ul style="margin:0; padding-left:18px; line-height:1.8;">
+      <li><a href="{{ url_for('admin.admin_cities') }}">Manage cities</a></li>
+      <li><a href="{{ url_for('admin.admin_landlords') }}">Manage landlords</a></li>
+      <li><a href="{{ url_for('admin.admin_images') }}">All images (broken &amp; valid)</a></li>
+      <li><a href="{{ url_for('admin.admin_summaries') }}">Summaries (availability)</a></li>
+      <li><a href="{{ url_for('admin.admin_accreditations') }}">Manage accreditations</a></li>
+    </ul>
+  </div>
+</section>
+
+<style>
+.stat-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+  text-align: center;
+}
+.stat-card.small .stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.stat-card.small .stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.stat-card.small .stat-delta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+</style>
+{% endblock %}
