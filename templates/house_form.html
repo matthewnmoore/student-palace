@@ -283,7 +283,7 @@
         <textarea name="description" id="description_input" rows="6" maxlength="1200"
                   placeholder="Describe the property in detail…">{{ (form.description or '') if form else '' }}</textarea>
         <div class="help">
-          Maximum 1200 characters. <span id="description_counter">0</span>/1200.
+          Maximum 2000 characters. <span id="description_counter">0</span>/2000.
         </div>
       </label>
     </div>
@@ -352,7 +352,7 @@
     const descCounter = $('description_counter');
     if (descInput && descCounter){
       setCounter(descInput, descCounter, 1200);
-      on(descInput, 'input', () => setCounter(descInput, descCounter, 1200));
+      on(descInput, 'input', () => setCounter(descInput, descCounter, 2000));
     }
 
     // Title auto-capitalise on blur
