@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Admin · Site settings{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Admin · Site settings</h1>
+    <div class="inline-actions">
+      <a class="btn" href="{{ url_for('admin.dashboard') }}">Back to dashboard</a>
+      <a class="btn btn-outline" href="{{ url_for('admin.admin_logout') }}">Log out</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form method="post">
+
+    <!-- Footer metrics visibility -->
+    <div class="card">
+      <h3 class="mt-0">Footer metrics visibility</h3>
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <label class="checkbox">
+          <input type="checkbox" name="show_metric_landlords" {% if settings.show_metric_landlords == '1' %}checked{% endif %}>
+          <span>Show landlords</span>
+        </label>
+
+        <label class="checkbox">
+          <input type="checkbox" name="show_metric_houses" {% if settings.show_metric_houses == '1' %}checked{% endif %}>
+          <span>Show houses</span>
+        </label>
+
+        <label class="checkbox">
+          <input type="checkbox" name="show_metric_rooms" {% if settings.show_metric_rooms == '1' %}checked{% endif %}>
+          <span>Show rooms</span>
+        </label>
+
+        <label class="checkbox">
+          <input type="checkbox" name="show_metric_students" {% if settings.show_metric_students == '1' %}checked{% endif %}>
+          <span>Show students</span>
+        </label>
+
+        <label class="checkbox">
+          <input type="checkbox" name="show_metric_photos" {% if settings.show_metric_photos == '1' %}checked{% endif %}>
+          <span>Show photos</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Authentication switches -->
+    <div class="card">
+      <h3 class="mt-0">Authentication switches</h3>
+      <p class="help" style="margin-top:-6px">
+        Control whether new landlords can sign up or existing landlords can log in. Useful for maintenance or launches.
+      </p>
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <label class="checkbox">
+          <input type="checkbox" name="signups_enabled" {% if settings.signups_enabled == '1' %}checked{% endif %}>
+          <span>Allow new signups</span>
+        </label>
+
+        <label class="checkbox">
+          <input type="checkbox" name="logins_enabled" {% if settings.logins_enabled == '1' %}checked{% endif %}>
+          <span>Allow logins</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Terms & Conditions -->
+    <div class="card">
+      <h3 class="mt-0">Terms &amp; Conditions</h3>
+      <p class="help" style="margin-top:-6px">
+        Enter your Terms &amp; Conditions text. Markdown is supported. This content will be shown to landlords at sign-up for explicit consent.
+      </p>
+      <label class="field" style="margin-top:8px">
+        <span class="label">Terms content (Markdown)</span>
+        <textarea name="terms_md" rows="14" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:10px;">{{ settings.terms_md }}</textarea>
+      </label>
+    </div>
+
+    <div style="margin-top:10px">
+      <button class="btn" type="submit">Save settings</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
