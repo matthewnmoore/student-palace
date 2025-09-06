@@ -27,6 +27,84 @@ updated 06/09/2025
 
 
 
+Student Palace – Image Pipeline Reference
+
+Applies to: House photos, Room photos, Floorplans
+Max upload size: 5 MB
+Max output size: 1600 px longest edge
+Format stored: Optimised JPEG (quality 85, progressive, ~0.2–0.6 MB each)
+Watermark: “Student Palace” text, white with soft shadow, positioned top-left
+
+⸻
+
+1. Upload validation
+	•	Limit: 5 images per house/room/floorplan.
+	•	Allowed formats: JPEG, PNG, WebP, GIF.
+	•	Hard cap: 5 MB per file (read + reset stream).
+	•	Rejects empty or oversized files.
+
+⸻
+
+2. Safe open
+	•	Image loaded with Pillow (Image.open).
+	•	EXIF auto-rotation applied so portrait/landscape orientation is always correct.
+	•	Mode normalised: always converted to RGB (removes transparency, keeps consistency).
+
+⸻
+
+3. Resize
+	•	Longest edge scaled down to max 1600 px.
+	•	Preserves aspect ratio (no cropping).
+	•	Uses LANCZOS resampling for sharpness.
+
+⸻
+
+4. Padding (letterbox fix)
+	•	If resized image is too narrow/tall (portrait or ultra-wide), add side/top bars.
+	•	Bars filled with brand-light purple (#7D3FC6) for consistency with site design.
+	•	Ensures watermark is never clipped and canvas always looks professional.
+
+⸻
+
+5. Watermark
+	•	Font size proportional to image width (~1/16, min 14px).
+	•	Tries DejaVuSans Bold (system font); falls back to default if unavailable.
+	•	Placement: top-left, with safe padding.
+	•	Style:
+	•	White text, 170 alpha (slight transparency).
+	•	Black shadow offset for contrast.
+
+⸻
+
+6. Save to disk
+	•	Stored in /static/uploads/{houses|rooms|floorplans}.
+	•	Naming convention:
+	•	Houses → house{hid}_{timestamp}_{token}.jpg
+	•	Rooms → room{rid}_{timestamp}_{token}.jpg
+	•	Floorplans → {uuid}.jpg
+	•	Saved as JPEG (quality 85, optimise, progressive).
+
+⸻
+
+7. Database row
+	•	File name + relative path (uploads/...) stored.
+	•	Metadata recorded: width, height, byte size, timestamps.
+	•	First image = primary; sort order increments automatically.
+
+⸻
+
+8. Public display
+	•	All served via /static/uploads/... from disk.
+	•	Thumbnails and full images use the same processed version (no separate crop).
+	•	Guarantee: all images have consistent orientation, max size, watermark visible.
+
+⸻
+
+✅ This is the final standardised pipeline across all three image types.
+Nothing left in “test state” — all helpers (houses, rooms, floorplans) follow this model.
+
+
+
 TABLE: accreditation_schemes
 	•	id
 	•	name
