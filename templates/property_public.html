@@ -147,16 +147,11 @@
   {% endif %}
 
 {# 2) Let-type messaging (simple rules) #}
-{% set group_size = (rooms|length if rooms else 0) %}
 {% if house.letting_type == 'whole' %}
-  {% if group_size > 0 %}
-    <li>Suitable for a group of {{ group_size }}</li>
-  {% endif %}
+  <li>Suitable for a group of {{ house.bedrooms_total }}</li>
 {% elif house.letting_type == 'share' %}
   <li>Suitable as individual rooms</li>
-  {% if group_size > 0 %}
-    <li>Suitable for a group of {{ group_size }}</li>
-  {% endif %}
+  <li>Suitable for a group</li>
 {% endif %}
 
   {# 3) Total bedrooms #}
