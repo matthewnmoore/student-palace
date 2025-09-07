@@ -449,7 +449,7 @@
     });
 
     // Bills utilities toggle
-    const billsSelect = $('bills_included');
+    const billsSelect = $('bills_option');
     const utilBox = $('bills-utilities');
     const utilIds = ['bills_util_gas','bills_util_electric','bills_util_water','bills_util_broadband','bills_util_tv'];
     const getChecks = () => utilIds.map(id => $(id)).filter(Boolean);
