@@ -149,13 +149,23 @@
 {% endif %}
 
             
-        <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
- {# 1) Bills (show only for yes/some) #}
-{% if bills_mode == 'yes' %}
-  <li>All bills included</li>
-{% elif bills_mode == 'some' and any_util %}
-  <li>Some bills included</li>
-{% endif %}
+    <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
+
+  {# 0) Room price summary (moved to top) #}
+  {% if have_prices %}
+    {% if prices_equal %}
+      <li>Rooms £{{ min_price }}</li>
+    {% else %}
+      <li>Rooms from £{{ min_price }}</li>
+    {% endif %}
+  {% endif %}
+
+  {# 1) Bills (show only for yes/some) #}
+  {% if bills_mode == 'yes' %}
+    <li>All bills included</li>
+  {% elif bills_mode == 'some' and any_util %}
+    <li>Some bills included</li>
+  {% endif %}
 
   {# 2) Let-type messaging (simple rules) #}
   {% if house.letting_type == 'whole' %}
@@ -175,19 +185,24 @@
     <li>{{ ns.ens }} ensuites</li>
   {% endif %}
 
-          
+  {# 5) Shared bathrooms (hide when zero) #}
+  {% if house.shared_bathrooms is not none and (house.shared_bathrooms|int) > 0 %}
+    <li>{{ house.shared_bathrooms|int }} shared bathrooms</li>
+  {% endif %}
 
- {# 5) Shared bathrooms (hide when zero) #}
-{% if house.shared_bathrooms is not none and (house.shared_bathrooms|int) > 0 %}
-  <li>{{ house.shared_bathrooms|int }} shared bathrooms</li>
-{% endif %}
+  {# 5.1) Custom feature highlights (1–5) — inserted here #}
+  {% if house.feature1 %}<li>{{ house.feature1 }}</li>{% endif %}
+  {% if house.feature2 %}<li>{{ house.feature2 }}</li>{% endif %}
+  {% if house.feature3 %}<li>{{ house.feature3 }}</li>{% endif %}
+  {% if house.feature4 %}<li>{{ house.feature4 }}</li>{% endif %}
+  {% if house.feature5 %}<li>{{ house.feature5 }}</li>{% endif %}
 
   {# 6) Cleaning service (hide if no/none/false/0) #}
   {% if house.cleaning_service and house.cleaning_service|lower not in ['none','no','false','0'] %}
     <li>Cleaning service included</li>
   {% endif %}
 
-   {# 7) Rooms suitable for couples #}
+  {# 7) Rooms suitable for couples #}
   {% if ns.couples > 0 %}
     <li>{{ ns.couples }} rooms suitable for couples</li>
   {% endif %}
@@ -204,14 +219,6 @@
     <li>This house identifies as female</li>
   {% endif %}
 
-  {# 10) Room price summary #}
-  {% if have_prices %}
-    {% if prices_equal %}
-      <li>Rooms £{{ min_price }}</li>
-    {% else %}
-      <li>Rooms from £{{ min_price }}</li>
-    {% endif %}
-  {% endif %}
 </ul>
           </aside>
         </div>
