@@ -401,37 +401,39 @@
 
 
 
-    {# Rooms #}
-    <div class="card card--accent-lr" style="margin-bottom:12px">
-      <h2 style="margin:0 0 8px">Rooms</h2>
-      {% if rooms and rooms|length %}
-        <div class="grid" style="gap:10px; grid-template-columns:1fr 1fr">
-          {% for r in rooms %}
-            <div class="card" style="border:1px solid var(--border)">
-              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
-                <h3 class="mt-0" style="margin:0">{{ r.name }}</h3>
-                {% if r.is_let in ['1',1,true,'on'] %}
-                  <span class="badge" style="border:1px solid var(--border); padding:3px 8px; border-radius:999px">Let</span>
-                {% else %}
-                  <span class="badge" style="border:1px solid var(--border); padding:3px 8px; border-radius:999px">Available</span>
-                {% endif %}
-              </div>
-              <p class="muted" style="margin:6px 0 0">
-                {{ r.bed_size }}{% if r.room_size %} • {{ r.room_size }}{% endif %}
-                {% if r.price_pcm and r.price_pcm|int > 0 %}
-                  • £{{ r.price_pcm }} pcm
-                {% endif %}
-              </p>
-              {% if r.description %}
-                <p style="margin:8px 0 0; white-space:pre-wrap">{{ r.description }}</p>
+   {# Rooms #}
+<div class="card card--accent-lr" style="margin-bottom:12px">
+  <h2 style="margin:0 0 8px">Rooms</h2>
+  {% if rooms and rooms|length %}
+    <div class="grid" style="gap:10px; grid-template-columns:1fr 1fr">
+      {% for r in rooms %}
+        <a href="/r/{{ r.id }}" style="text-decoration:none; color:inherit">
+          <div class="card" style="border:1px solid var(--border); cursor:pointer">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+              <h3 class="mt-0" style="margin:0">{{ r.name }}</h3>
+              {% if r.is_let in ['1',1,true,'on'] %}
+                <span class="badge" style="border:1px solid var(--border); padding:3px 8px; border-radius:999px">Let</span>
+              {% else %}
+                <span class="badge" style="border:1px solid var(--border); padding:3px 8px; border-radius:999px">Available</span>
               {% endif %}
             </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p class="muted" style="margin:0">No individual rooms listed yet.</p>
-      {% endif %}
+            <p class="muted" style="margin:6px 0 0">
+              {{ r.bed_size }}{% if r.room_size %} • {{ r.room_size }}{% endif %}
+              {% if r.price_pcm and r.price_pcm|int > 0 %}
+                • £{{ r.price_pcm }} pcm
+              {% endif %}
+            </p>
+            {% if r.description %}
+              <p style="margin:8px 0 0; white-space:pre-wrap">{{ r.description }}</p>
+            {% endif %}
+          </div>
+        </a>
+      {% endfor %}
     </div>
+  {% else %}
+    <p class="muted" style="margin:0">No individual rooms listed yet.</p>
+  {% endif %}
+</div>
 
     {# Landlord card #}
     <div class="card card--accent-lr">
