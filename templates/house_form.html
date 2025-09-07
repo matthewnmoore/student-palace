@@ -35,45 +35,44 @@
         </label>
       </div>
 
-      <!-- One row: EPC + Listed As + Bills Included -->
-      <div class="grid grid-3 grid-equal">
-        <!-- EPC rating -->
-        <label class="field">
-          <span class="label">EPC rating</span>
-          {% set epc_val = (form.epc_rating or '') if form else '' %}
-          <select name="epc_rating" id="epc_rating">
-            <option value="" {% if not epc_val %}selected{% endif %}>Please choose</option>
-            {% for rating in ['A','B','C','D','E','F','G'] %}
-              <option value="{{ rating }}" {% if epc_val==rating %}selected{% endif %}>{{ rating }}</option>
-            {% endfor %}
-          </select>
-          <p class="help">Select the property’s Energy Performance Certificate band.</p>
-        </label>
+     <!-- One row: EPC + Listed As + Bills -->
+<div class="grid grid-3 grid-equal">
+  <!-- EPC rating -->
+  <label class="field">
+    <span class="label">EPC rating</span>
+    {% set epc_val = (form.epc_rating or '') if form else '' %}
+    <select name="epc_rating" id="epc_rating">
+      <option value="" {% if not epc_val %}selected{% endif %}>Please choose</option>
+      {% for rating in ['A','B','C','D','E','F','G'] %}
+        <option value="{{ rating }}" {% if epc_val==rating %}selected{% endif %}>{{ rating }}</option>
+      {% endfor %}
+    </select>
+    <p class="help">Select the property’s Energy Performance Certificate band.</p>
+  </label>
 
-        <!-- Listing type -->
-        <label class="field">
-          <span class="label">Listed as</span>
-          {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
-          <select name="listing_type" required>
-            <option value="owner" {% if lt=='owner' %}selected{% endif %}>Owner</option>
-            <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
-          </select>
-          <p class="help">Defaults to your profile preference; change per house if needed.</p>
-        </label>
+  <!-- Listing type -->
+  <label class="field">
+    <span class="label">Listed as</span>
+    {% set lt = (form.listing_type or default_listing_type or 'owner') if form is not none else (default_listing_type or 'owner') %}
+    <select name="listing_type" required>
+      <option value="owner" {% if lt=='owner' %}selected{% endif %}>Owner</option>
+      <option value="agent" {% if lt=='agent' %}selected{% endif %}>Agent</option>
+    </select>
+    <p class="help">Defaults to your profile preference; change per house if needed.</p>
+  </label>
 
-        <!-- Bills included -->
-        {% set bi = (form.bills_option or 'no') if form else 'no' %}
-        <label class="field">
-          <span class="label">Bills included</span>
-          <select name="bills_included" id="bills_included">
-            <option value="no" {% if bi=='no' %}selected{% endif %}>No</option>
-            <option value="yes" {% if bi=='yes' %}selected{% endif %}>Yes</option>
-            <option value="some" {% if bi=='some' %}selected{% endif %}>Some</option>
-          </select>
-          <p class="help">Choose “Some” to specify which utilities are covered.</p>
-        </label>
-      </div>
-
+  <!-- Bills (3-state) -->
+  {% set bi = (form.bills_option or 'no') if form else 'no' %}
+  <label class="field">
+    <span class="label">Bills</span>
+    <select name="bills_option" id="bills_option">
+      <option value="no"   {% if bi=='no' %}selected{% endif %}>No</option>
+      <option value="yes"  {% if bi=='yes' %}selected{% endif %}>Yes (all included)</option>
+      <option value="some" {% if bi=='some' %}selected{% endif %}>Some (select below)</option>
+    </select>
+    <p class="help">Choose “Some” to specify which utilities are covered.</p>
+  </label>
+</div>
       <div class="grid grid-3 grid-equal">
         <!-- Letting type -->
         <label class="field">
