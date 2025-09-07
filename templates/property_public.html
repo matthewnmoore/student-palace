@@ -10,26 +10,19 @@
     <div class="card card--accent-lr"><p class="help">This listing doesn’t exist.</p></div>
   {% else %}
 
-    {# Verified banner + owner/agent badge on the right #}
+    {# Verified banner (unchanged logic) #}
     {% set verified = landlord and (landlord.is_verified|default(0, true)) %}
-    <div class="card card--accent-lr" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:10px">
-        {% if verified %}
-          <span aria-hidden="true" style="font-size:20px">✅</span>
-          <div style="font-weight:600">This is a Verified landlord.</div>
-        {% else %}
-          <span aria-hidden="true" style="font-size:20px">❌</span>
-          <div style="font-weight:600">This landlord is not verified.</div>
-        {% endif %}
-      </div>
-      {% if house and house.listing_type in ("owner","agent") %}
-        <span class="badge" style="border:1px solid var(--border); padding:4px 10px; border-radius:999px; white-space:nowrap">
-          {{ "Letting Agent" if house.listing_type=="agent" else "Owner / Landlord" }}
-        </span>
+    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
+      {% if verified %}
+        <span aria-hidden="true" style="font-size:20px">✅</span>
+        <div style="font-weight:600">This is a Verified landlord.</div>
+      {% else %}
+        <span aria-hidden="true" style="font-size:20px">❌</span>
+        <div style="font-weight:600">This landlord is not verified.</div>
       {% endif %}
     </div>
 
-    {# Title + meta (unchanged) #}
+    {# Title + meta + landlord branding on the right #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
         <div>
@@ -43,14 +36,32 @@
           </p>
         </div>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          {% if epc_label %}
-            <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px; font-weight:600">{{ epc_label }}</span>
-          {% endif %}
-          {% if bills_label %}
-            <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px">{{ bills_label }}</span>
-          {% endif %}
-          {# (owner/agent badge moved to verified banner above) #}
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          {# Landlord brand: name (h1-size) + optional logo; safe fallbacks #}
+          {% set ll_name = landlord.display_name or "Landlord" %}
+          <div class="ll-brand" style="display:flex;align-items:center;gap:10px;">
+            <div class="ll-name" style="font-weight:700; font-size:1.8rem; line-height:1.1">{{ ll_name }}</div>
+            {% if landlord.logo_url or landlord.logo_path %}
+              {% set logo_src = landlord.logo_url or url_for('static', filename=landlord.logo_path) %}
+              <img src="{{ logo_src }}" alt="{{ ll_name }} logo"
+                   style="max-height:40px;height:auto;max-width:160px;object-fit:contain;border-radius:4px">
+            {% endif %}
+          </div>
+
+          {# Badges (kept as before) #}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+            {% if epc_label %}
+              <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px; font-weight:600">{{ epc_label }}</span>
+            {% endif %}
+            {% if bills_label %}
+              <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px">{{ bills_label }}</span>
+            {% endif %}
+            {% if house.listing_type in ("owner","agent") %}
+              <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px">
+                {{ "Letting Agent" if house.listing_type=="agent" else "Owner / Landlord" }}
+              </span>
+            {% endif %}
+          </div>
         </div>
       </div>
     </div>
@@ -80,40 +91,28 @@
             {% endif %}
           </div>
 
-          {# === HIGHLIGHTS (safe edits only) === #}
+          {# === HIGHLIGHTS (SAFE edits only) === #}
           <aside class="media-right">
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
 
             {% set T = ['1', 1, true, 'on'] %}
 
-            {# Aggregate room stats (ensuites, availability, prices) #}
+            {# Available rooms & ensuites #}
             {% set ns = namespace(ens=0, avail=0) %}
-            {% set p = namespace(prices=[]) %}
             {% if rooms %}
               {% for r in rooms %}
                 {% if r.ensuite in T %}{% set ns.ens = ns.ens + 1 %}{% endif %}
                 {% if not (r.is_let in T) %}{% set ns.avail = ns.avail + 1 %}{% endif %}
-                {% set rp = (r.price_pcm|int) %}
-                {% if rp > 0 %}{% set p.prices = p.prices + [rp] %}{% endif %}
               {% endfor %}
             {% endif %}
-            {% set total_rooms = rooms|length if rooms else 0 %}
-            {% set prices = p.prices %}
-            {% set have_prices = prices|length > 0 %}
-            {% if have_prices %}
-              {% set min_price = prices|min %}
-              {% set max_price = prices|max %}
-              {% set prices_equal = (min_price == max_price) %}
-            {% endif %}
 
-            {# Bills summary #}
+            {# Bills summary (as-is) #}
             {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
             {% set any_util = (house.bills_util_gas in T) or (house.bills_util_electric in T) or
                               (house.bills_util_water in T) or (house.bills_util_broadband in T) or
                               (house.bills_util_tv in T) %}
 
-            <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
-              {# 1) Bills #}
+            <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5; list-style:disc;">
               {% if bills_mode == 'yes' %}
                 <li>All bills included</li>
               {% elif bills_mode == 'some' and any_util %}
@@ -122,51 +121,24 @@
                 <li>No bills included</li>
               {% endif %}
 
-              {# 2) Let-type messaging #}
-              {% set rooms_for_group = (house.bedrooms_total|default(total_rooms, true))|int %}
-              {% if house.letting_type == 'whole' %}
-                {% if rooms_for_group > 0 %}
-                  <li>Suitable for a group of {{ rooms_for_group }}</li>
-                {% endif %}
-              {% elif house.letting_type == 'share' %}
-                {% if total_rooms > 0 and ns.avail == total_rooms %}
-                  <li>Available for a group of {{ rooms_for_group if rooms_for_group>0 else total_rooms }}</li>
+              {# SAFE: Let-type wording — includes the missing "share + all available" branch #}
+              {% set total_rooms = house.bedrooms_total|int %}
+              {% if house.letting_type == 'whole' and total_rooms > 0 %}
+                <li>Suitable for a group of {{ total_rooms }}</li>
+              {% elif house.letting_type == 'share' and total_rooms > 0 %}
+                {% if ns.avail == total_rooms and total_rooms > 0 %}
+                  <li>Available for a group of {{ total_rooms }}</li>
                   <li>Also suitable as individual rooms</li>
-                {% elif total_rooms > 0 and ns.avail < total_rooms and ns.avail > 0 %}
+                {% elif ns.avail > 0 %}
                   <li>Suitable as individual rooms</li>
                 {% endif %}
               {% endif %}
 
-              {# 3) Total bedrooms #}
-              {% if house.bedrooms_total is not none %}
-                <li>{{ house.bedrooms_total|int }} bedrooms</li>
-              {% endif %}
+              <li>{{ house.bedrooms_total|default(0) }} bedrooms</li>
+              <li>{{ ns.ens }} ensuites</li>
 
-              {# 4) Total ensuites #}
-              {% if ns.ens > 0 %}
-                <li>{{ ns.ens }} ensuites</li>
-              {% endif %}
-
-              {# 5) Shared bathrooms #}
-              {% if house.shared_bathrooms is not none and (house.shared_bathrooms|int) >= 0 %}
-                <li>{{ house.shared_bathrooms|int }} shared bathrooms</li>
-              {% endif %}
-
-              {# 6) Gender (male/female only; blank for mixed) #}
-              {% if house.gender_preference in ['Male','Male Only'] %}
-                <li>This house identifies as male</li>
-              {% elif house.gender_preference in ['Female','Female Only'] %}
-                <li>This house identifies as female</li>
-              {% endif %}
-
-              {# 7) Room price summary #}
-              {% if have_prices %}
-                {% if prices_equal %}
-                  <li>Rooms £{{ min_price }}</li>
-                {% else %}
-                  <li>Rooms from £{{ min_price }}</li>
-                {% endif %}
-              {% endif %}
+              {# Keep "rooms available now" line as in the working copy #}
+              <li>{{ ns.avail }} rooms available now</li>
             </ul>
           </aside>
         </div>
@@ -216,7 +188,9 @@
 
 
 
-<!-- start of 2nd code -->
+
+
+{# --- START OF 2ND CODE CHUNK --- #}
 
     {# --- BILLS INCLUDED (icons style) --- #}
     {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
@@ -261,14 +235,16 @@
       <p style="white-space:pre-wrap">{{ house.description or "No description provided yet." }}</p>
     </div>
 
-    {# Key details #}
+    {# Key details (hide Shared bathrooms when 0) #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <h2 style="margin:0 0 8px">Key details</h2>
       <div class="grid grid-2">
         <p><strong>Bedrooms:</strong> {{ house.bedrooms_total }}</p>
         <p><strong>Letting type:</strong> {{ "Whole property" if house.letting_type=="whole" else "Room only" }}</p>
         <p><strong>Gender preference:</strong> {{ house.gender_preference }}</p>
-        <p><strong>Shared bathrooms:</strong> {{ house.shared_bathrooms }}</p>
+        {% if (house.shared_bathrooms|int) > 0 %}
+          <p><strong>Shared bathrooms:</strong> {{ house.shared_bathrooms }}</p>
+        {% endif %}
       </div>
     </div>
 
@@ -292,6 +268,7 @@
                 {% if r.price_pcm and r.price_pcm|int > 0 %}
                   • £{{ r.price_pcm }} pcm
                 {% endif %}
+                {% if r.ensuite in ['1',1,true,'on'] %} • Ensuite{% endif %}
               </p>
               {% if r.description %}
                 <p style="margin:8px 0 0; white-space:pre-wrap">{{ r.description }}</p>
@@ -325,7 +302,7 @@
   {% endif %}
 </section>
 
-{# --- Minimal CSS for media + facilities --- #}
+{# --- Minimal CSS for media + facilities (unchanged) --- #}
 <style>
   .media-grid {
     display: grid;
@@ -345,6 +322,7 @@
   }
   .hero-img > img { width: 100%; height: 100%; object-fit: cover; display:block; }
 
+  /* Thumbnails: 5 smaller columns, main image unchanged */
   .thumb-row {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -371,6 +349,7 @@
   }
   .highlights { margin: 8px 0 0; padding-left: 18px; }
 
+  /* Facilities grid (icons + labels) */
   .facilities-grid{
     list-style:none; margin:0; padding:0;
     display:grid;
@@ -389,9 +368,10 @@
   }
 </style>
 
-{# --- JS: short address + click thumbs to swap hero --- #}
+{# --- JS: short address + click thumbs to swap hero (unchanged) --- #}
 <script>
   (function () {
+    // 1) SHORT ADDRESS
     const el = document.getElementById('short-address');
     if (el) {
       const full = el.getAttribute('data-full') || el.textContent || '';
@@ -420,6 +400,7 @@
       }
     }
 
+    // 2) THUMB CLICK -> swap hero image
     const hero = document.querySelector('.hero-img img');
     if (hero) {
       document.querySelectorAll('.thumb[data-full]').forEach(btn => {
@@ -434,12 +415,4 @@
   })();
 </script>
 {% endblock %}
-
-
-
-
-
-
-
-
   
