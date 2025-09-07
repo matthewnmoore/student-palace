@@ -136,62 +136,67 @@
                               (house.bills_util_water in T) or (house.bills_util_broadband in T) or
                               (house.bills_util_tv in T) %}
 
-            <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
-              {# 1) Bills #}
-              {% if bills_mode == 'yes' %}
-                <li>All bills included</li>
-              {% elif bills_mode == 'some' and any_util %}
-                <li>Some bills included</li>
-              {% else %}
-                <li>No bills included</li>
-              {% endif %}
+         <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
+  {# 1) Bills #}
+  {% if bills_mode == 'yes' %}
+    <li>All bills included</li>
+  {% elif bills_mode == 'some' and any_util %}
+    <li>Some bills included</li>
+  {% else %}
+    <li>No bills included</li>
+  {% endif %}
 
-              {# 2) Let-type messaging #}
-              {% set rooms_for_group = (house.bedrooms_total|default(total_rooms, true))|int %}
-              {% if house.letting_type == 'whole' %}
-                {% if rooms_for_group > 0 %}
-                  <li>Suitable for a group of {{ rooms_for_group }}</li>
-                {% endif %}
-              {% elif house.letting_type == 'share' %}
-                {% if total_rooms > 0 and ns.avail == total_rooms %}
-                  <li>Available for a group of {{ rooms_for_group if rooms_for_group>0 else total_rooms }}</li>
-                  <li>Also suitable as individual rooms</li>
-                {% elif total_rooms > 0 and ns.avail < total_rooms and ns.avail > 0 %}
-                  <li>Suitable as individual rooms</li>
-                {% endif %}
-              {% endif %}
+  {# 2) Let-type messaging #}
+  {% set rooms_for_group = (house.bedrooms_total|default(total_rooms, true))|int %}
+  {% if house.letting_type == 'whole' %}
+    {% if rooms_for_group > 0 %}
+      <li>Suitable for a group of {{ rooms_for_group }}</li>
+    {% endif %}
+  {% elif house.letting_type == 'share' %}
+    {% if total_rooms > 0 and ns.avail == total_rooms %}
+      <li>Available for a group of {{ rooms_for_group if rooms_for_group>0 else total_rooms }}</li>
+      <li>Also suitable as individual rooms</li>
+    {% elif total_rooms > 0 and ns.avail < total_rooms and ns.avail > 0 %}
+      <li>Suitable as individual rooms</li>
+    {% endif %}
+  {% endif %}
 
-              {# 3) Total bedrooms #}
-              {% if house.bedrooms_total is not none %}
-                <li>{{ house.bedrooms_total|int }} bedrooms</li>
-              {% endif %}
+  {# 3) Total bedrooms #}
+  {% if house.bedrooms_total is not none %}
+    <li>{{ house.bedrooms_total|int }} bedrooms</li>
+  {% endif %}
 
-              {# 4) Total ensuites #}
-              {% if ns.ens > 0 %}
-                <li>{{ ns.ens }} ensuites</li>
-              {% endif %}
+  {# 4) Total ensuites #}
+  {% if ns.ens > 0 %}
+    <li>{{ ns.ens }} ensuites</li>
+  {% endif %}
 
-              {# 5) Shared bathrooms #}
-              {% if house.shared_bathrooms is not none and (house.shared_bathrooms|int) >= 0 %}
-                <li>{{ house.shared_bathrooms|int }} shared bathrooms</li>
-              {% endif %}
+  {# 5) Shared bathrooms #}
+  {% if house.shared_bathrooms is not none and (house.shared_bathrooms|int) >= 0 %}
+    <li>{{ house.shared_bathrooms|int }} shared bathrooms</li>
+  {% endif %}
 
-              {# 6) Gender (male/female only; blank for mixed) #}
-              {% if house.gender_preference in ['Male','Male Only'] %}
-                <li>This house identifies as male</li>
-              {% elif house.gender_preference in ['Female','Female Only'] %}
-                <li>This house identifies as female</li>
-              {% endif %}
+  {# 6) Cleaning service (hide if no/none/false/0) #}
+  {% if house.cleaning_service and house.cleaning_service|lower not in ['none','no','false','0'] %}
+    <li>Cleaning service included</li>
+  {% endif %}
 
-              {# 7) Room price summary #}
-              {% if have_prices %}
-                {% if prices_equal %}
-                  <li>Rooms £{{ min_price }}</li>
-                {% else %}
-                  <li>Rooms from £{{ min_price }}</li>
-                {% endif %}
-              {% endif %}
-            </ul>
+  {# 7) Gender (male/female only; blank for mixed) #}
+  {% if house.gender_preference in ['Male','Male Only'] %}
+    <li>This house identifies as male</li>
+  {% elif house.gender_preference in ['Female','Female Only'] %}
+    <li>This house identifies as female</li>
+  {% endif %}
+
+  {# 8) Room price summary #}
+  {% if have_prices %}
+    {% if prices_equal %}
+      <li>Rooms £{{ min_price }}</li>
+    {% else %}
+      <li>Rooms from £{{ min_price }}</li>
+    {% endif %}
+  {% endif %}
+</ul>
           </aside>
         </div>
       {% else %}
