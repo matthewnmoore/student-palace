@@ -27,10 +27,15 @@
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
         <div>
           <h1 class="mt-0" style="margin:0">{{ house.title }}</h1>
+
+          {# SHORT ADDRESS (street + rest, no number/house name) #}
           {% set full_addr = (house.address or '') ~ (', ' ~ house.city if house.city) %}
           <p id="short-address" class="muted" style="margin:6px 0 0"
-             data-full="{{ full_addr|e }}">{{ full_addr }}</p>
+             data-full="{{ full_addr|e }}">
+            {{ full_addr }}
+          </p>
         </div>
+
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           {% if epc_label %}
             <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px; font-weight:600">{{ epc_label }}</span>
@@ -47,14 +52,19 @@
       </div>
     </div>
 
-    {# MEDIA: main image + highlights #}
+    {# MEDIA: main image + thumbs + highlights #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       {% if images and images|length > 0 %}
         <div class="media-grid">
           <div class="media-left">
+            {# Main image = first image #}
             {% set main = images[0] %}
             {% set main_src = url_for('static', filename=main.file_path) %}
-            <div class="hero-img"><img src="{{ main_src }}" alt="Main photo" loading="lazy"></div>
+            <div class="hero-img">
+              <img src="{{ main_src }}" alt="Main photo" loading="lazy">
+            </div>
+
+            {# Thumbnails: include main as first thumb + up to 4 more (total 5). Show only if >1 image. #}
             {% if images|length > 1 %}
               <div class="thumb-row">
                 {% for img in images[0:5] %}
@@ -67,25 +77,27 @@
             {% endif %}
           </div>
 
+          {# === HIGHLIGHTS (friendly wording, no bold) === #}
           <aside class="media-right">
-            <h3 class="mt-0">Highlights</h3>
+            <h3 class="mt-0" style="margin-top:0">Highlights</h3>
+
             {% set T = ['1', 1, true, 'on'] %}
-            {% set ns = namespace(ens=0, avail=0, prices=[]) %}
+
+            {# Available rooms & ensuites #}
+            {% set ns = namespace(ens=0, avail=0) %}
             {% if rooms %}
               {% for r in rooms %}
                 {% if r.ensuite in T %}{% set ns.ens = ns.ens + 1 %}{% endif %}
-                {% if not (r.is_let in T) %}
-                  {% set ns.avail = ns.avail + 1 %}
-                  {% if r.price_pcm and r.price_pcm|int > 0 %}
-                    {% set ns.prices = ns.prices + [r.price_pcm|int] %}
-                  {% endif %}
-                {% endif %}
+                {% if not (r.is_let in T) %}{% set ns.avail = ns.avail + 1 %}{% endif %}
               {% endfor %}
             {% endif %}
+
+            {# Bills summary (old/new fields supported) #}
             {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
             {% set any_util = (house.bills_util_gas in T) or (house.bills_util_electric in T) or
                               (house.bills_util_water in T) or (house.bills_util_broadband in T) or
                               (house.bills_util_tv in T) %}
+
             <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5; list-style:disc;">
               {% if bills_mode == 'yes' %}
                 <li>All bills included</li>
@@ -95,34 +107,9 @@
                 <li>No bills included</li>
               {% endif %}
 
-              {# Letting type rules #}
-              {% if house.letting_type == 'whole' %}
-                <li>Suitable for a group of {{ house.bedrooms_total }}</li>
-              {% elif house.letting_type == 'share' %}
-                {% if ns.avail == house.bedrooms_total %}
-                  <li>Available for a group of {{ house.bedrooms_total }}</li>
-                  <li>Also suitable as individual rooms</li>
-                {% elif ns.avail > 0 %}
-                  <li>Suitable as individual rooms</li>
-                {% endif %}
-              {% endif %}
-
               <li>{{ house.bedrooms_total|default(0) }} bedrooms</li>
               <li>{{ ns.ens }} ensuites</li>
-              {% if house.shared_bathrooms|int > 0 %}
-                <li>{{ house.shared_bathrooms }} shared bathrooms</li>
-              {% endif %}
-              <li>{{ ns.avail }} rooms available</li>
-
-              {# Room price summary #}
-              {% if ns.prices|length > 0 %}
-                {% set unique_prices = ns.prices|unique %}
-                {% if unique_prices|length == 1 %}
-                  <li>Rooms £{{ unique_prices|first }}</li>
-                {% else %}
-                  <li>Rooms from £{{ ns.prices|min }}</li>
-                {% endif %}
-              {% endif %}
+              <li>{{ ns.avail }} rooms available now</li>
             </ul>
           </aside>
         </div>
@@ -133,9 +120,10 @@
       {% endif %}
     </div>
 
-    {# Facilities #}
+    {# --- FACILITIES (amenities) --- #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <h2 style="margin:0 0 10px">Facilities</h2>
+
       {% set nsf = namespace(items=[]) %}
       {% if house.cctv in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🛡️','label':'CCTV'}] %}{% endif %}
       {% if house.off_street_parking in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🅿️','label':'Off-street Parking'}] %}{% endif %}
@@ -157,6 +145,7 @@
       {% if house.roof_terrace in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🌇','label':'Roof Terrace'}] %}{% endif %}
       {% if house.games_room in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🕹️','label':'Games Room'}] %}{% endif %}
       {% if house.cinema_room in ['1',1,true,'on'] %}{% set nsf.items = nsf.items + [{'icon':'🎬','label':'Cinema Room'}] %}{% endif %}
+
       {% if nsf.items|length %}
         <ul class="facilities-grid">
           {% for it in nsf.items %}
@@ -168,19 +157,23 @@
       {% endif %}
     </div>
 
-    {# Bills included icons #}
+    {# --- BILLS INCLUDED (icons style) --- #}
     {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
+
     {% set gas   = house.bills_util_gas in ['1', 1, true, 'on'] %}
     {% set elec  = house.bills_util_electric in ['1', 1, true, 'on'] %}
     {% set water = house.bills_util_water in ['1', 1, true, 'on'] %}
     {% set bb    = house.bills_util_broadband in ['1', 1, true, 'on'] %}
     {% set tv    = house.bills_util_tv in ['1', 1, true, 'on'] %}
+
     {% set any_util = gas or elec or water or bb or tv %}
     {% set show_all  = (bills_mode == 'yes') %}
     {% set show_some = (bills_mode == 'some' and any_util) %}
+
     {% if show_all or show_some %}
       <div class="card card--accent-lr" style="margin-bottom:12px">
         <h2 style="margin:0 0 8px">Bills included</h2>
+
         {% set util_list = [
           {'flag': gas,   'icon': '🔥', 'label': 'Gas'},
           {'flag': elec,  'icon': '⚡', 'label': 'Electric'},
@@ -188,10 +181,13 @@
           {'flag': bb,    'icon': '🌐', 'label': 'Broadband'},
           {'flag': tv,    'icon': '📺', 'label': 'TV licence/TV'}
         ] %}
+
         <ul class="facilities-grid">
           {% for u in util_list %}
             {% if show_all or u.flag %}
-              <li class="facility"><span class="ico" aria-hidden="true">{{ u.icon }}</span>{{ u.label }}</li>
+              <li class="facility">
+                <span class="ico" aria-hidden="true">{{ u.icon }}</span>{{ u.label }}
+              </li>
             {% endif %}
           {% endfor %}
         </ul>
@@ -268,9 +264,76 @@
   {% endif %}
 </section>
 
+{# --- Minimal CSS for media + facilities --- #}
+<style>
+  .media-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 860px) {
+    .media-grid { grid-template-columns: 1fr; }
+  }
+  .media-left { display: grid; gap: 10px; grid-template-rows: auto auto; }
+  .hero-img {
+    aspect-ratio: 4/3;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f6f3ff;
+  }
+  .hero-img > img { width: 100%; height: 100%; object-fit: cover; display:block; }
+
+  /* Thumbnails: 5 smaller columns, main image unchanged */
+  .thumb-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .thumb {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    aspect-ratio: 4/3;
+    overflow: hidden;
+    padding: 0;
+    background: #fff;
+    cursor: pointer;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display:block; }
+  .thumb.is-active { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .thumb.placeholder { background: repeating-linear-gradient(45deg,#faf7ff,#faf7ff 6px,#f0e8ff 6px,#f0e8ff 12px); }
+
+  .media-right {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    background: #fff;
+  }
+  .highlights { margin: 8px 0 0; padding-left: 18px; }
+
+  /* Facilities grid (icons + labels) */
+  .facilities-grid{
+    list-style:none; margin:0; padding:0;
+    display:grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap:12px 18px;
+  }
+  @media (max-width: 900px){ .facilities-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (max-width: 560px){ .facilities-grid{ grid-template-columns: 1fr; } }
+  .facility{
+    display:flex; align-items:center; gap:10px;
+    font-size:1.05rem; line-height:1.4;
+  }
+  .facility .ico{
+    width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;
+    font-size:20px;
+  }
+</style>
+
+{# --- JS: short address + click thumbs to swap hero --- #}
 <script>
   (function () {
-    // Short address normaliser
+    // 1) SHORT ADDRESS
     const el = document.getElementById('short-address');
     if (el) {
       const full = el.getAttribute('data-full') || el.textContent || '';
@@ -299,7 +362,7 @@
       }
     }
 
-    // Thumbnail click -> swap hero image
+    // 2) THUMB CLICK -> swap hero image
     const hero = document.querySelector('.hero-img img');
     if (hero) {
       document.querySelectorAll('.thumb[data-full]').forEach(btn => {
@@ -314,8 +377,3 @@
   })();
 </script>
 {% endblock %}
-
-
-
-
-  
