@@ -182,6 +182,17 @@
   <li>{{ house.shared_bathrooms|int }} shared bathrooms</li>
 {% endif %}
 
+  {# 5.1) Custom feature highlights (1–5) — inserted here #}
+  {% for i in range(1,6) %}
+    {% set feat = attribute(house, 'feature' ~ i) %}
+    {% if feat %}
+      <li>{{ feat }}</li>
+    {% endif %}
+  {% endfor %}
+
+
+
+          
   {# 6) Cleaning service (hide if no/none/false/0) #}
   {% if house.cleaning_service and house.cleaning_service|lower not in ['none','no','false','0'] %}
     <li>Cleaning service included</li>
