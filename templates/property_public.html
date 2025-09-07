@@ -146,20 +146,18 @@
     <li>No bills included</li>
   {% endif %}
 
-  {# 2) Let-type messaging #}
-  {% set rooms_for_group = (house.bedrooms_total|default(total_rooms, true))|int %}
-  {% if house.letting_type == 'whole' %}
-    {% if rooms_for_group > 0 %}
-      <li>Suitable for a group of {{ rooms_for_group }}</li>
-    {% endif %}
-  {% elif house.letting_type == 'share' %}
-    {% if total_rooms > 0 and ns.avail == total_rooms %}
-      <li>Available for a group of {{ rooms_for_group if rooms_for_group>0 else total_rooms }}</li>
-      <li>Also suitable as individual rooms</li>
-    {% elif total_rooms > 0 and ns.avail < total_rooms and ns.avail > 0 %}
-      <li>Suitable as individual rooms</li>
-    {% endif %}
+{# 2) Let-type messaging (simple rules) #}
+{% set group_size = (rooms|length if rooms else 0) %}
+{% if house.letting_type == 'whole' %}
+  {% if group_size > 0 %}
+    <li>Suitable for a group of {{ group_size }}</li>
   {% endif %}
+{% elif house.letting_type == 'share' %}
+  <li>Suitable as individual rooms</li>
+  {% if group_size > 0 %}
+    <li>Suitable for a group of {{ group_size }}</li>
+  {% endif %}
+{% endif %}
 
   {# 3) Total bedrooms #}
   {% if house.bedrooms_total is not none %}
