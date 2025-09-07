@@ -129,13 +129,13 @@
                               (house.bills_util_water in T) or (house.bills_util_broadband in T) or
                               (house.bills_util_tv in T) %}
 
-{# Prep flags: any room suitable for couples / disabled #}
+{# Prep flags: any room suitable for couples / disabled (robust int checks) #}
 {% set couples_any = false %}
 {% set disabled_any = false %}
 {% if rooms %}
   {% for r in rooms %}
-    {% if r.couples_ok in T %}{% set couples_any = true %}{% endif %}
-    {% if r.disabled_ok in T %}{% set disabled_any = true %}{% endif %}
+    {% if (r.couples_ok | int) == 1 %}{% set couples_any = true %}{% endif %}
+    {% if (r.disabled_ok | int) == 1 %}{% set disabled_any = true %}{% endif %}
   {% endfor %}
 {% endif %}
 
