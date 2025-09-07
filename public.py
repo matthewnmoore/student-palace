@@ -43,7 +43,6 @@ def search():
     """
     cities = get_active_city_names(order_by_admin=True)
 
-    # Availability-related params are echoed back so we can start wiring future filtering
     q = {
         "city": request.args.get("city", ""),
         "group_size": request.args.get("group_size", ""),
@@ -51,13 +50,10 @@ def search():
         "ensuite": "on" if request.args.get("ensuite") else "",
         "bills_included": "on" if request.args.get("bills_included") else "",
 
-        # --- NEW: availability fields (optional) ---
-        # ISO yyyy-mm-dd expected if provided
-        "available_from": request.args.get("available_from", ""),  # move-in on/after
-        "let_until": request.args.get("let_until", ""),            # useful if searching for houses currently let until a date
-        "currently_let": request.args.get("currently_let", ""),    # "on" if user ticks 'currently let'
-        # ------------------------------------------------
-
+        # Availability fields (optional)
+        "available_from": request.args.get("available_from", ""),
+        "let_until": request.args.get("let_until", ""),
+        "currently_let": request.args.get("currently_let", ""),
         "error": None,
     }
 
@@ -81,7 +77,7 @@ def property_public(house_id: int):
         conn.close()
         abort(404)
 
-    # Landlord summary (for name, verification, profile link/email)
+    # Landlord summary
     ll = conn.execute(
         """
         SELECT lp.display_name, lp.public_slug, lp.is_verified, l.email
@@ -92,7 +88,7 @@ def property_public(house_id: int):
         (house["landlord_id"],)
     ).fetchone()
 
-    # Images (primary first, then order)
+    # Images
     try:
         images = conn.execute(
             """
@@ -110,7 +106,7 @@ def property_public(house_id: int):
     except Exception:
         images = []
 
-    # Rooms (include couples_ok + disabled_ok so template can show highlights)
+    # Rooms (include couples_ok + disabled_ok)
     try:
         rooms = conn.execute(
             """
@@ -133,14 +129,13 @@ def property_public(house_id: int):
     except Exception:
         rooms = []
 
-    # --- NEW: Features (feature1..feature5) + availability fields at house level ---
+    # Features (feature1..feature5)
     def _haskey(row, key: str) -> bool:
         try:
             return key in row.keys()
         except Exception:
             return False
 
-    # Collect up to 5 short features, skipping empties and trimming to 40 chars (UI limit)
     features = []
     for i in range(1, 6):
         k = f"feature{i}"
@@ -149,13 +144,12 @@ def property_public(house_id: int):
             if txt:
                 features.append(txt[:40])
 
-    # House-level availability (if these columns exist in your schema)
+    # House-level availability
     availability = {
         "currently_let": int(house["is_let"]) if _haskey(house, "is_let") and house["is_let"] is not None else 0,
         "available_from": house["available_from"] if _haskey(house, "available_from") else None,
         "let_until": house["let_until"] if _haskey(house, "let_until") else None,
     }
-    # -------------------------------------------------------------------------------
 
     conn.close()
 
@@ -172,8 +166,6 @@ def property_public(house_id: int):
         images=images,
         rooms=rooms,
         landlord=landlord,
-
-        # NEW context for the template
         features=features,
         availability=availability,
     )
