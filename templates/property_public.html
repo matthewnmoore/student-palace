@@ -43,41 +43,20 @@
           </p>
         </div>
 
-        {# RIGHT SIDE: landlord name + logo (same style as title) #}
-        {% if landlord and (landlord.display_name or landlord.public_slug) %}
-          <div style="display:flex;align-items:center;gap:8px">
-          {# Resolve landlord logo path robustly #}
-{% set _logo = (landlord.logo_path or landlord.logo_url) %}
-{% if _logo %}
-  {# External URL (has scheme) #}
-  {% if '://' in _logo %}
-    {% set _logo_src = _logo %}
-  {% else %}
-    {# If already starts with /static/ use as-is, else route via url_for('static', ...) #}
-    {% if _logo[0:8] == '/static/' %}
-      {% set _logo_src = _logo %}
-    {% else %}
-      {% set _logo_src = url_for('static', filename=_logo.lstrip('/')) %}
-    {% endif %}
-  {% endif %}
-  <img
-    src="{{ _logo_src }}"
-    alt="{{ landlord.display_name or 'Landlord' }} logo"
-    style="height:1.6em; width:auto; object-fit:contain;"
-    loading="lazy"
-  >
+      {# RIGHT SIDE: landlord name only #}
+{% if landlord and (landlord.display_name or landlord.public_slug) %}
+  <div style="display:flex;align-items:center;gap:8px">
+    <h1 class="mt-0" style="margin:0">
+      {% if landlord.public_slug %}
+        <a href="/l/{{ landlord.public_slug }}" style="text-decoration:none; color:inherit">
+          {{ landlord.display_name or "Landlord" }}
+        </a>
+      {% else %}
+        {{ landlord.display_name or "Landlord" }}
+      {% endif %}
+    </h1>
+  </div>
 {% endif %}
-            <h1 class="mt-0" style="margin:0">
-              {% if landlord.public_slug %}
-                <a href="/l/{{ landlord.public_slug }}" style="text-decoration:none; color:inherit">
-                  {{ landlord.display_name or "Landlord" }}
-                </a>
-              {% else %}
-                {{ landlord.display_name or "Landlord" }}
-              {% endif %}
-            </h1>
-          </div>
-        {% endif %}
       </div>
     </div>
 
