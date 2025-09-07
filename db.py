@@ -378,6 +378,8 @@ def ensure_db():
     _safe_add_column(conn, "houses", "ADD COLUMN feature3 TEXT NOT NULL DEFAULT ''")
     _safe_add_column(conn, "houses", "ADD COLUMN feature4 TEXT NOT NULL DEFAULT ''")
     _safe_add_column(conn, "houses", "ADD COLUMN feature5 TEXT NOT NULL DEFAULT ''")
+    
+    print("[db] Feature highlight columns ready")
 
 
 
