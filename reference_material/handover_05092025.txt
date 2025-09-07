@@ -3,9 +3,79 @@ Student Palace – Handover List (rolled back to bulk editing pages stable point
 
 
 
+
+07/09/2025
+
+Student Palace – Development Handover Brief
+	1.	Context
+
+	•	Platform: Student Palace is a student housing platform for UK landlords and students.
+	•	Core entities: Houses (properties) and Rooms (units within houses).
+	•	Media: Each house/room can have up to 5 uploaded photos (watermarked, trimmed at upload).
+	•	Frontend: Jinja2 templates with Flask; deployed on Render.
+
+	2.	Work on Property (House) Pages
+
+	•	House template (property_public.html) is the reference standard and always worked.
+	•	Uses url_for(‘static’, filename=…) to fetch images.
+	•	Displays first photo as hero, plus up to 4 thumbnails (max 5).
+	•	Highlights summarise features (bills, bathrooms, gender, etc).
+	•	Facilities grid with icons (Wi-Fi, Dishwasher, etc).
+	•	Key details card with EPC, letting type, and room count.
+	•	Room list grid links to individual room pages.
+	•	House images always displayed correctly.
+
+	3.	Work on Room Pages
+
+	•	Room template (room_public.html) adapted from house template.
+	•	Same hero + thumbnails structure.
+	•	Highlights tailored to the individual room (price, ensuite/shared, bed size, couples/disabled flags).
+	•	About section, Key details, and Listed by landlord included.
+	•	Problem: Room images consistently show as blue question marks, while house images are fine.
+
+	4.	Debugging the Room Image Issue
+
+	•	Path mismatch suspected: house images stored in uploads/houses/, room images may be in uploads/rooms/.
+	•	Mixing of url_for(‘static’, …) and media_url caused inconsistencies.
+	•	Template errors found: unbalanced if/else blocks caused Jinja2 crashes.
+	•	Duplicate {% extends “base.html” %} statements also caused crashes.
+
+	5.	Stability Baseline
+
+	•	Last working copy of room template displayed without crashing.
+	•	Images still broken, but logic and highlights worked.
+	•	House template remained stable and fully working.
+
+	6.	Lessons Learned
+
+	•	Keep house and room templates aligned for image handling.
+	•	Ensure all {% if %} / {% else %} / {% endif %} blocks are balanced.
+	•	Never paste in a second {% extends “base.html” %}.
+	•	Test in small steps to catch template syntax errors quickly.
+	•	Deploy logs confirm only template syntax errors, not database or Flask issues.
+
+	7.	Next Steps
+
+	•	Unify image handling: make the room template process images the same as the house template.
+	•	Verify room image paths in the database (uploads/rooms/ vs uploads/houses/).
+	•	Testing: validate locally before deploy. Keep stable backup templates (baseline-stable-2025-08-31).
+	•	Possible fix: either switch room template to use media_url, or standardise DB image paths to /static/uploads/… so both can use url_for(‘static’, …).
+
+	8.	Key Files
+
+	•	property_public.html = working house template (reference).
+	•	room_public.html = unstable template (images broken, sometimes crashes).
+	•	DB_Schema_& Rules_READ_ME.txt = master rules file (must always stay in repo).
+	•	/static/uploads/houses/student_palace.db = persistent SQLite database.
+
+Summary: Houses work fine. Rooms crash if template syntax isn’t balanced, and photos don’t render because of inconsistent path handling. The main next step is to make room image handling identical to houses, while checking that the database paths match.
+
+
+
+
+
+
 06/06/2025
-
-
 
 Student Palace – Public Property Page Handover
 
