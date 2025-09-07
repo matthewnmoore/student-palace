@@ -29,7 +29,7 @@
       {% endif %}
     </div>
 
-    {# Title + meta (unchanged) #}
+       {# Title + meta with landlord name/logo #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
         <div>
@@ -42,6 +42,30 @@
             {{ full_addr }}
           </p>
         </div>
+
+        {# RIGHT SIDE: landlord name + logo (same style as title) #}
+        {% if landlord and (landlord.display_name or landlord.public_slug) %}
+          <div style="display:flex;align-items:center;gap:8px">
+            {% if landlord.logo_url %}
+              <img
+                src="{{ landlord.logo_url }}"
+                alt="{{ landlord.display_name or 'Landlord' }} logo"
+                style="height:1.6em; width:auto; object-fit:contain;"
+              >
+            {% endif %}
+            <h1 class="mt-0" style="margin:0">
+              {% if landlord.public_slug %}
+                <a href="/l/{{ landlord.public_slug }}" style="text-decoration:none; color:inherit">
+                  {{ landlord.display_name or "Landlord" }}
+                </a>
+              {% else %}
+                {{ landlord.display_name or "Landlord" }}
+              {% endif %}
+            </h1>
+          </div>
+        {% endif %}
+      </div>
+    </div>
 
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           {% if epc_label %}
