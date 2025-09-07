@@ -142,14 +142,42 @@ def set_primary_room(conn, rid: int, img_id: int) -> None:
     conn.execute("UPDATE room_images SET is_primary=1 WHERE id=? AND room_id=?", (img_id, rid))
 
 def delete_image_room(conn, rid: int, img_id: int) -> Optional[str]:
+    """
+    Delete one room image and, if it was the primary, promote the next best image
+    (by sort_order, then id) to be the new primary.
+    Returns the filename so the caller can delete the file from disk, or None if not found.
+    """
     row = conn.execute("""
-        SELECT id, COALESCE(filename, file_name) AS filename
+        SELECT id,
+               COALESCE(filename, file_name) AS filename,
+               COALESCE(is_primary, 0)       AS is_primary
           FROM room_images
-         WHERE id=? AND room_id=?""", (img_id, rid)).fetchone()
+         WHERE id=? AND room_id=?
+    """, (img_id, rid)).fetchone()
+
     if not row:
         return None
+
     fname = row["filename"]
+    was_primary = int(row["is_primary"]) == 1
+
+    # Remove the row
     conn.execute("DELETE FROM room_images WHERE id=? AND room_id=?", (img_id, rid))
+
+    # If we deleted the primary, pick a new one if any remain
+    if was_primary:
+        next_row = conn.execute("""
+            SELECT id
+              FROM room_images
+             WHERE room_id=?
+             ORDER BY sort_order ASC, id ASC
+             LIMIT 1
+        """, (rid,)).fetchone()
+
+        if next_row:
+            conn.execute("UPDATE room_images SET is_primary=0 WHERE room_id=?", (rid,))
+            conn.execute("UPDATE room_images SET is_primary=1 WHERE id=? AND room_id=?", (next_row["id"], rid))
+
     return fname
 
 # ------------ Upload (rooms) ------------
