@@ -48,3 +48,27 @@ for _mod in ("dashboard", "backup", "backups", "stats"):
     except Exception:
         # Safe to ignore missing or import-time errors here to prevent circulars
         pass
+
+
+
+
+
+
+
+
+
+
+# --- One-off route to backfill disabled rollups ---
+@bp.route("/run-backfill-disabled")
+def run_backfill_disabled():
+    r = require_admin()
+    if r:
+        return r  # forces admin login first
+
+    try:
+        # Import lazily to avoid any circulars
+        from . import backfill_disabled_rollups
+        msg = backfill_disabled_rollups.run()
+        return f"Backfill complete: {msg}"
+    except Exception as e:
+        return f"Error during backfill: {e}", 500
