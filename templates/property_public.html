@@ -141,14 +141,12 @@
 
             
         <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
-  {# 1) Bills #}
-  {% if bills_mode == 'yes' %}
-    <li>All bills included</li>
-  {% elif bills_mode == 'some' and any_util %}
-    <li>Some bills included</li>
-  {% else %}
-    <li>No bills included</li>
-  {% endif %}
+ {# 1) Bills (show only for yes/some) #}
+{% if bills_mode == 'yes' %}
+  <li>All bills included</li>
+{% elif bills_mode == 'some' and any_util %}
+  <li>Some bills included</li>
+{% endif %}
 
   {# 2) Let-type messaging (simple rules) #}
   {% if house.letting_type == 'whole' %}
