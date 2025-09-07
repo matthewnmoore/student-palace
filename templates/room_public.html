@@ -4,7 +4,6 @@
   {{ (room.name ~ " – " ~ (house.title or "Property") ~ " – " ~ (house.city or "" ) ~ " – Student Palace") if room else "Room – Student Palace" }}
 {% endblock %}
 
-
 {% block content %}
 <section class="wrap">
   {% if not room %}
@@ -65,102 +64,85 @@
           </div>
         {% endif %}
       </div>
-
-     
-      </div>
     </div>
 
-{# --- MEDIA + HIGHLIGHTS --- #}
-<div class="card card--accent-lr" style="margin-bottom:12px">
-  {% if images and images|length > 0 %}
-    <div class="media-grid">
-      <div class="media-left">
-        {# Main image = first image #}
-        {% set main = images[0] %}
-        {% set main_src = url_for('static', filename=main.file_path) %}
-        <div class="hero-img">
-          <img src="{{ main_src }}" alt="Room photo" loading="lazy">
-        </div>
+    {# Make these available everywhere below #}
+    {% set T = ['1', 1, true, 'on'] %}
+    {% set bills_mode = (house.bills_option or house.bills_included or 'no') if house else 'no' %}
 
-        {# Thumbnails: include main as first thumb + up to 4 more (total 5) #}
-        {% if images|length > 1 %}
-          <div class="thumb-row">
-            {% for img in images[0:5] %}
-              {% set tsrc = url_for('static', filename=img.file_path) %}
-              <button class="thumb {% if loop.index0 == 0 %}is-active{% endif %}" type="button" data-full="{{ tsrc }}">
-                <img src="{{ tsrc }}" alt="Photo {{ loop.index }}" loading="lazy">
-              </button>
-            {% endfor %}
+    {# --- MEDIA + HIGHLIGHTS (house-style) --- #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      {% if images and images|length > 0 %}
+        <div class="media-grid">
+          <div class="media-left">
+            {# Main image = first image #}
+            {% set main = images[0] %}
+            {% set main_src = url_for('static', filename=main.file_path) %}
+            <div class="hero-img">
+              <img src="{{ main_src }}" alt="Room photo" loading="lazy">
+            </div>
+
+            {# Thumbnails: include main as first thumb + up to 4 more (total 5) #}
+            {% if images|length > 1 %}
+              <div class="thumb-row">
+                {% for img in images[0:5] %}
+                  {% set tsrc = url_for('static', filename=img.file_path) %}
+                  <button class="thumb {% if loop.index0 == 0 %}is-active{% endif %}" type="button" data-full="{{ tsrc }}">
+                    <img src="{{ tsrc }}" alt="Photo {{ loop.index }}" loading="lazy">
+                  </button>
+                {% endfor %}
+              </div>
+            {% endif %}
           </div>
-        {% endif %}
-      </div>
 
-      {# --- keep your existing <aside class="media-right highlights-box"> ... </aside> here --- #}
-
-    </div>
-  {% else %}
-    <div style="aspect-ratio:4/3; border:1px dashed var(--border); border-radius:12px; display:flex;align-items:center;justify-content:center; color:#b9a6ff; font-weight:700">
-      NO PHOTOS YET
-    </div>
-  {% endif %}
-</div>
-
-{% set T = ['1', 1, true, 'on'] %}
-{% set bills_mode = house and (house.bills_option or house.bills_included or 'no') %}
-
-
-
-          
           <aside class="media-right highlights-box">
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
             <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
+              {# Price (top) #}
+              {% if room.price_pcm and room.price_pcm|int > 0 %}
+                {% set ppw = ((room.price_pcm|int) * 12 // 52) %}
+                <li>£{{ room.price_pcm|int }} pcm {% if ppw>0 %}(~£{{ ppw }} pw){% endif %}</li>
+              {% else %}
+                <li>Price on request</li>
+              {% endif %}
 
-          {# Price (top) #}
-{% if room.price_pcm and room.price_pcm|int > 0 %}
-  {% set ppw = ((room.price_pcm|int) * 12 // 52) %}
-  <li>£{{ room.price_pcm|int }} pcm {% if ppw>0 %}(~£{{ ppw }} pw){% endif %}</li>
-{% else %}
-  <li>Price on request</li>
-{% endif %}
+              {# Ensuite / bathroom #}
+              {% if room.ensuite in T %}
+                <li>Ensuite bathroom</li>
+              {% else %}
+                <li>Shared bathroom</li>
+              {% endif %}
 
-{# Ensuite / bathroom #}
-{% if room.ensuite in T %}
-  <li>Ensuite bathroom</li>
-{% else %}
-  <li>Shared bathroom</li>
-{% endif %}
+              {# Bed + size #}
+              {% if room.bed_size %}<li>{{ room.bed_size }} bed</li>{% endif %}
+              {% if room.room_size %}<li>{{ room.room_size }}</li>{% endif %}
 
-{# Bed + size #}
-{% if room.bed_size %}<li>{{ room.bed_size }} bed</li>{% endif %}
-{% if room.room_size %}<li>{{ room.room_size }}</li>{% endif %}
+              {# Couples / accessibility #}
+              {% if room.couples_ok in T %}<li>Suitable for couples</li>{% endif %}
+              {% if room.disabled_ok in T %}<li>Accessible room</li>{% endif %}
 
-{# Couples / accessibility #}
-{% if room.couples_ok in T %}<li>Suitable for couples</li>{% endif %}
-{% if room.disabled_ok in T %}<li>Accessible room</li>{% endif %}
+              {# Availability #}
+              {% if room.is_let in T %}
+                <li>Currently let</li>
+              {% else %}
+                <li>Available now</li>
+              {% endif %}
 
-{# Availability #}
-{% if room.is_let in T %}
-  <li>Currently let</li>
-{% else %}
-  <li>Available now</li>
-{% endif %}
+              {# --- EXTRA HOUSE CONTEXT --- #}
+              {% if house and bills_mode == 'yes' %}
+                <li>All bills included</li>
+              {% elif house and bills_mode == 'some' %}
+                <li>Some bills included</li>
+              {% endif %}
 
-{# --- EXTRA HOUSE CONTEXT --- #}
-{% if house and bills_mode == 'yes' %}
-  <li>All bills included</li>
-{% elif house and bills_mode == 'some' %}
-  <li>Some bills included</li>
-{% endif %}
-
-{% if house and house.feature1 %}<li>{{ house.feature1 }}</li>{% endif %}
-{% if house and house.feature2 %}<li>{{ house.feature2 }}</li>{% endif %}
-{% if house and house.feature3 %}<li>{{ house.feature3 }}</li>{% endif %}
-{% if house and house.feature4 %}<li>{{ house.feature4 }}</li>{% endif %}
-{% if house and house.feature5 %}<li>{{ house.feature5 }}</li>{% endif %}
-
-</ul>
-</aside>
-</div>
+              {% if house and house.feature1 %}<li>{{ house.feature1 }}</li>{% endif %}
+              {% if house and house.feature2 %}<li>{{ house.feature2 }}</li>{% endif %}
+              {% if house and house.feature3 %}<li>{{ house.feature3 }}</li>{% endif %}
+              {% if house and house.feature4 %}<li>{{ house.feature4 }}</li>{% endif %}
+              {% if house and house.feature5 %}<li>{{ house.feature5 }}</li>{% endif %}
+            </ul>
+          </aside>
+        </div>
       {% else %}
         <div style="aspect-ratio:4/3; border:1px dashed var(--border); border-radius:12px; display:flex;align-items:center;justify-content:center; color:#b9a6ff; font-weight:700">
           NO PHOTOS YET
@@ -238,9 +220,6 @@
           {% endif %}
         </strong>
         {% if verified %} <span aria-hidden="true" title="Verified">✅</span>{% endif %}
-      </p>
-      <p class="muted" style="margin:6px 0 0">
-        {% if landlord and landlord.email %}<strong>Email:</strong> {{ landlord.email }}{% endif %}
       </p>
     </div>
 
