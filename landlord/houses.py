@@ -1,0 +1,428 @@
+# landlord/houses.py
+from __future__ import annotations
+
+import sqlite3
+from flask import render_template, request, redirect, url_for, flash
+from datetime import datetime as dt
+from db import get_db
+from utils import (
+    current_landlord_id, require_landlord, get_active_cities_safe,
+    owned_house_or_none, validate_city_active, clean_bool, valid_choice
+)
+from . import bp
+from . import house_form, house_repo
+
+# ✅ summaries helper
+from utils_summaries import recompute_house_summaries
+
+
+# -----------------------------
+# Normalisation helpers
+# -----------------------------
+def _title_case_wordish(s: str) -> str:
+    s = (s or "").strip()
+    if not s:
+        return ""
+    s = s.lower()
+    out = []
+    cap_next = True
+    for ch in s:
+        if cap_next and ch.isalpha():
+            out.append(ch.upper())
+            cap_next = False
+        else:
+            out.append(ch)
+        if ch in (" ", "-", "’", "'"):
+            cap_next = True
+    return "".join(out)
+
+
+def _normalize_postcode(pc: str) -> str:
+    pc = (pc or "").strip().upper()
+    if not pc:
+        return ""
+    if " " not in pc and len(pc) > 3:
+        pc = pc[:-3] + " " + pc[-3:]
+    return pc
+
+
+def _normalize_full_address(s: str) -> str:
+    """
+    Normalize the one-line preview address:
+    - Title-case non-postcode parts split by commas
+    - Uppercase and space the final postcode (if present)
+    """
+    s = (s or "").strip()
+    if not s:
+        return ""
+    bits = [b.strip() for b in s.split(",") if b.strip()]
+    if not bits:
+        return ""
+    # assume last is postcode
+    last = _normalize_postcode(bits[-1])
+    prior = [_title_case_wordish(b) for b in bits[:-1]]
+    if last:
+        return ", ".join(prior + [last])
+    return ", ".join(prior)  # no obvious postcode; just title-case parts
+
+
+def _normalize_youtube_url(u: str) -> str:
+    """
+    Accept empty, youtube.com/watch?v=..., youtu.be/..., shorts/...
+    Return a standard full watch URL if recognisable; otherwise return trimmed.
+    """
+    u = (u or "").strip()
+    if not u:
+        return ""
+    lower = u.lower()
+
+    # Be forgiving about missing scheme (allow youtu.be/... or www.youtu.be/...)
+    if lower.startswith("youtu.be/") or lower.startswith("www.youtu.be/"):
+        vid = u.split("/")[-1].split("?")[0].split("#")[0]
+        return f"https://www.youtube.com/watch?v={vid}" if vid else u
+
+    if "youtube.com" in lower:
+        if "watch?v=" in lower:
+            q = u.split("watch?v=", 1)[1]
+            vid = q.split("&", 1)[0].split("#", 1)[0]
+            return f"https://www.youtube.com/watch?v={vid}" if vid else u
+        if "/shorts/" in lower:
+            vid = u.split("/shorts/", 1)[1].split("?", 1)[0].split("#", 1)[0]
+            return f"https://www.youtube.com/watch?v={vid}" if vid else u
+
+    return u
+
+
+# -----------------------------------------
+# Schema safety: ensure columns exist
+# -----------------------------------------
+def _ensure_houses_has_youtube(conn) -> None:
+    try:
+        conn.execute("ALTER TABLE houses ADD COLUMN youtube_url TEXT")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
+
+
+def _ensure_houses_has_description(conn) -> None:
+    try:
+        conn.execute("ALTER TABLE houses ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
+
+
+# -----------------------------------------
+# Postcode helpers
+# -----------------------------------------
+def _outward_from_address(addr: str) -> str:
+    """
+    From a full one-line address (we assume the last comma-part is the postcode),
+    return the outward code (first part, e.g. 'CF', 'CF3', 'SW1A').
+    """
+    if not addr:
+        return ""
+    bits = [b.strip() for b in addr.strip().upper().split(",") if b.strip()]
+    if not bits:
+        return ""
+    last = bits[-1]  # supposed to be postcode
+    norm = _normalize_postcode(last)  # adds space before last 3 if missing
+    parts = norm.split()
+    return parts[0] if parts else ""
+
+
+# -------------------------------------------------------
+# Parser wrapper (uses house_form.parse_house_form if set)
+# -------------------------------------------------------
+def _parse_or_delegate(form, mode: str, default_listing_type: str,
+                       existing_address: str | None = None, conn=None):
+    if hasattr(house_form, "parse_house_form"):
+        return house_form.parse_house_form(form, mode=mode,
+                                           default_listing_type=default_listing_type)
+
+    fget = lambda k, default="": (form.get(k) or default).strip()
+
+    title_raw = fget("title")
+    title     = _title_case_wordish(title_raw)[:20]
+
+    description_raw = fget("description")
+    description = description_raw[:1200]
+
+    city_raw = fget("city")
+    letting_type = fget("letting_type")
+    gender_pref = fget("gender_preference")
+
+    address_hidden = fget("address")
+    address = _normalize_full_address(address_hidden) if address_hidden else ""
+
+    bills_option = (form.get("bills_option") or "no").strip().lower()
+    if bills_option not in ("yes", "no", "some"):
+        bills_option = "no"
+    bills_included_legacy = 1 if bills_option == "yes" else 0
+
+    if bills_option == "yes":
+        bills_util = dict(
+            bills_util_gas=1, bills_util_electric=1, bills_util_water=1,
+            bills_util_broadband=1, bills_util_tv=1
+        )
+    elif bills_option == "some":
+        bills_util = dict(
+            bills_util_gas=clean_bool("bills_util_gas"),
+            bills_util_electric=clean_bool("bills_util_electric"),
+            bills_util_water=clean_bool("bills_util_water"),
+            bills_util_broadband=clean_bool("bills_util_broadband"),
+            bills_util_tv=clean_bool("bills_util_tv"),
+        )
+    else:
+        bills_util = dict(
+            bills_util_gas=0, bills_util_electric=0, bills_util_water=0,
+            bills_util_broadband=0, bills_util_tv=0
+        )
+
+    shared_bathrooms = int(form.get("shared_bathrooms") or 0)
+    bedrooms_total = int(form.get("bedrooms_total") or 0)
+    listing_type = (form.get("listing_type") or default_listing_type or "owner").strip()
+
+    epc_rating_raw = (form.get("epc_rating") or "").strip().upper()
+    epc_rating = epc_rating_raw if epc_rating_raw in ("A","B","C","D","E","F","G") else ""
+
+    youtube_url = _normalize_youtube_url(fget("youtube_url"))
+
+    # ✅ Feature highlights
+    feature1 = fget("feature1")[:25]
+    feature2 = fget("feature2")[:25]
+    feature3 = fget("feature3")[:25]
+    feature4 = fget("feature4")[:25]
+    feature5 = fget("feature5")[:25]
+
+    if not address:
+        if mode == "edit" and existing_address:
+            address = _normalize_full_address(existing_address)
+
+    payload = {
+        "title": title,
+        "description": description,
+        "city": _title_case_wordish(city_raw),
+        "address": address,
+        "letting_type": letting_type,
+        "bedrooms_total": bedrooms_total,
+        "gender_preference": gender_pref,
+        "bills_included": bills_included_legacy,
+        "bills_option": bills_option,
+        "shared_bathrooms": shared_bathrooms,
+        "washing_machine": clean_bool("washing_machine"),
+        "tumble_dryer": clean_bool("tumble_dryer"),
+        "dishwasher": clean_bool("dishwasher"),
+        "cooker": clean_bool("cooker"),
+        "microwave": clean_bool("microwave"),
+        "coffee_maker": clean_bool("coffee_maker"),
+        "central_heating": clean_bool("central_heating"),
+        "air_con": clean_bool("air_conditioning"),
+        "vacuum": clean_bool("vacuum"),
+        "wifi": clean_bool("wifi"),
+        "wired_internet": clean_bool("wired_internet"),
+        "common_area_tv": clean_bool("common_area_tv"),
+        "cctv": clean_bool("cctv"),
+        "video_door_entry": clean_bool("video_door_entry"),
+        "fob_entry": clean_bool("fob_entry"),
+        "off_street_parking": clean_bool("off_street_parking"),
+        "local_parking": clean_bool("local_parking"),
+        "garden": clean_bool("garden"),
+        "roof_terrace": clean_bool("roof_terrace"),
+        "bike_storage": clean_bool("bike_storage"),
+        "games_room": clean_bool("games_room"),
+        "cinema_room": clean_bool("cinema_room"),
+        "cleaning_service": (form.get("cleaning_service") or "none").strip(),
+        "listing_type": listing_type,
+        "epc_rating": epc_rating,
+        "youtube_url": youtube_url,
+        "feature1": feature1,
+        "feature2": feature2,
+        "feature3": feature3,
+        "feature4": feature4,
+        "feature5": feature5,
+    }
+    payload.update(bills_util)
+
+    # Validation
+    errors = []
+    if not title:
+        errors.append("Title is required.")
+    if not payload["address"]:
+        errors.append("Address is required.")
+    if bedrooms_total < 1:
+        errors.append("Bedrooms must be at least 1.")
+    if not validate_city_active(city_raw):
+        errors.append("Please choose a valid active city.")
+    if not valid_choice(letting_type, ("whole","share")):
+        errors.append("Invalid letting type.")
+    if not valid_choice(gender_pref, ("Male","Female","Mixed","Either")):
+        errors.append("Invalid gender preference.")
+    if not valid_choice(payload["cleaning_service"], ("none","weekly","fortnightly","monthly")):
+        errors.append("Invalid cleaning service value.")
+    if not valid_choice(listing_type, ("owner","agent")):
+        errors.append("Invalid listing type.")
+    if epc_rating_raw and epc_rating == "":
+        errors.append("Invalid EPC rating (choose A–G).")
+
+    # ✅ NEW: postcode vs city check using admin-set prefixes
+    if conn is not None:
+        outward = _outward_from_address(payload["address"])
+        city_name = (city_raw or "").strip()
+        if outward and city_name:
+            row = conn.execute(
+                "SELECT COALESCE(postcode_prefixes,'') AS p FROM cities WHERE name=? LIMIT 1",
+                (city_name,)
+            ).fetchone()
+            if row:
+                csv = (row["p"] or "").strip()
+                if csv:
+                    allowed = [p.strip().upper() for p in csv.split(",") if p.strip()]
+                    if not any(outward.startswith(p) for p in allowed):
+                        errors.append(f"Postcode {outward} is not allowed for {city_name}.")
+
+    return payload, errors
+
+
+# -----------------------------
+# Routes
+# -----------------------------
+@bp.route("/landlord/houses")
+def landlord_houses():
+    r = require_landlord()
+    if r:
+        return r
+    lid = current_landlord_id()
+    conn = get_db()
+    prof = conn.execute(
+        "SELECT is_verified FROM landlord_profiles WHERE landlord_id=?", (lid,)
+    ).fetchone()
+    rows = conn.execute(
+        "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC", (lid,)
+    ).fetchall()
+    conn.close()
+    is_verified = int(prof["is_verified"]) if (prof and "is_verified" in prof.keys()) else 0
+    # 🔧 fixed template name (no 's')
+    return render_template("house_list.html", houses=rows, is_verified=is_verified)
+
+
+@bp.route("/landlord/houses/new", methods=["GET","POST"])
+def house_new():
+    r = require_landlord()
+    if r:
+        return r
+    lid = current_landlord_id()
+    cities = get_active_cities_safe()
+    conn = get_db()
+    _ensure_houses_has_youtube(conn)
+    _ensure_houses_has_description(conn)
+    default_listing_type = house_form.get_default_listing_type(conn, lid)
+
+    if request.method == "POST":
+        payload, errors = _parse_or_delegate(
+            request.form, mode="new",
+            default_listing_type=default_listing_type,
+            conn=conn
+        )
+        if errors:
+            for e in errors:
+                flash(e, "error")
+            conn.close()
+            return render_template("house_form.html",
+                cities=cities, form=request.form,
+                mode="new", default_listing_type=default_listing_type)
+
+        payload["created_at"] = dt.utcnow().isoformat()
+        house_repo.insert_house(conn, lid, payload)
+
+        try:
+            hid_row = conn.execute("SELECT last_insert_rowid() AS id").fetchone()
+            new_hid = hid_row["id"] if hid_row else None
+            if new_hid:
+                recompute_house_summaries(conn, new_hid)
+        except Exception:
+            pass
+
+        conn.close()
+        flash("House added.", "ok")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    conn.close()
+    return render_template("house_form.html", cities=cities,
+        form={}, mode="new", default_listing_type=default_listing_type)
+
+
+@bp.route("/landlord/houses/<int:hid>/edit", methods=["GET","POST"])
+def house_edit(hid):
+    r = require_landlord()
+    if r:
+        return r
+    lid = current_landlord_id()
+    cities = get_active_cities_safe()
+    conn = get_db()
+    _ensure_houses_has_youtube(conn)
+    _ensure_houses_has_description(conn)
+
+    house_row = owned_house_or_none(conn, hid, lid)
+    if not house_row:
+        conn.close()
+        flash("House not found.", "error")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    house = dict(house_row)
+    default_listing_type = house_form.get_default_listing_type(conn, lid, existing=house)
+
+    # Count rooms for this house (used on Edit page)
+    try:
+        rc = conn.execute("SELECT COUNT(*) AS c FROM rooms WHERE house_id=?", (hid,)).fetchone()
+        rooms_count = int(rc["c"]) if rc else 0
+    except Exception:
+        rooms_count = 0
+
+    if request.method == "POST":
+        payload, errors = _parse_or_delegate(
+            request.form, mode="edit",
+            default_listing_type=default_listing_type,
+            existing_address=house.get("address"),
+            conn=conn
+        )
+        if errors:
+            for e in errors:
+                flash(e, "error")
+            conn.close()
+            return render_template("house_form.html",
+                cities=cities, form=request.form,
+                mode="edit", house=house,
+                default_listing_type=default_listing_type,
+                rooms_count=rooms_count)
+
+        # Guard: bedrooms_total can't drop below actual configured rooms
+        if payload.get("bedrooms_total", 0) < rooms_count:
+            payload["bedrooms_total"] = rooms_count
+
+        house_repo.update_house(conn, lid, hid, payload)
+
+        try:
+            recompute_house_summaries(conn, hid)
+        except Exception:
+            pass
+
+        conn.close()
+        flash("House updated.", "ok")
+        return redirect(url_for("landlord.landlord_houses"))
+
+    # GET
+    form = dict(house)
+    form.setdefault(
+        "bills_option",
+        house.get("bills_option") or ("yes" if (house.get("bills_included") == 1) else "no")
+    )
+    conn.close()
+    return render_template("house_form.html", cities=cities, form=form,
+        mode="edit", house=house,
+        default_listing_type=default_listing_type,
+        rooms_count=rooms_count)
+
+# NOTE:
+# The old inline delete route has been removed to avoid a duplicate rule.
+# Deletion is now handled by landlord/delete.py (endpoint: landlord.delete_house).
