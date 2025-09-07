@@ -3,6 +3,120 @@ Student Palace – Handover List (rolled back to bulk editing pages stable point
 
 
 
+06/06/2025
+
+
+
+Student Palace – Public Property Page Handover
+
+1. Page purpose
+	•	Displays a single property (/p/<house_id>).
+	•	Shows landlord verification, title/address, images, highlights, facilities, bills included, description, key details, rooms, and landlord info.
+
+⸻
+
+2. Data sources
+
+All data comes from the database and is passed to the template by public.py:
+	•	House (houses table):
+	•	id, title, city, address
+	•	bedrooms_total
+	•	shared_bathrooms
+	•	letting_type (whole or share)
+	•	gender_preference (Male, Female, Mixed)
+	•	epc_rating
+	•	listing_type (owner or agent)
+	•	bills_option (values: yes, no, some)
+	•	bills_util_gas, bills_util_electric, bills_util_water, bills_util_broadband, bills_util_tv
+	•	Amenities flags: cctv, off_street_parking, local_parking, bike_storage, washing_machine, tumble_dryer, dishwasher, cooker, microwave, coffee_maker, central_heating, air_conditioning, vacuum, wifi, wired_internet, common_area_tv, garden, roof_terrace, games_room, cinema_room
+	•	Rooms (rooms table):
+	•	id, name, is_let
+	•	price_pcm
+	•	bed_size, room_size
+	•	ensuite
+	•	description
+	•	Images (house_images table):
+	•	file_path
+	•	is_primary, sort_order
+	•	Landlord (landlord_profiles + landlords tables):
+	•	display_name
+	•	public_slug
+	•	is_verified
+	•	email
+
+⸻
+
+3. What’s already implemented
+	•	✅ Verified banner: Shows ✅ or ❌ with text.
+	•	✅ Owner/agent badge: Now placed on the verified banner (not in the title box).
+	•	✅ Title card: Shows property title, short address, EPC label, bills badge, and landlord name + logo.
+	•	✅ Images: Hero image + up to 5 thumbnails.
+	•	✅ Facilities grid: Amenities from houses fields.
+	•	✅ Bills included card: Icons for utilities if bills_option is yes or some.
+	•	✅ Description card: house.description.
+	•	✅ Key details card: Bedrooms, letting type, gender preference, shared bathrooms.
+	•	✅ Rooms grid: Each room’s name, status (Let/Available), bed size, size, price, description.
+	•	✅ Landlord card: Landlord name (linked if public_slug), verified tick, email.
+
+⸻
+
+4. Highlights box (status)
+
+Currently displays:
+	•	Bills summary (all/some/none).
+	•	Bedrooms total.
+	•	Ensuites total.
+	•	Available rooms count.
+
+⸻
+
+5. Outstanding edits (not finished yet)
+
+Here’s the exact logic still to apply to the Highlights box:
+
+a) Gender
+	•	If house.gender_preference == 'Male' → show: “This house identifies as male”
+	•	If house.gender_preference == 'Female' → show: “This house identifies as female”
+	•	If house.gender_preference == 'Mixed' → show nothing.
+
+b) Room price
+	•	If all rooms have the same price_pcm → show: “Rooms £”
+	•	If prices vary → show: “Rooms from £<cheapest_price>”
+
+c) Letting type availability wording
+	•	If house.letting_type == 'whole':
+→ “Suitable for a group of {{ house.bedrooms_total }}”
+	•	If house.letting_type == 'share' and all rooms available (rooms_available == bedrooms_total):
+→ “Available for a group of {{ house.bedrooms_total }}”
+→ “Also suitable as individual rooms”
+	•	If house.letting_type == 'share' and partial rooms available (rooms_available < bedrooms_total):
+→ “Suitable as individual rooms”
+
+d) Shared bathrooms
+	•	Already in Key details, but should also be added to Highlights if > 0.
+
+⸻
+
+6. Known issues
+	•	❌ In some past versions the template broke (missing {% endblock %}) — the current working copy does have the endblock at the bottom, so keep that as your rollback-safe base.
+	•	❌ Layout “exploding” came from misplaced or half-written ul/li inside Highlights — fixed by ensuring every if/elif/else ends cleanly before <ul> is closed.
+
+⸻
+
+7. Next steps to finish this page
+	1.	Start from your current working copy (the one you pasted above with endblock).
+	2.	Add the 3 pending highlight logic rules (gender, room price, letting type).
+	3.	Carefully insert them inside the Highlights <ul>, making sure each {% if %} / {% endif %} matches.
+	4.	Test with:
+	•	A whole house listing.
+	•	A house share with all rooms available.
+	•	A house share with partial rooms available.
+	•	Gender set to Male, Female, and Mixed.
+	•	Rooms with equal price vs. mixed prices.
+
+
+
+
 
 
 Student Palace – Handover Sheet
