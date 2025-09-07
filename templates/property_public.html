@@ -313,16 +313,100 @@
       <p style="white-space:pre-wrap">{{ house.description or "No description provided yet." }}</p>
     </div>
 
-    {# Key details #}
-    <div class="card card--accent-lr" style="margin-bottom:12px">
-      <h2 style="margin:0 0 8px">Key details</h2>
-      <div class="grid grid-2">
-        <p><strong>Bedrooms:</strong> {{ house.bedrooms_total }}</p>
-        <p><strong>Letting type:</strong> {{ "Whole property" if house.letting_type=="whole" else "Room only" }}</p>
-        <p><strong>Gender preference:</strong> {{ house.gender_preference }}</p>
-        <p><strong>Shared bathrooms:</strong> {{ house.shared_bathrooms }}</p>
-      </div>
-    </div>
+
+
+{# Key details (mirrors Highlights) #}
+<div class="card card--accent-lr keydetails-box" style="margin-bottom:12px">
+  <h2 style="margin:0 0 8px">Key details</h2>
+
+  <div class="grid grid-2">
+    {# Bedrooms #}
+    {% if house.bedrooms_total is not none %}
+      <p><strong>Bedrooms:</strong> {{ house.bedrooms_total|int }}</p>
+    {% endif %}
+
+    {# Available rooms #}
+    {% if rooms and ns.avail > 0 %}
+      <p><strong>Available rooms:</strong> {{ ns.avail }}</p>
+    {% endif %}
+
+    {# Letting type #}
+    <p><strong>Letting type:</strong>
+      {{ "Whole property (group)" if house.letting_type=="whole" else "Room only (individuals & group)" }}
+    </p>
+
+    {# Gender preference #}
+    {% if house.gender_preference in ['Male','Male Only'] %}
+      <p><strong>Gender preference:</strong> Male only</p>
+    {% elif house.gender_preference in ['Female','Female Only'] %}
+      <p><strong>Gender preference:</strong> Female only</p>
+    {% else %}
+      <p><strong>Gender preference:</strong> Mixed / Any</p>
+    {% endif %}
+
+    {# Ensuites total #}
+    {% if ns.ens > 0 %}
+      <p><strong>Ensuites:</strong> {{ ns.ens }}</p>
+    {% endif %}
+
+    {# Shared bathrooms #}
+    {% if house.shared_bathrooms is not none and (house.shared_bathrooms|int) > 0 %}
+      <p><strong>Shared bathrooms:</strong> {{ house.shared_bathrooms|int }}</p>
+    {% endif %}
+
+    {# Cleaning service #}
+    {% if house.cleaning_service and house.cleaning_service|lower not in ['none','no','false','0'] %}
+      <p><strong>Cleaning:</strong> Included</p>
+    {% endif %}
+
+    {# Bills #}
+    {% if bills_mode == 'yes' %}
+      <p><strong>Bills:</strong> All included</p>
+    {% elif bills_mode == 'some' and any_util %}
+      <p><strong>Bills:</strong> Some included
+        {% set util_labels = [] %}
+        {% if house.bills_util_gas in T %}{% set util_labels = util_labels + ['Gas'] %}{% endif %}
+        {% if house.bills_util_electric in T %}{% set util_labels = util_labels + ['Electric'] %}{% endif %}
+        {% if house.bills_util_water in T %}{% set util_labels = util_labels + ['Water'] %}{% endif %}
+        {% if house.bills_util_broadband in T %}{% set util_labels = util_labels + ['Broadband'] %}{% endif %}
+        {% if house.bills_util_tv in T %}{% set util_labels = util_labels + ['TV'] %}{% endif %}
+        {% if util_labels|length %} ({{ util_labels|join(', ') }}){% endif %}
+      </p>
+    {% endif %}
+
+    {# Couples / Disabled #}
+    {% if ns.couples > 0 %}
+      <p><strong>Rooms for couples:</strong> {{ ns.couples }}</p>
+    {% endif %}
+    {% if ns.disabled > 0 %}
+      <p><strong>Accessible rooms:</strong> {{ ns.disabled }}</p>
+    {% endif %}
+
+    {# Room price summary #}
+    {% if have_prices %}
+      {% if prices_equal %}
+        <p><strong>Room price:</strong> £{{ min_price }} pcm</p>
+      {% else %}
+        <p><strong>Room price:</strong> from £{{ min_price }} pcm</p>
+      {% endif %}
+    {% endif %}
+
+    {# EPC rating + download #}
+    {% if epc_label %}
+      <p><strong>EPC:</strong> {{ epc_label }}</p>
+    {% endif %}
+    {% if epc_pdf_url %}
+      <p style="margin:0">
+        <a href="{{ epc_pdf_url }}" class="badge" style="border:1px solid var(--border); padding:4px 10px; border-radius:999px; text-decoration:none">
+          Download EPC PDF
+        </a>
+      </p>
+    {% endif %}
+  </div>
+</div>
+
+
+
 
     {# Rooms #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
