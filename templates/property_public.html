@@ -46,13 +46,13 @@
         {# RIGHT SIDE: landlord name + logo (same style as title) #}
         {% if landlord and (landlord.display_name or landlord.public_slug) %}
           <div style="display:flex;align-items:center;gap:8px">
-            {% if landlord.logo_url %}
-              <img
-                src="{{ landlord.logo_url }}"
-                alt="{{ landlord.display_name or 'Landlord' }} logo"
-                style="height:1.6em; width:auto; object-fit:contain;"
-              >
-            {% endif %}
+           {% if landlord.logo_path %}
+  <img
+    src="{{ url_for('static', filename=landlord.logo_path) }}"
+    alt="{{ landlord.display_name or 'Landlord' }} logo"
+    style="height:1.6em; width:auto; object-fit:contain;"
+  >
+{% endif %}
             <h1 class="mt-0" style="margin:0">
               {% if landlord.public_slug %}
                 <a href="/l/{{ landlord.public_slug }}" style="text-decoration:none; color:inherit">
