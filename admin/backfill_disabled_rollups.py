@@ -6,7 +6,7 @@ from utils_summaries import recompute_all_houses_disabled
 def run() -> str:
     """
     Recompute disabled-related house rollups for ALL houses.
-    Safe to run multiple times.
+    Safe and idempotent.
     """
     conn = get_db()
     try:
