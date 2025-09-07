@@ -129,15 +129,9 @@
                               (house.bills_util_water in T) or (house.bills_util_broadband in T) or
                               (house.bills_util_tv in T) %}
 
-{# Prep flags: any room suitable for couples / disabled (robust int checks) #}
-{% set couples_any = false %}
-{% set disabled_any = false %}
-{% if rooms %}
-  {% for r in rooms %}
-    {% if (r.couples_ok | int) == 1 %}{% set couples_any = true %}{% endif %}
-    {% if (r.disabled_ok | int) == 1 %}{% set disabled_any = true %}{% endif %}
-  {% endfor %}
-{% endif %}
+{# Use house rollups: any rooms suitable for couples/disabled? #}
+{% set couples_any  = (house.suitable_for_couples_total  | int) > 0 %}
+{% set disabled_any = (house.suitable_for_disabled_total | int) > 0 %}
 
             
         <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
