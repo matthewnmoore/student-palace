@@ -30,11 +30,19 @@
       {% endif %}
     </div>
 
-    {# Title + meta #}
+    {# Title + meta, landlord name/logo added inside same h1 style #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
         <div>
-          <h1 class="mt-0" style="margin:0">{{ house.title }}</h1>
+          <h1 class="mt-0" style="margin:0; display:flex; align-items:center; gap:12px">
+            {{ house.title }}
+            {% if landlord and landlord.display_name %}
+              <span style="font-weight:inherit; color:inherit">{{ landlord.display_name }}</span>
+              {% if landlord.logo %}
+                <img src="{{ url_for('static', filename=landlord.logo) }}" alt="Logo" style="max-height:40px; width:auto">
+              {% endif %}
+            {% endif %}
+          </h1>
 
           {# SHORT ADDRESS (street + rest, no number/house name) #}
           {% set full_addr = (house.address or '') ~ (', ' ~ house.city if house.city) %}
@@ -44,17 +52,19 @@
           </p>
         </div>
 
-        {# Landlord name + logo on the right #}
-        {% if landlord and landlord.display_name %}
-          <div style="display:flex;align-items:center;gap:8px">
-            {% if landlord.logo %}
-              <img src="{{ url_for('static', filename=landlord.logo) }}" alt="{{ landlord.display_name }} logo" style="max-height:40px; width:auto;">
-            {% endif %}
-            <span style="font-size:1.6rem; font-weight:700">{{ landlord.display_name }}</span>
-          </div>
-        {% endif %}
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          {% if epc_label %}
+            <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px; font-weight:600">{{ epc_label }}</span>
+          {% endif %}
+          {% if bills_label %}
+            <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px">{{ bills_label }}</span>
+          {% endif %}
+          {# (owner/agent badge moved to verified banner above) #}
+        </div>
       </div>
     </div>
+
+
 
 
 
