@@ -92,6 +92,13 @@
             {% endif %}
           </div>
 
+
+{% set T = ['1', 1, true, 'on'] %}
+{% set bills_mode = house and (house.bills_option or house.bills_included or 'no') %}
+
+
+
+          
           <aside class="media-right highlights-box">
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
             <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
