@@ -317,6 +317,15 @@
       <p><strong>Bedrooms:</strong> {{ house.bedrooms_total|int }}</p>
     {% endif %}
 
+
+{% if rooms and ns.avail > 0 %}
+  <p><strong>Available rooms:</strong> {{ ns.avail }}</p>
+{% endif %}
+
+
+
+
+    
     {# Letting type #}
     <p><strong>Letting type:</strong>
       {{ "Whole property (group)" if house.letting_type=="whole" else "Room only (individuals & group)" }}
