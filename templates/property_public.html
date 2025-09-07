@@ -104,16 +104,24 @@
             {% set T = ['1', 1, true, 'on'] %}
 
             {# Aggregate room stats (ensuites, availability, prices) #}
-            {% set ns = namespace(ens=0, avail=0) %}
-            {% set p = namespace(prices=[]) %}
-            {% if rooms %}
-              {% for r in rooms %}
-                {% if r.ensuite in T %}{% set ns.ens = ns.ens + 1 %}{% endif %}
-                {% if not (r.is_let in T) %}{% set ns.avail = ns.avail + 1 %}{% endif %}
-                {% set rp = (r.price_pcm|int) %}
-                {% if rp > 0 %}{% set p.prices = p.prices + [rp] %}{% endif %}
-              {% endfor %}
-            {% endif %}
+         
+
+
+{% set ns = namespace(ens=0, avail=0, couples=0, disabled=0) %}
+{% set p = namespace(prices=[]) %}
+{% if rooms %}
+  {% for r in rooms %}
+    {% if r.ensuite in T %}{% set ns.ens = ns.ens + 1 %}{% endif %}
+    {% if not (r.is_let in T) %}{% set ns.avail = ns.avail + 1 %}{% endif %}
+    {% if r.couples_ok in T %}{% set ns.couples = ns.couples + 1 %}{% endif %}
+    {% if r.disabled_ok in T %}{% set ns.disabled = ns.disabled + 1 %}{% endif %}
+    {% set rp = (r.price_pcm|int) %}
+    {% if rp > 0 %}{% set p.prices = p.prices + [rp] %}{% endif %}
+  {% endfor %}
+{% endif %}
+
+
+            
             {% set total_rooms = rooms|length if rooms else 0 %}
             {% set prices = p.prices %}
             {% set have_prices = prices|length > 0 %}
@@ -166,6 +174,8 @@
     <li>{{ ns.ens }} ensuites</li>
   {% endif %}
 
+          
+
  {# 5) Shared bathrooms (hide when zero) #}
 {% if house.shared_bathrooms is not none and (house.shared_bathrooms|int) > 0 %}
   <li>{{ house.shared_bathrooms|int }} shared bathrooms</li>
@@ -176,14 +186,14 @@
     <li>Cleaning service included</li>
   {% endif %}
 
-  {# 7) Rooms suitable for couples #}
-  {% if couples_any %}
-    <li>Rooms suitable for couples</li>
+   {# 7) Rooms suitable for couples #}
+  {% if ns.couples > 0 %}
+    <li>{{ ns.couples }} rooms suitable for couples</li>
   {% endif %}
 
   {# 8) Suitable for disabled tenants #}
-  {% if disabled_any %}
-    <li>Suitable for disabled tenants</li>
+  {% if ns.disabled > 0 %}
+    <li>{{ ns.disabled }} rooms suitable for disabled tenants</li>
   {% endif %}
 
   {# 9) Gender (male/female only; blank for mixed) #}
