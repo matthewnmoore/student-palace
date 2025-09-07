@@ -354,9 +354,9 @@
       <p><strong>Shared bathrooms:</strong> {{ house.shared_bathrooms|int }}</p>
     {% endif %}
 
-   {# Cleaning service (use field data directly) #}
+   {# Cleaning service (use field data directly, title-case) #}
 {% if house.cleaning_service and house.cleaning_service|lower not in ['none','no','false','0'] %}
-  <p><strong>Cleaning:</strong> {{ house.cleaning_service }}</p>
+  <p><strong>Cleaning:</strong> {{ house.cleaning_service|title }}</p>
 {% endif %}
 
     {# Bills #}
