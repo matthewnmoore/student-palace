@@ -686,3 +686,99 @@ Student Palace – Authoritative Handover (facts only)
 	•	Viewing/enquiry workflow.
 	•	Landlord public profile pages.
 	•	Room images (only houses have images right now).
+
+
+
+
+
+
+STUDENT PALACE – PROJECT SUMMARY (ROLLUP)
+
+Core Context
+	•	Platform: Flask + SQLite app.
+	•	Purpose: Student Palace property management and search platform.
+	•	Key actors: Admin, Landlords, Students.
+	•	DB persists at /opt/render/project/src/static/uploads/houses/student_palace.db.
+	•	Static uploads live under /static/uploads/houses (photos), plus /static/uploads/floorplans (floor plans).
+
+Pages built so far
+	•	Landlord signup/login.
+	•	Landlord dashboard.
+	•	Add/edit house form.
+	•	Rooms tab (add/edit room).
+	•	Landlord photos (house photos).
+	•	Landlord floorplans.
+	•	EPC upload.
+	•	Landlord room photos (new, now working).
+	•	Student homepage.
+	•	Student property search results.
+	•	Student property detail.
+	•	Student room detail.
+	•	Admin login.
+	•	Admin dashboard.
+	•	Admin cities management.
+	•	Admin landlords list + landlord detail (fixed).
+	•	Admin images overview.
+
+Image handling helpers
+	•	image_helpers.py (handles house images, watermarking, resizing, schema enforcement, CRUD on house_images table).
+	•	image_helpers_floorplans.py (handles floor plan uploads, resizing, watermarking, CRUD on house_floorplans table).
+	•	Room images are being added in parallel (image_helpers_rooms.py will mirror the same structure).
+
+Rules for images
+	•	Maximum 5 images per house, room, or floorplan.
+	•	Allowed formats: JPEG, PNG, WebP, GIF.
+	•	Max file size: 5 MB.
+	•	Images resized to 1600px max side.
+	•	Watermark “Student Palace” added bottom-right.
+	•	Filenames stored without leading slash (relative to /static).
+	•	DB rows store width, height, bytes, created_at, primary flag, sort_order.
+	•	Primary image is auto-assigned if none exists.
+
+Landlord rooms
+	•	Room listing page shows all rooms for a house.
+	•	New button added beside “Edit” and “Delete” = “Photos” linking to /landlord/houses//rooms//photos.
+	•	Room photos now upload successfully and render correctly.
+
+Admin landlord pages
+	•	Admin landlords list (search, view list, Open button).
+	•	Admin landlord detail page fixed (was broken because of incorrect url_for; now uses admin.admin_landlords and admin.admin_landlord_detail consistently).
+	•	Admin landlord detail shows: account details, profile fields, verification, password reset, delete landlord.
+	•	Properties list added at bottom of landlord detail page.
+	•	Admin login page working.
+
+Known issues addressed
+	1.	Import errors in landlord/room_photos.py fixed (accept_upload_room was missing; we aligned with house photos pattern).
+	2.	Admin landlord detail page fixed by correcting template references to url_for(“admin.admin_landlords”) instead of url_for(“admin_landlords”).
+	3.	Missing “Photos” button on room list page was added so landlord can manage room photos.
+	4.	Confirmed watermark pipeline works (both for houses and rooms).
+	5.	Confirmed DB schema guards (house_images, house_floorplans) exist.
+
+Security note (Critical)
+	•	Problem: landlord-only routes were addressable by predictable IDs (e.g., /landlord/houses/123/edit). Without ownership checks, Landlord A could type Landlord B’s house ID and see/edit B’s data.
+	•	This is an Insecure Direct Object Reference (IDOR). Serious risk for data leaks and unauthorized access.
+	•	Fix: every landlord route must require login and enforce ownership checks:
+• For houses: verify house_id belongs to current landlord.
+• For rooms: verify room_id belongs to house_id AND house belongs to landlord.
+	•	Abort with 403/404 if not owner.
+	•	Apply checks consistently to view, edit, delete, upload photos, floorplans, EPC, etc.
+	•	Extra hardening: rate-limit landlord endpoints, log denied attempts, prefer UUIDs for public URLs.
+
+What to audit next
+	•	Ensure ownership checks across ALL landlord routes.
+	•	Confirm image_helpers_rooms.py exists and mirrors house/floorplans helpers.
+	•	Confirm landlord templates consistently use the new room photos link.
+	•	Ensure admin routes cannot be accessed by landlords.
+	•	Ensure public pages (student search/property detail) do not leak unpublished or let properties.
+
+Deployment checkpoints
+	•	Baseline stable after admin counters added (2025-08-31).
+	•	Images admin page live, working.
+	•	Houses, rooms, and photos all saving correctly.
+	•	Landlord and admin logins working correctly.
+	•	Room photos confirmed working first try.
+	•	Admin landlord detail fixed, now functional.
+
+⸻
+
+That’s the full package of everything we’ve covered: what works, what was fixed, what helpers exist, rules, security concerns, and what to check next.
