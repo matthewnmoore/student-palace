@@ -155,7 +155,7 @@ def _parse_or_delegate(form, mode: str, default_listing_type: str,
     address_hidden = fget("address")
     address = _normalize_full_address(address_hidden) if address_hidden else ""
 
-   bills_option = (form.get("bills_option") or "no").strip().lower()
+    bills_option = (form.get("bills_option") or "no").strip().lower()
     if bills_option not in ("yes", "no", "some"):
         bills_option = "no"
     bills_included_legacy = 1 if bills_option == "yes" else 0
