@@ -96,48 +96,57 @@
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
             <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
 
-              {# Price (top) #}
-              {% if room.price_pcm and room.price_pcm|int > 0 %}
-                {% set ppw = ((room.price_pcm|int) * 12 // 52) %}
-                <li>£{{ room.price_pcm|int }} pcm {% if ppw>0 %}(~£{{ ppw }} pw){% endif %}</li>
-              {% else %}
-                <li>Price on request</li>
-              {% endif %}
+             {# Price (top) #}
+{% if room.price_pcm and room.price_pcm|int > 0 %}
+  {% set ppw = ((room.price_pcm|int) * 12 // 52) %}
+  <li>£{{ room.price_pcm|int }} pcm {% if ppw>0 %}(~£{{ ppw }} pw){% endif %}</li>
+{% else %}
+  <li>Price on request</li>
+{% endif %}
 
-              {# Ensuite / bathroom #}
-              {% if room.ensuite in T %}
-                <li>Ensuite bathroom</li>
-              {% else %}
-                <li>Shared bathroom</li>
-              {% endif %}
+{# Ensuite / bathroom #}
+{% if room.ensuite in T %}
+  <li>Ensuite bathroom</li>
+{% else %}
+  <li>Shared bathroom</li>
+{% endif %}
 
-              {# Bed + size #}
-              {% if room.bed_size %}<li>{{ room.bed_size }} bed</li>{% endif %}
-              {% if room.room_size %}<li>{{ room.room_size }}</li>{% endif %}
+{# Bed + size #}
+{% if room.bed_size %}<li>{{ room.bed_size }} bed</li>{% endif %}
+{% if room.room_size %}<li>{{ room.room_size }}</li>{% endif %}
 
-              {# Couples / accessibility #}
-              {% if room.couples_ok in T %}<li>Suitable for couples</li>{% endif %}
-              {% if room.disabled_ok in T %}<li>Accessible room</li>{% endif %}
+{# Couples / accessibility #}
+{% if room.couples_ok in T %}<li>Suitable for couples</li>{% endif %}
+{% if room.disabled_ok in T %}<li>Accessible room</li>{% endif %}
 
-              {# Availability (basic – dates may not be present) #}
-              {% if room.is_let in T %}
-                <li>Currently let</li>
-              {% else %}
-                <li>Available now</li>
-              {% endif %}
+{# Availability (basic – dates may not be present) #}
+{% if room.is_let in T %}
+  <li>Currently let</li>
+{% else %}
+  <li>Available now</li>
+{% endif %}
 
-              {# House-level: bills + bedrooms for context #}
-              {% if bills_mode == 'yes' %}
-                <li>All bills included</li>
-              {% elif bills_mode == 'some' %}
-                <li>Some bills included</li>
-              {% endif %}
-              {% if house and house.bedrooms_total is not none %}
-                <li>House: {{ house.bedrooms_total|int }} bedrooms</li>
-              {% endif %}
-            </ul>
-          </aside>
-        </div>
+{# House-level: bills #}
+{% if bills_mode == 'yes' %}
+  <li>All bills included</li>
+{% elif bills_mode == 'some' %}
+  <li>Some bills included</li>
+{% endif %}
+
+{# House-level: custom feature highlights (1–5) #}
+{% if house and house.feature1 %}<li>{{ house.feature1 }}</li>{% endif %}
+{% if house and house.feature2 %}<li>{{ house.feature2 }}</li>{% endif %}
+{% if house and house.feature3 %}<li>{{ house.feature3 }}</li>{% endif %}
+{% if house and house.feature4 %}<li>{{ house.feature4 }}</li>{% endif %}
+{% if house and house.feature5 %}<li>{{ house.feature5 }}</li>{% endif %}
+
+{# House-level: bedrooms for context #}
+{% if house and house.bedrooms_total is not none %}
+  <li>House: {{ house.bedrooms_total|int }} bedrooms</li>
+{% endif %}
+</ul>
+</aside>
+</div>
       {% else %}
         <div style="aspect-ratio:4/3; border:1px dashed var(--border); border-radius:12px; display:flex;align-items:center;justify-content:center; color:#b9a6ff; font-weight:700">
           NO PHOTOS YET
