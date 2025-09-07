@@ -11,6 +11,7 @@ from auth import auth_bp
 from admin import bp as admin_bp                 # shared admin blueprint
 from landlord import bp as landlord_bp           # landlord blueprint
 from errors import register_error_handlers
+from room_public import room_public_bp
 
 
 def create_app() -> Flask:
@@ -91,6 +92,7 @@ def create_app() -> Flask:
 
     # Register blueprints
     app.register_blueprint(public_bp)
+    app.register_blueprint(room_public_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(landlord_bp)
