@@ -231,6 +231,35 @@ def ensure_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_house ON house_images(house_id);")
         c.execute("CREATE INDEX IF NOT EXISTS idx_house_images_primary ON house_images(house_id, is_primary DESC, sort_order ASC, id ASC);")
 
+
+    # --- Room images (mirror of house_images) ---
+    if not table_exists(conn, "room_images"):
+        c.execute("""
+        CREATE TABLE room_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            room_id INTEGER NOT NULL,
+            file_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,        -- relative under /static (e.g. uploads/rooms/xyz.jpg)
+            width INTEGER NOT NULL,
+            height INTEGER NOT NULL,
+            bytes INTEGER NOT NULL,
+            is_primary INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            filename TEXT NOT NULL,         -- canonical duplicate of file_name
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+        );
+        """)
+        c.execute("CREATE INDEX IF NOT EXISTS idx_room_images_room ON room_images(room_id);")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_room_images_primary ON room_images(room_id, is_primary DESC, sort_order ASC, id ASC);")
+
+
+
+
+
+
+
+    
     # --- House documents (EPC PDFs) ---
     if not table_exists(conn, "house_documents"):
         c.execute("""
