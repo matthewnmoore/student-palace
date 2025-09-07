@@ -147,7 +147,7 @@
 {% endif %}
 
             
-         <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
+        <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
   {# 1) Bills #}
   {% if bills_mode == 'yes' %}
     <li>All bills included</li>
@@ -157,13 +157,13 @@
     <li>No bills included</li>
   {% endif %}
 
-{# 2) Let-type messaging (simple rules) #}
-{% if house.letting_type == 'whole' %}
-  <li>Suitable for a group of {{ house.bedrooms_total }}</li>
-{% elif house.letting_type == 'share' %}
-  <li>Suitable as individual rooms</li>
-  <li>Suitable for a group</li>
-{% endif %}
+  {# 2) Let-type messaging (simple rules) #}
+  {% if house.letting_type == 'whole' %}
+    <li>Suitable for a group of {{ house.bedrooms_total }}</li>
+  {% elif house.letting_type == 'share' %}
+    <li>Suitable as individual rooms</li>
+    <li>Suitable for a group</li>
+  {% endif %}
 
   {# 3) Total bedrooms #}
   {% if house.bedrooms_total is not none %}
@@ -185,14 +185,24 @@
     <li>Cleaning service included</li>
   {% endif %}
 
-  {# 7) Gender (male/female only; blank for mixed) #}
+  {# 7) Rooms suitable for couples #}
+  {% if couples_any %}
+    <li>Rooms suitable for couples</li>
+  {% endif %}
+
+  {# 8) Suitable for disabled tenants #}
+  {% if disabled_any %}
+    <li>Suitable for disabled tenants</li>
+  {% endif %}
+
+  {# 9) Gender (male/female only; blank for mixed) #}
   {% if house.gender_preference in ['Male','Male Only'] %}
     <li>This house identifies as male</li>
   {% elif house.gender_preference in ['Female','Female Only'] %}
     <li>This house identifies as female</li>
   {% endif %}
 
-  {# 8) Room price summary #}
+  {# 10) Room price summary #}
   {% if have_prices %}
     {% if prices_equal %}
       <li>Rooms £{{ min_price }}</li>
