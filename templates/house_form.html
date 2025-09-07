@@ -288,52 +288,90 @@
       </label>
     </div>
 
-   <!-- FEATURE HIGHLIGHTS -->
+
+
+
+
+
+<!-- FEATURE HIGHLIGHTS -->
 <div class="card card--accent-edges">
   <h2 class="mt-0">Feature highlights</h2>
   <p class="help">These 5 short points will show in the public property page highlights box. Keep them snappy (max 40 characters each).</p>
-  <div class="grid grid-5">
-    <label class="field">
-      <span class="label">Feature 1</span>
-      <input type="text" name="feature1" maxlength="40"
+
+  <div class="feat-list">
+    <div class="feat-row">
+      <label class="feat-label" for="feature1">Feature 1</label>
+      <input class="feat-input" type="text" id="feature1" name="feature1" maxlength="40"
              value="{{ (form.feature1 or '') if form else '' }}">
-    </label>
-    <label class="field">
-      <span class="label">Feature 2</span>
-      <input type="text" name="feature2" maxlength="40"
+    </div>
+
+    <div class="feat-row">
+      <label class="feat-label" for="feature2">Feature 2</label>
+      <input class="feat-input" type="text" id="feature2" name="feature2" maxlength="40"
              value="{{ (form.feature2 or '') if form else '' }}">
-    </label>
-    <label class="field">
-      <span class="label">Feature 3</span>
-      <input type="text" name="feature3" maxlength="40"
+    </div>
+
+    <div class="feat-row">
+      <label class="feat-label" for="feature3">Feature 3</label>
+      <input class="feat-input" type="text" id="feature3" name="feature3" maxlength="40"
              value="{{ (form.feature3 or '') if form else '' }}">
-    </label>
-    <label class="field">
-      <span class="label">Feature 4</span>
-      <input type="text" name="feature4" maxlength="40"
+    </div>
+
+    <div class="feat-row">
+      <label class="feat-label" for="feature4">Feature 4</label>
+      <input class="feat-input" type="text" id="feature4" name="feature4" maxlength="40"
              value="{{ (form.feature4 or '') if form else '' }}">
-    </label>
-    <label class="field">
-      <span class="label">Feature 5</span>
-      <input type="text" name="feature5" maxlength="40"
+    </div>
+
+    <div class="feat-row">
+      <label class="feat-label" for="feature5">Feature 5</label>
+      <input class="feat-input" type="text" id="feature5" name="feature5" maxlength="40"
              value="{{ (form.feature5 or '') if form else '' }}">
-    </label>
+    </div>
   </div>
 </div>
 
 <style>
-  .grid.grid-5 {
-    display:grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap:12px;
+  /* Feature highlights: 5 stacked rows, label left, input right */
+  .feat-list { display: grid; gap: 12px; }
+  .feat-row {
+    display: grid;
+    grid-template-columns: 160px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
   }
-  @media (max-width: 900px){
-    .grid.grid-5 { grid-template-columns: repeat(2, 1fr); }
-  }
-  @media (max-width: 560px){
-    .grid.grid-5 { grid-template-columns: 1fr; }
+  .feat-label { font-weight: 700; }
+  .feat-input { width: 100%; }
+  @media (max-width: 640px) {
+    .feat-row { grid-template-columns: 1fr; }
+    .feat-label { margin-bottom: 4px; }
   }
 </style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
     <!-- MEDIA (accented) -->
     <div class="card card--accent-edges">
       <h2 class="mt-0">Media &amp; documents</h2>
