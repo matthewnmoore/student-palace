@@ -10,7 +10,7 @@
     <div class="card card--accent-lr"><p class="help">This listing doesn’t exist.</p></div>
   {% else %}
 
-    {# Verified banner + owner/agent #}
+    {# Verified banner #}
     {% set verified = landlord and (landlord.is_verified|default(0, true)) %}
     <div class="card card--accent-lr" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:10px">
@@ -23,46 +23,52 @@
         {% endif %}
       </div>
       {% if house.listing_type in ("owner","agent") %}
-        <div style="font-weight:600; white-space:nowrap">
+        <div style="font-weight:600">
           {{ "Letting Agent" if house.listing_type=="agent" else "Owner / Landlord" }}
         </div>
       {% endif %}
     </div>
 
-    {# Title + landlord name + logo #}
+    {# Title + meta (with landlord branding) #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
         <div>
           <h1 class="mt-0" style="margin:0">{{ house.title }}</h1>
+
+          {# SHORT ADDRESS (street + rest, no number/house name) #}
           {% set full_addr = (house.address or '') ~ (', ' ~ house.city if house.city) %}
-          <p id="short-address" class="muted" style="margin:6px 0 0" data-full="{{ full_addr|e }}">
+          <p id="short-address" class="muted" style="margin:6px 0 0"
+             data-full="{{ full_addr|e }}">
             {{ full_addr }}
           </p>
         </div>
 
-        {% if landlord %}
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <h1 class="mt-0" style="margin:0; font-size:1.5rem">{{ landlord.display_name or "Landlord" }}</h1>
-            {% if landlord.logo_path %}
-              <img src="{{ url_for('static', filename=landlord.logo_path) }}"
-                   alt="{{ landlord.display_name }} logo"
-                   style="max-height:50px; height:auto; width:auto;">
-            {% endif %}
-          </div>
-        {% endif %}
+        <div style="display:flex;align-items:center;gap:6px">
+          {% if landlord and landlord.display_name %}
+            <h1 style="margin:0;font-size:1.2rem">{{ landlord.display_name }}</h1>
+          {% endif %}
+          {% if landlord and landlord.logo %}
+            <img src="{{ url_for('static', filename=landlord.logo) }}"
+                 alt="{{ landlord.display_name }} logo"
+                 style="height:28px;width:auto">
+          {% endif %}
+        </div>
       </div>
     </div>
 
-    {# MEDIA: images + highlights #}
+    {# MEDIA: main image + thumbs + highlights #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       {% if images and images|length > 0 %}
         <div class="media-grid">
           <div class="media-left">
+            {# Main image = first image #}
             {% set main = images[0] %}
             {% set main_src = url_for('static', filename=main.file_path) %}
             <div class="hero-img">
               <img src="{{ main_src }}" alt="Main photo" loading="lazy">
             </div>
+
+            {# Thumbnails: include main as first thumb + up to 4 more (total 5). Show only if >1 image. #}
             {% if images|length > 1 %}
               <div class="thumb-row">
                 {% for img in images[0:5] %}
@@ -75,10 +81,10 @@
             {% endif %}
           </div>
 
-
-          {# Highlights box #}
+          {# === HIGHLIGHTS (friendly wording, new logic) === #}
           <aside class="media-right">
             <h3 class="mt-0" style="margin-top:0">Highlights</h3>
+
             {% set T = ['1', 1, true, 'on'] %}
 
             {# Count ensuites + available rooms #}
@@ -88,48 +94,55 @@
                 {% if r.ensuite in T %}{% set ns.ens = ns.ens + 1 %}{% endif %}
                 {% if not (r.is_let in T) %}
                   {% set ns.avail = ns.avail + 1 %}
-                {% endif %}
-                {% if r.price_pcm and r.price_pcm|int > 0 %}
-                  {% set ns.prices = ns.prices + [r.price_pcm|int] %}
+                  {% if r.price_pcm and r.price_pcm|int > 0 %}
+                    {% set ns.prices = ns.prices + [r.price_pcm|int] %}
+                  {% endif %}
                 {% endif %}
               {% endfor %}
             {% endif %}
 
+            {# Bills summary #}
             {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
             {% set any_util = (house.bills_util_gas in T) or (house.bills_util_electric in T) or
                               (house.bills_util_water in T) or (house.bills_util_broadband in T) or
                               (house.bills_util_tv in T) %}
 
             <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5; list-style:disc;">
-              {# Bills #}
               {% if bills_mode == 'yes' %}
                 <li>All bills included</li>
               {% elif bills_mode == 'some' and any_util %}
                 <li>Some bills included</li>
               {% endif %}
-
-              {# Let type logic #}
-              {% if house.letting_type == 'whole' %}
+              {# Letting type logic #}
+              {% if house.letting_type == "whole" %}
                 <li>Suitable for a group of {{ house.bedrooms_total }}</li>
-              {% elif house.letting_type == 'share' and ns.avail == house.bedrooms_total %}
+              {% elif house.letting_type == "room" and ns.avail == house.bedrooms_total %}
                 <li>Available for a group of {{ house.bedrooms_total }}</li>
                 <li>Also suitable as individual rooms</li>
-              {% elif house.letting_type == 'share' and ns.avail < house.bedrooms_total %}
+              {% elif house.letting_type == "room" and ns.avail < house.bedrooms_total %}
                 <li>Suitable as individual rooms</li>
               {% endif %}
 
-              <li>{{ house.bedrooms_total|default(0) }} bedrooms</li>
-              {% if ns.ens > 0 %}<li>{{ ns.ens }} ensuites</li>{% endif %}
-              {% if house.shared_bathrooms|int > 0 %}<li>{{ house.shared_bathrooms }} shared bathrooms</li>{% endif %}
+              {% if house.bedrooms_total %}
+                <li>{{ house.bedrooms_total }} bedrooms</li>
+              {% endif %}
 
-              {# Gender #}
-              {% if house.gender_preference == 'Male' %}
+              {% if ns.ens > 0 %}
+                <li>{{ ns.ens }} ensuites</li>
+              {% endif %}
+
+              {% if house.shared_bathrooms %}
+                <li>{{ house.shared_bathrooms }} shared bathrooms</li>
+              {% endif %}
+
+              {# Gender display #}
+              {% if house.gender_preference == "Male" %}
                 <li>This house identifies as male</li>
-              {% elif house.gender_preference == 'Female' %}
+              {% elif house.gender_preference == "Female" %}
                 <li>This house identifies as female</li>
               {% endif %}
 
-              {# Room prices #}
+              {# Room price display #}
               {% if ns.prices|length > 0 %}
                 {% set min_price = ns.prices|min %}
                 {% set max_price = ns.prices|max %}
@@ -149,24 +162,59 @@
       {% endif %}
     </div>
 
-    {# --- Facilities, bills icons, description, key details, rooms, landlord card --- #}
-    {# (unchanged from your working copy except for earlier edits) #}
-    ... [keep the rest as in your working template: Facilities, Bills icons, About, Key details, Rooms grid, Landlord card] ...
+    {# --- FACILITIES (amenities) --- #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      <h2 style="margin:0 0 10px">Facilities</h2>
+      ...
+      {# (keep your working Facilities → Bills icons → About → Key details → Rooms → Landlord card unchanged here) #}
+    </div>
+
   {% endif %}
 </section>
 
+{# --- Minimal CSS for media + facilities --- #}
 <style>
-  .media-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
-  @media (max-width: 860px) { .media-grid { grid-template-columns: 1fr; } }
+  .media-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 860px) {
+    .media-grid { grid-template-columns: 1fr; }
+  }
   .media-left { display: grid; gap: 10px; grid-template-rows: auto auto; }
-  .hero-img { aspect-ratio: 4/3; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #f6f3ff; }
+  .hero-img {
+    aspect-ratio: 4/3;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f6f3ff;
+  }
   .hero-img > img { width: 100%; height: 100%; object-fit: cover; display:block; }
-  .thumb-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-  .thumb { border: 1px solid var(--border); border-radius: 10px; aspect-ratio: 4/3; overflow: hidden; padding: 0; background: #fff; cursor: pointer; }
+
+  .thumb-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .thumb {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    aspect-ratio: 4/3;
+    overflow: hidden;
+    padding: 0;
+    background: #fff;
+    cursor: pointer;
+  }
   .thumb img { width: 100%; height: 100%; object-fit: cover; display:block; }
   .thumb.is-active { outline: 2px solid var(--brand); outline-offset: 2px; }
-  .media-right { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: #fff; }
-  .highlights { margin: 8px 0 0; padding-left: 18px; }
+
+  .media-right {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    background: #fff;
+  }
 </style>
 
 <script>
@@ -178,19 +226,32 @@
       const streetTypes = [' Road',' Street',' Avenue',' Lane',' Close',' Drive',' Terrace',' Way',' Place',' Crescent',' Court',' Hill',' Gardens',' Park',' Grove',' View',' Parade',' Square',' Row',' Mews'];
       function extractStreet(line1) {
         let keep = line1, hitIdx = -1;
-        for (const t of streetTypes) { const i = line1.toLowerCase().lastIndexOf(t.toLowerCase()); if (i !== -1) { hitIdx = i; break; } }
-        if (hitIdx !== -1) { const before = line1.slice(0, hitIdx).trim(); const lastSpace = before.lastIndexOf(' '); const start = Math.max(0, lastSpace + 1); keep = line1.slice(start).trim(); }
-        keep = keep.replace(/^((flat|suite|apt|apartment)\b.*?\s)/i, '').trim();
+        for (const t of streetTypes) {
+          const i = line1.toLowerCase().lastIndexOf(t.toLowerCase());
+          if (i !== -1) { hitIdx = i; break; }
+        }
+        if (hitIdx !== -1) {
+          const before = line1.slice(0, hitIdx).trim();
+          const lastSpace = before.lastIndexOf(' ');
+          const start = Math.max(0, lastSpace + 1);
+          keep = line1.slice(start).trim();
+        }
         return keep || line1;
       }
-      if (parts.length) { const street = extractStreet(parts[0]); const rest = parts.slice(1); el.textContent = [street, ...rest].join(', '); }
+      if (parts.length) {
+        const line1 = parts[0];
+        const rest = parts.slice(1);
+        const street = extractStreet(line1);
+        el.textContent = [street, ...rest].join(', ');
+      }
     }
 
     const hero = document.querySelector('.hero-img img');
     if (hero) {
       document.querySelectorAll('.thumb[data-full]').forEach(btn => {
         btn.addEventListener('click', () => {
-          const src = btn.getAttribute('data-full'); if (src) hero.setAttribute('src', src);
+          const src = btn.getAttribute('data-full');
+          if (src) hero.setAttribute('src', src);
           document.querySelectorAll('.thumb').forEach(b => b.classList.remove('is-active'));
           btn.classList.add('is-active');
         });
@@ -199,4 +260,10 @@
   })();
 </script>
 {% endblock %}
-          
+
+
+
+
+
+
+              
