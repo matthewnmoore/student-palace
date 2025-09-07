@@ -391,17 +391,10 @@
       {% endif %}
     {% endif %}
 
-    {# EPC rating + download #}
-    {% if epc_label %}
-      <p><strong>EPC:</strong> {{ epc_label }}</p>
-    {% endif %}
-    {% if epc_pdf_url %}
-      <p style="margin:0">
-        <a href="{{ epc_pdf_url }}" class="badge" style="border:1px solid var(--border); padding:4px 10px; border-radius:999px; text-decoration:none">
-          Download EPC PDF
-        </a>
-      </p>
-    {% endif %}
+    {# EPC rating #}
+{% if house.epc_rating %}
+  <p><strong>EPC:</strong> {{ house.epc_rating|upper }}</p>
+{% endif %}
   </div>
 </div>
 
