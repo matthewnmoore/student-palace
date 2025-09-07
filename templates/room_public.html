@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ (room.name ~ " – " ~ (house.title or "Property") ~ " – " ~ (house.city or "" ) ~ " – Student Palace") if room else "Room – Student Palace" }}
+{% endblock %}
+
+{% block content %}
+<section class="wrap">
+  {% if not room %}
+    <h1>Room not found</h1>
+    <div class="card card--accent-lr"><p class="help">This room doesn’t exist.</p></div>
+  {% else %}
+
+    {# --- VERIFIED + LANDLORD TYPE --- #}
+    {% set verified = landlord and (landlord.is_verified|default(0, true)) %}
+    <div class="card card--accent-lr" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        {% if verified %}
+          <span aria-hidden="true" style="font-size:20px">✅</span>
+          <div style="font-weight:600">This is a Verified landlord.</div>
+        {% else %}
+          <span aria-hidden="true" style="font-size:20px">❌</span>
+          <div style="font-weight:600">This landlord is not verified.</div>
+        {% endif %}
+      </div>
+      {% if house and house.listing_type in ("owner","agent") %}
+        <span class="badge" style="border:1px solid var(--border); padding:4px 10px; border-radius:999px; white-space:nowrap">
+          {{ "Letting Agent" if house.listing_type=="agent" else "Owner / Landlord" }}
+        </span>
+      {% endif %}
+    </div>
+
+    {# --- TITLE AREA --- #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+        <div>
+          <h1 class="mt-0" style="margin:0">{{ room.name or "Room" }}</h1>
+
+          {# Subheading: property + city + back link #}
+          {% set full_addr = ((house.address or '') ~ (', ' ~ house.city if house and house.city)) if house else '' %}
+          <p id="short-address" class="muted" style="margin:6px 0 0"
+             data-full="{{ full_addr|e }}">
+            {% if house %}
+              {{ (house.title or "Property") ~ (", " ~ house.city if house.city) }}
+              • <a href="/p/{{ house.id }}">View whole property</a>
+            {% else %}
+              Property details unavailable
+            {% endif %}
+          </p>
+        </div>
+
+        {# RIGHT: landlord name #}
+        {% if landlord and (landlord.display_name or landlord.public_slug) %}
+          <div style="display:flex;align-items:center;gap:8px">
+            <h1 class="mt-0" style="margin:0">
+              {% if landlord.public_slug %}
+                <a href="/l/{{ landlord.public_slug }}" style="text-decoration:none; color:inherit">
+                  {{ landlord.display_name or "Landlord" }}
+                </a>
+              {% else %}
+                {{ landlord.display_name or "Landlord" }}
+              {% endif %}
+            </h1>
+          </div>
+        {% endif %}
+      </div>
+
+     
+      </div>
+    </div>
+
+    {# --- MEDIA + HIGHLIGHTS --- #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      {% if images and images|length > 0 %}
+        <div class="media-grid">
+          <div class="media-left">
+            {% set main = images[0] %}
+            {% set main_src = url_for('static', filename=main.file_path) %}
+            <div class="hero-img">
+              <img src="{{ main_src }}" alt="Room photo" loading="lazy">
+            </div>
+
+            {% if images|length > 1 %}
+              <div class="thumb-row">
+                {% for img in images[0:5] %}
+                  {% set tsrc = url_for('static', filename=img.file_path) %}
+                  <button class="thumb {% if loop.index0 == 0 %}is-active{% endif %}" type="button" data-full="{{ tsrc }}">
+                    <img src="{{ tsrc }}" alt="Photo {{ loop.index }}" loading="lazy">
+                  </button>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+
+{% set T = ['1', 1, true, 'on'] %}
+{% set bills_mode = house and (house.bills_option or house.bills_included or 'no') %}
+
+
+
+          
+          <aside class="media-right highlights-box">
+            <h3 class="mt-0" style="margin-top:0">Highlights</h3>
+            <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.55; list-style:disc;">
+
+          {# Price (top) #}
+{% if room.price_pcm and room.price_pcm|int > 0 %}
+  {% set ppw = ((room.price_pcm|int) * 12 // 52) %}
+  <li>£{{ room.price_pcm|int }} pcm {% if ppw>0 %}(~£{{ ppw }} pw){% endif %}</li>
+{% else %}
+  <li>Price on request</li>
+{% endif %}
+
+{# Ensuite / bathroom #}
+{% if room.ensuite in T %}
+  <li>Ensuite bathroom</li>
+{% else %}
+  <li>Shared bathroom</li>
+{% endif %}
+
+{# Bed + size #}
+{% if room.bed_size %}<li>{{ room.bed_size }} bed</li>{% endif %}
+{% if room.room_size %}<li>{{ room.room_size }}</li>{% endif %}
+
+{# Couples / accessibility #}
+{% if room.couples_ok in T %}<li>Suitable for couples</li>{% endif %}
+{% if room.disabled_ok in T %}<li>Accessible room</li>{% endif %}
+
+{# Availability #}
+{% if room.is_let in T %}
+  <li>Currently let</li>
+{% else %}
+  <li>Available now</li>
+{% endif %}
+
+{# --- EXTRA HOUSE CONTEXT --- #}
+{% if house and bills_mode == 'yes' %}
+  <li>All bills included</li>
+{% elif house and bills_mode == 'some' %}
+  <li>Some bills included</li>
+{% endif %}
+
+{% if house and house.feature1 %}<li>{{ house.feature1 }}</li>{% endif %}
+{% if house and house.feature2 %}<li>{{ house.feature2 }}</li>{% endif %}
+{% if house and house.feature3 %}<li>{{ house.feature3 }}</li>{% endif %}
+{% if house and house.feature4 %}<li>{{ house.feature4 }}</li>{% endif %}
+{% if house and house.feature5 %}<li>{{ house.feature5 }}</li>{% endif %}
+
+</ul>
+</aside>
+</div>
+      {% else %}
+        <div style="aspect-ratio:4/3; border:1px dashed var(--border); border-radius:12px; display:flex;align-items:center;justify-content:center; color:#b9a6ff; font-weight:700">
+          NO PHOTOS YET
+        </div>
+      {% endif %}
+    </div>
+
+    {# --- ABOUT THIS ROOM --- #}
+    <div class="card card--accent-lr" style="margin-bottom:12px">
+      <h2 style="margin:0 0 8px">About this room</h2>
+      <p style="white-space:pre-wrap">{{ room.description or "No description provided yet." }}</p>
+    </div>
+
+    {# --- KEY DETAILS (orange) --- #}
+    <div class="card card--accent-lr keydetails-box" style="margin-bottom:12px">
+      <h2 style="margin:0 0 8px">Key details</h2>
+      <div class="grid grid-2">
+        {% if room.price_pcm and room.price_pcm|int > 0 %}
+          <p><strong>Price:</strong> £{{ room.price_pcm|int }} pcm</p>
+        {% endif %}
+
+        {% if room.bed_size %}
+          <p><strong>Bed size:</strong> {{ room.bed_size }}</p>
+        {% endif %}
+
+        {% if room.room_size %}
+          <p><strong>Approx. size:</strong> {{ room.room_size }}</p>
+        {% endif %}
+
+        <p><strong>Bathroom:</strong> {{ "Ensuite" if room.ensuite in T else "Shared" }}</p>
+
+        {% if room.couples_ok in T %}
+          <p><strong>Couples:</strong> Allowed</p>
+        {% endif %}
+
+        {% if room.disabled_ok in T %}
+          <p><strong>Accessible:</strong> Yes</p>
+        {% endif %}
+
+        {% if house and house.letting_type %}
+          <p><strong>Letting type (house):</strong> {{ "Whole property (group)" if house.letting_type=="whole" else "Room only (individuals & group)" }}</p>
+        {% endif %}
+
+        {% if house and house.gender_preference %}
+          {% if house.gender_preference in ['Male','Male Only'] %}
+            <p><strong>Gender preference:</strong> Male only</p>
+          {% elif house.gender_preference in ['Female','Female Only'] %}
+            <p><strong>Gender preference:</strong> Female only</p>
+          {% else %}
+            <p><strong>Gender preference:</strong> Mixed / Any</p>
+          {% endif %}
+        {% endif %}
+
+        {% if bills_mode == 'yes' %}
+          <p><strong>Bills:</strong> All included</p>
+        {% elif bills_mode == 'some' %}
+          <p><strong>Bills:</strong> Some included</p>
+        {% endif %}
+
+        {% if house and house.epc_rating %}
+          <p><strong>EPC:</strong> {{ house.epc_rating }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# --- LISTED BY --- #}
+    <div class="card card--accent-lr">
+      <h2 style="margin:0 0 8px">Listed by</h2>
+      <p style="margin:0">
+        <strong>
+          {% if landlord and landlord.public_slug %}
+            <a href="/l/{{ landlord.public_slug }}">{{ landlord.display_name or "Landlord" }}</a>
+          {% else %}
+            {{ (landlord.display_name or "Landlord") if landlord else "Landlord" }}
+          {% endif %}
+        </strong>
+        {% if verified %} <span aria-hidden="true" title="Verified">✅</span>{% endif %}
+      </p>
+      <p class="muted" style="margin:6px 0 0">
+        {% if landlord and landlord.email %}<strong>Email:</strong> {{ landlord.email }}{% endif %}
+      </p>
+    </div>
+
+  {% endif %}
+</section>
+
+{# --- Same CSS snippets to match house page --- #}
+<style>
+  .highlights-box{ background:#FFF7E6; border-color:#FFD8A8; }
+  .highlights{ padding-left:20px; }
+  .highlights li{ margin:8px 0; font-weight:600; line-height:1.65; }
+
+  .media-grid{ display:grid; grid-template-columns:2fr 1fr; gap:14px; }
+  @media (max-width:860px){ .media-grid{ grid-template-columns:1fr; } }
+  .media-left{ display:grid; gap:10px; grid-template-rows:auto auto; }
+  .hero-img{ aspect-ratio:4/3; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff; }
+  .hero-img > img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+  .thumb-row{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+  .thumb{ border:1px solid var(--border); border-radius:10px; aspect-ratio:4/3; overflow:hidden; padding:0; background:#fff; cursor:pointer; }
+  .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .thumb.is-active{ outline:2px solid var(--brand); outline-offset:2px; }
+
+  .media-right{ border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff; }
+  .highlights{ margin:8px 0 0; padding-left:18px; }
+
+  .keydetails-box{ background:#FFF7E6; border-color:#FFD8A8; }
+  .keydetails-box .grid-2 p{ margin:6px 0; font-weight:600; line-height:1.6; }
+</style>
+
+{# --- JS: short address + click thumbs to swap hero --- #}
+<script>
+  (function () {
+    const el = document.getElementById('short-address');
+    if (el) {
+      const full = el.getAttribute('data-full') || el.textContent || '';
+      const parts = full.split(',').map(s => s.trim()).filter(Boolean);
+      const streetTypes = [' Road',' Street',' Avenue',' Lane',' Close',' Drive',' Terrace',' Way',' Place',' Crescent',' Court',' Hill',' Gardens',' Park',' Grove',' View',' Parade',' Square',' Row',' Mews'];
+      function extractStreet(line1) {
+        let keep = line1, hitIdx = -1;
+        for (const t of streetTypes) {
+          const i = line1.toLowerCase().lastIndexOf(t.toLowerCase());
+          if (i !== -1) { hitIdx = i; break; }
+        }
+        if (hitIdx !== -1) {
+          const before = line1.slice(0, hitIdx).trim();
+          const lastSpace = before.lastIndexOf(' ');
+          const start = Math.max(0, lastSpace + 1);
+          keep = line1.slice(start).trim();
+        }
+        keep = keep.replace(/^((flat|suite|apt|apartment)\b.*?\s)/i, '').trim();
+        return keep || line1;
+      }
+      if (parts.length) {
+        const line1 = parts[0];
+        const rest = parts.slice(1);
+        const street = extractStreet(line1);
+        el.textContent = [street, ...rest].join(', ');
+      }
+    }
+
+    const hero = document.querySelector('.hero-img img');
+    if (hero) {
+      document.querySelectorAll('.thumb[data-full]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const src = btn.getAttribute('data-full');
+          if (src) hero.setAttribute('src', src);
+          document.querySelectorAll('.thumb').forEach(b => b.classList.remove('is-active'));
+          btn.classList.add('is-active');
+        });
+      });
+    }
+  })();
+</script>
+{% endblock %}
