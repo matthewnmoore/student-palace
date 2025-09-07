@@ -10,7 +10,7 @@
     <div class="card card--accent-lr"><p class="help">This listing doesn’t exist.</p></div>
   {% else %}
 
-    {# Verified banner row #}
+    {# Verified banner with owner/agent on right #}
     {% set verified = landlord and (landlord.is_verified|default(0, true)) %}
     <div class="card card--accent-lr" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:10px">
@@ -23,37 +23,37 @@
         {% endif %}
       </div>
       {% if house.listing_type in ("owner","agent") %}
-        <div class="muted" style="font-size:0.9em">
-          {{ "Letting Agent" if house.listing_type=="agent" else "Owner / Landlord" }}
-        </div>
+        <div style="font-weight:600">{{ "Letting Agent" if house.listing_type=="agent" else "Owner / Landlord" }}</div>
       {% endif %}
     </div>
 
-    {# Title + landlord row #}
+    {# Title + landlord name/logo on right #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
         <div>
           <h1 class="mt-0" style="margin:0">{{ house.title }}</h1>
           {% set full_addr = (house.address or '') ~ (', ' ~ house.city if house.city) %}
-          <p id="short-address" class="muted" style="margin:6px 0 0" data-full="{{ full_addr|e }}">{{ full_addr }}</p>
+          <p id="short-address" class="muted" style="margin:6px 0 0" data-full="{{ full_addr|e }}">
+            {{ full_addr }}
+          </p>
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          {% if landlord and landlord.display_name %}
-            <span class="muted" style="font-size:0.95em">{{ landlord.display_name }}</span>
-          {% endif %}
-          <img src="{{ url_for('static', filename='img/student-palace-logo.svg') }}" alt="Logo" style="height:22px;width:auto">
+        <div style="text-align:right">
+          <div style="font-weight:600">{{ landlord.display_name or "Landlord" }}</div>
+          <div style="font-size:12px;color:var(--muted)">🏠 Student Palace</div>
         </div>
       </div>
     </div>
 
-    {# MEDIA + HIGHLIGHTS #}
+    {# MEDIA + highlights #}
     <div class="card card--accent-lr" style="margin-bottom:12px">
       {% if images and images|length > 0 %}
         <div class="media-grid">
           <div class="media-left">
             {% set main = images[0] %}
             {% set main_src = url_for('static', filename=main.file_path) %}
-            <div class="hero-img"><img src="{{ main_src }}" alt="Main photo" loading="lazy"></div>
+            <div class="hero-img">
+              <img src="{{ main_src }}" alt="Main photo" loading="lazy">
+            </div>
             {% if images|length > 1 %}
               <div class="thumb-row">
                 {% for img in images[0:5] %}
@@ -68,48 +68,52 @@
 
           <aside class="media-right">
             <h3 class="mt-0">Highlights</h3>
-            {% set T = ['1',1,true,'on'] %}
-            {% set ns = namespace(ens=0, avail=0) %}
+            {% set T = ['1', 1, true, 'on'] %}
+            {% set ns = namespace(ens=0, avail=0, prices=[]) %}
             {% if rooms %}
               {% for r in rooms %}
                 {% if r.ensuite in T %}{% set ns.ens = ns.ens + 1 %}{% endif %}
                 {% if not (r.is_let in T) %}{% set ns.avail = ns.avail + 1 %}{% endif %}
+                {% if r.price_pcm and r.price_pcm|int > 0 %}{% set ns.prices = ns.prices + [r.price_pcm|int] %}{% endif %}
               {% endfor %}
             {% endif %}
-
             {% set bills_mode = (house.bills_option or house.bills_included or 'no') %}
-            {% set any_util = (house.bills_util_gas in T) or (house.bills_util_electric in T) or
-                              (house.bills_util_water in T) or (house.bills_util_broadband in T) or
-                              (house.bills_util_tv in T) %}
+            {% set any_util = (house.bills_util_gas in T) or (house.bills_util_electric in T) or (house.bills_util_water in T) or (house.bills_util_broadband in T) or (house.bills_util_tv in T) %}
 
             <ul class="highlights" style="margin:8px 0 0; padding-left:18px; line-height:1.5; list-style:disc;">
               {% if bills_mode == 'yes' %}
                 <li>All bills included</li>
               {% elif bills_mode == 'some' and any_util %}
                 <li>Some bills included</li>
-              {% else %}
-                <li>No bills included</li>
               {% endif %}
 
               {% if house.letting_type == 'whole' %}
                 <li>Suitable for a group of {{ house.bedrooms_total }}</li>
-              {% elif house.letting_type == 'share' %}
-                {% if ns.avail == house.bedrooms_total %}
-                  <li>Available for a group of {{ house.bedrooms_total }}</li>
-                  <li>Also suitable as individual rooms</li>
-                {% elif ns.avail > 0 %}
-                  <li>Suitable as individual rooms</li>
-                {% endif %}
+              {% elif house.letting_type == 'share' and ns.avail == house.bedrooms_total %}
+                <li>Available for a group of {{ house.bedrooms_total }}</li>
+                <li>Also suitable as individual rooms</li>
+              {% elif house.letting_type == 'share' and ns.avail < house.bedrooms_total %}
+                <li>Suitable as individual rooms</li>
               {% endif %}
 
-              {% if house.bedrooms_total|int > 0 %}
-                <li>{{ house.bedrooms_total }} bedrooms</li>
+              {% if house.bedrooms_total %}<li>{{ house.bedrooms_total }} bedrooms</li>{% endif %}
+              {% if ns.ens > 0 %}<li>{{ ns.ens }} ensuites</li>{% endif %}
+              {% if house.shared_bathrooms and house.shared_bathrooms|int > 0 %}<li>{{ house.shared_bathrooms }} shared bathrooms</li>{% endif %}
+
+              {% if house.gender_preference == 'Male' %}
+                <li>This house identifies as male</li>
+              {% elif house.gender_preference == 'Female' %}
+                <li>This house identifies as female</li>
               {% endif %}
-              {% if ns.ens > 0 %}
-                <li>{{ ns.ens }} ensuites</li>
-              {% endif %}
-              {% if house.shared_bathrooms|int > 0 %}
-                <li>{{ house.shared_bathrooms }} shared bathrooms</li>
+
+              {% if ns.prices|length > 0 %}
+                {% set min_price = ns.prices|min %}
+                {% set max_price = ns.prices|max %}
+                {% if min_price == max_price %}
+                  <li>Rooms £{{ min_price }} pcm</li>
+                {% else %}
+                  <li>Rooms from £{{ min_price }} pcm</li>
+                {% endif %}
               {% endif %}
             </ul>
           </aside>
@@ -121,12 +125,12 @@
       {% endif %}
     </div>
 
-    {# FACILITIES, Bills, Description, Key details, Rooms, Landlord card stay as you had them #}
-    {# ... keep your existing blocks unchanged ... #}
+    {# Facilities, bills, description, key details, rooms, landlord card unchanged #}
+    ... (keep rest of your file as before) ...
 
   {% endif %}
 </section>
 
-{# CSS and JS blocks unchanged ... #}
+{# CSS and JS unchanged ... #}
 
 {% endblock %}
