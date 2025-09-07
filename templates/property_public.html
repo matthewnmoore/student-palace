@@ -391,13 +391,15 @@
       {% endif %}
     {% endif %}
 
-   
-    {# EPC rating #}
+
+    {# EPC rating as a badge #}
     {% if house.epc_rating %}
-      <p><strong>EPC:</strong> {{ house.epc_rating|upper }}</p>
+      <p><strong>EPC:</strong>
+        <span class="badge" style="border:1px solid var(--border); padding:4px 10px; border-radius:999px; font-weight:600">
+          EPC {{ house.epc_rating|upper }}
+        </span>
+      </p>
     {% endif %}
-  </div>
-</div>
 
 
 
