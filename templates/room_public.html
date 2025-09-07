@@ -65,20 +65,7 @@
         {% endif %}
       </div>
 
-      {# Badges row matches house page #}
-      <div style="display:flex;gap:8px;flex-wrap:wrap; margin-top:8px">
-        {% if house and house.epc_rating %}
-          <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px; font-weight:600">
-            EPC {{ house.epc_rating }}
-          </span>
-        {% endif %}
-        {% set T = ['1', 1, true, 'on'] %}
-        {% set bills_mode = house and (house.bills_option or house.bills_included or 'no') %}
-        {% if bills_mode == 'yes' %}
-          <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px">Bills included</span>
-        {% elif bills_mode == 'some' %}
-          <span class="badge" style="border:1px solid var(--border); padding:4px 8px; border-radius:999px">Some bills included</span>
-        {% endif %}
+     
       </div>
     </div>
 
