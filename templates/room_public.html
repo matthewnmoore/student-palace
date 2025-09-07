@@ -69,29 +69,28 @@
       </div>
     </div>
 
-    {# --- MEDIA + HIGHLIGHTS --- #}
-    <div class="card card--accent-lr" style="margin-bottom:12px">
-      {% if images and images|length > 0 %}
-        <div class="media-grid">
-          <div class="media-left">
-            {% set main = images[0] %}
-            {% set main_src = url_for('static', filename=main.file_path) %}
-            <div class="hero-img">
-              <img src="{{ main_src }}" alt="Room photo" loading="lazy">
-            </div>
+  {# --- MEDIA + HIGHLIGHTS --- #}
+<div class="card card--accent-lr" style="margin-bottom:12px">
+  {% if images and images|length > 0 %}
+    <div class="media-grid">
+      <div class="media-left">
+        {% set main = images[0] %}
+        {% set main_src = '/' ~ main.file_path %}
+        <div class="hero-img">
+          <img src="{{ main_src }}" alt="Room photo" loading="lazy">
+        </div>
 
-            {% if images|length > 1 %}
-              <div class="thumb-row">
-                {% for img in images[0:5] %}
-                  {% set tsrc = url_for('static', filename=img.file_path) %}
-                  <button class="thumb {% if loop.index0 == 0 %}is-active{% endif %}" type="button" data-full="{{ tsrc }}">
-                    <img src="{{ tsrc }}" alt="Photo {{ loop.index }}" loading="lazy">
-                  </button>
-                {% endfor %}
-              </div>
-            {% endif %}
+        {% if images|length > 1 %}
+          <div class="thumb-row">
+            {% for img in images[0:5] %}
+              {% set tsrc = '/' ~ img.file_path %}
+              <button class="thumb {% if loop.index0 == 0 %}is-active{% endif %}" type="button" data-full="{{ tsrc }}">
+                <img src="{{ tsrc }}" alt="Photo {{ loop.index }}" loading="lazy">
+              </button>
+            {% endfor %}
           </div>
-
+        {% endif %}
+      </div>
 
 {% set T = ['1', 1, true, 'on'] %}
 {% set bills_mode = house and (house.bills_option or house.bills_included or 'no') %}
