@@ -166,10 +166,10 @@
     <li>{{ ns.ens }} ensuites</li>
   {% endif %}
 
-  {# 5) Shared bathrooms #}
-  {% if house.shared_bathrooms is not none and (house.shared_bathrooms|int) >= 0 %}
-    <li>{{ house.shared_bathrooms|int }} shared bathrooms</li>
-  {% endif %}
+ {# 5) Shared bathrooms (hide when zero) #}
+{% if house.shared_bathrooms is not none and (house.shared_bathrooms|int) > 0 %}
+  <li>{{ house.shared_bathrooms|int }} shared bathrooms</li>
+{% endif %}
 
   {# 6) Cleaning service (hide if no/none/false/0) #}
   {% if house.cleaning_service and house.cleaning_service|lower not in ['none','no','false','0'] %}
