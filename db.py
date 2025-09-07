@@ -380,6 +380,7 @@ def ensure_db():
     _safe_add_column(conn, "houses", "ADD COLUMN available_rooms_prices TEXT NOT NULL DEFAULT ''")
     _safe_add_column(conn, "houses", "ADD COLUMN double_beds_total INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN suitable_for_couples_total INTEGER NOT NULL DEFAULT 0")
+    _safe_add_column(conn, "houses", "ADD COLUMN suitable_for_disabled_total INTEGER NOT NULL DEFAULT 0")
     _safe_add_column(conn, "houses", "ADD COLUMN post_code_prefix TEXT NOT NULL DEFAULT ''")
 
     # Landlord profiles: admin toggle for new signups
