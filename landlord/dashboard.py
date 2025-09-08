@@ -4,6 +4,7 @@ from db import get_db
 from utils import current_landlord_id
 from . import bp
 
+
 @bp.route("/dashboard")
 def dashboard():
     lid = current_landlord_id()
@@ -12,7 +13,8 @@ def dashboard():
 
     conn = get_db()
     landlord = conn.execute(
-        "SELECT id,email,created_at FROM landlords WHERE id=?", (lid,)
+        "SELECT id, email, created_at, is_verified FROM landlords WHERE id=?",
+        (lid,),
     ).fetchone()
     profile = conn.execute(
         "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
@@ -28,7 +30,9 @@ def dashboard():
     except Exception:
         created_at_uk = landlord["created_at"]
 
-    role_raw = (profile["role"] if profile and "role" in profile.keys() else "owner") or "owner"
+    role_raw = (
+        profile["role"] if profile and "role" in profile.keys() else "owner"
+    ) or "owner"
     role_label = "Owner" if role_raw == "owner" else "Agent"
 
     return render_template(
@@ -37,5 +41,5 @@ def dashboard():
         profile=profile,
         houses=houses,
         created_at_uk=created_at_uk,
-        role_label=role_label
+        role_label=role_label,
     )
