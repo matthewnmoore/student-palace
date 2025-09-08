@@ -63,28 +63,38 @@
     </div>
 
     <!-- AVAILABILITY -->
-    <div class="card card--accent-lr">
-      <h2 class="card-title">Availability</h2>
-      <div class="grid grid-3" style="align-items:end">
-        <label class="check" style="align-self:end">
-          <input type="checkbox" name="is_let" id="is_let" value="1"
-                 {% if form and form.is_let in ['1', 1, 'on', True] %}checked{% endif %}>
-          <span>Currently let (not available now)</span>
-        </label>
-        <!-- Hidden default so unchecked submits 0 -->
-        <input type="hidden" name="is_let" value="0">
+<div class="card card--accent-lr">
+  <h2 class="card-title">Availability</h2>
+  {% set is_let_checked = (form and form.is_let in ['1', 1, 'on', True]) %}
+  {% set let_until_val = (form.let_until or '') if form else '' %}
+  {% set available_from_val = (form.available_from or '') if form else '' %}
 
-        {% set let_until_val = (form.let_until or '') if form else '' %}
-        <label class="field" id="row_let_until" style="display:none">
-          <span class="label-inline" style="margin-bottom:0">Let until</span>
-          <input type="date" name="let_until" id="let_until" value="{{ let_until_val }}">
-        </label>
+  <div class="grid grid-3" style="align-items:end">
+    <!-- Hidden default FIRST so unchecked submits 0 safely -->
+    <input type="hidden" name="is_let" value="0">
 
-        {% set available_from_val = (form.available_from or '') if form else '' %}
-        <label class="field" id="row_available_from">
-          <span class="label-inline" style="margin-bottom:0">Available from</span>
-          <input type="date" name="available_from" id="available_from" value="{{ available_from_val }}">
-        </label>
+    <label class="check" style="align-self:end">
+      <input
+        type="checkbox"
+        name="is_let"
+        id="is_let"
+        value="1"
+        {% if is_let_checked %}checked{% endif %}
+      >
+      <span>Currently let (not available now)</span>
+    </label>
+
+    <label class="field" id="row_let_until" style="{% if is_let_checked %}display:block{% else %}display:none{% endif %}">
+      <span class="label-inline" style="margin-bottom:0">Let until</span>
+      <input type="date" name="let_until" id="let_until" value="{{ let_until_val }}">
+    </label>
+
+    <label class="field" id="row_available_from">
+      <span class="label-inline" style="margin-bottom:0">Available from</span>
+      <input type="date" name="available_from" id="available_from" value="{{ available_from_val }}">
+    </label>
+  </div>
+</div>
       </div>
     </div>
 
