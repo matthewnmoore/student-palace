@@ -29,7 +29,7 @@
             <th>£ PPW</th>
             <th>Bed size</th>
             <th>Availability</th>
-            <th style="width:360px">Actions</th>
+            <th style="width:320px">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -66,7 +66,7 @@
               {% endif %}
             </td>
             <td>
-              <div class="inline-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <div class="inline-actions" style="display:flex; gap:6px; align-items:center; flex-wrap:nowrap;">
                 <a class="btn" href="{{ url_for('landlord.room_photos', hid=house.id, rid=r.id) }}">
                   Photos
                 </a>
@@ -74,7 +74,7 @@
                   Edit
                 </a>
                 <a class="btn" href="{{ url_for('room_public.room_public', room_id=r.id) }}" target="_blank">
-                  View public page
+                  Public
                 </a>
                 <form method="post"
                       action="{{ url_for('landlord.delete_room', room_id=r.id) }}"
