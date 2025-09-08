@@ -29,10 +29,12 @@ def _parse_checkbox(request, name: str) -> int:
 
 def _normalize_dates_for_is_let(vals: dict) -> None:
     """
-    Basic server-side guard:
-    - If not let, clear let_until (so it can’t linger).
-    - If let, ensure available_from is present; if missing but let_until exists,
-      set available_from = let_until + 1 day (matches the JS behaviour).
+    Server-side guard:
+    - If not let:
+        • clear let_until
+        • ensure available_from is present and <= today (defaults to today)
+    - If let:
+        • if available_from missing but let_until exists, set available_from = let_until + 1 day
     """
     is_let = int(vals.get("is_let") or 0)
     let_until = (vals.get("let_until") or "").strip()
@@ -40,7 +42,20 @@ def _normalize_dates_for_is_let(vals: dict) -> None:
 
     if not is_let:
         vals["let_until"] = ""  # clear
-        # available_from stays as provided (could be today/future)
+        today_iso = date.today().isoformat()
+
+        # If blank or in the future, clamp to today
+        if not available_from:
+            vals["available_from"] = today_iso
+        else:
+            try:
+                y, m, d = map(int, available_from.split("-"))
+                af = date(y, m, d)
+                if af > date.today():
+                    vals["available_from"] = today_iso
+            except Exception:
+                # bad/partial date -> set today
+                vals["available_from"] = today_iso
         return
 
     # is_let == 1
@@ -50,7 +65,6 @@ def _normalize_dates_for_is_let(vals: dict) -> None:
             next_day = date(y, m, d) + timedelta(days=1)
             vals["available_from"] = next_day.isoformat()
         except Exception:
-            # If parsing fails, leave as-is (optional)
             pass
 
 
@@ -106,7 +120,13 @@ def room_new(hid):
         vals["is_let"] = _parse_is_let(request)
         vals["couples_ok"] = _parse_checkbox(request, "couples_ok")
         vals["disabled_ok"] = _parse_checkbox(request, "disabled_ok")
+
+        # ✅ Normalize dates based on is_let
         _normalize_dates_for_is_let(vals)
+
+        # ✅ Ignore "let until" errors if not currently let
+        if int(vals.get("is_let", 0)) == 0 and errors:
+            errors = [e for e in errors if "let until" not in e.lower()]
 
         if errors:
             for e in errors:
@@ -178,7 +198,13 @@ def room_edit(hid, rid):
         vals["is_let"] = _parse_is_let(request)
         vals["couples_ok"] = _parse_checkbox(request, "couples_ok")
         vals["disabled_ok"] = _parse_checkbox(request, "disabled_ok")
+
+        # ✅ Normalize dates based on is_let
         _normalize_dates_for_is_let(vals)
+
+        # ✅ Ignore "let until" errors if not currently let
+        if int(vals.get("is_let", 0)) == 0 and errors:
+            errors = [e for e in errors if "let until" not in e.lower()]
 
         if errors:
             for e in errors:
