@@ -1,3 +1,91 @@
+
+Here’s a plain-English reference for how each of the 9 integrated search filters should work in Student Palace:
+
+⸻
+
+1. City
+	•	Students must pick a city from the dropdown.
+	•	Only properties in that city (where houses.city matches) are shown.
+	•	The city list is controlled by the admin, so landlords cannot add their own.
+
+⸻
+
+2. Academic year
+	•	Academic year runs from 1 July to 30 June.
+	•	Each room has either:
+• An “Available from” date (if not currently let), or
+• The day after its “Let until” date (if currently let).
+	•	That effective availability date is mapped into the right academic year window.
+	•	Only properties/rooms whose availability falls inside the chosen year are shown.
+
+⸻
+
+3. Gender preference
+	•	From houses.gender_preference.
+	•	If “Male” → only show if search = Male or Either.
+	•	If “Female” → only show if search = Female or Either.
+	•	If “Mixed” → always show (open to all).
+	•	If “Either” → always show.
+
+⸻
+
+4. Ensuite
+	•	Room-level filter (rooms.ensuite).
+	•	If student ticks “Ensuite”, only rooms with ensuite = yes are included.
+	•	If not ticked, both ensuite and non-ensuite rooms are shown.
+
+⸻
+
+5. Group size
+	•	Depends on letting type:
+• Whole property: matches only if bedrooms_total == group size AND all rooms are available.
+• Room-only (shared): matches if number of available rooms ≥ group size.
+	•	Ensures students can book either as a group or as individuals.
+
+⸻
+
+6. Price
+	•	Stored as monthly rent (price_pcm).
+	•	Student sets a maximum budget.
+	•	Convert PCM to per week for comparison using: (pcm * 12) / 52.
+	•	Filter out rooms/properties where rent per person is higher than the chosen maximum.
+
+⸻
+
+7. Bills included
+	•	From houses.bills_option.
+	•	Options: “Yes” (all bills included), “Some” (certain utilities), “No” (none).
+	•	If student selects one option, only matching properties are shown.
+	•	If no option selected, all are included.
+
+⸻
+
+8. Suitable for couples
+	•	Room-level filter (rooms.couples_ok).
+	•	If student selects this, only rooms marked as suitable for couples are shown.
+	•	Otherwise, both types are shown.
+
+⸻
+
+9. Accessible for disabled people
+	•	Room-level filter (rooms.disabled_ok).
+	•	If student selects this, only rooms marked as accessible are shown.
+	•	Otherwise, both types are shown.
+
+⸻
+
+⚡ In short:
+	•	City and Academic year are mandatory filters (always required).
+	•	The other 7 are optional refinements.
+
+
+
+
+
+
+
+
+
 Core search filters (students will expect these):
 	•	City
 	•	Academic year (derived from availability dates)
