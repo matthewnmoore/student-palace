@@ -74,6 +74,8 @@ Here’s a plain-English reference for how each of the 9 integrated search filte
 
 ⸻
 
+10.	house share/whole house
+
 ⚡ In short:
 	•	City and Academic year are mandatory filters (always required).
 	•	The other 7 are optional refinements.
