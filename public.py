@@ -287,33 +287,82 @@ def property_public(house_id: int):
 @public_bp.route("/properties")
 def properties():
     """
-    NEW: All properties list (visual baseline).
-    - No search criteria yet.
-    - Shows a sidebar with placeholder filters (not wired).
-    - Cards include cover image and key highlights.
-    Renders templates/properties.html
+    Simple 'all properties' listing for visual review.
+    - No filtering yet (placeholders only).
+    - Includes landlord_verified so the green tick can render in the card.
+    - Computes cover image, from_price_pcm, and room/ensuite counts.
     """
     conn = get_db()
-
-    # Sidebar data (placeholders for now)
     cities = get_active_city_names(order_by_admin=True)
 
-    # Build academic years list (current + next 3)
-    today = date.today()
-    start_year = today.year if today.month >= 7 else today.year - 1  # academic year starts Jul 1
-    years = []
-    for i in range(0, 4):
-        y1 = start_year + i
-        y2 = y1 + 1
-        years.append({"value": f"{y1}/{y2}", "label": f"{y1}/{y2}"})
+    # Academic year placeholders for the top bar (not wired)
+    years = [{"value": f"{y}/{y+1}", "label": f"{y}/{y+1}"} for y in range(2025, 2025+5)]
 
-    # All houses → card data
-    results = _house_cards(conn)
+    sql = """
+    WITH cover AS (
+      SELECT house_id, MIN(file_path) AS cover_path
+        FROM house_images
+       GROUP BY house_id
+    ),
+    price AS (
+      SELECT house_id, MIN(NULLIF(price_pcm,0)) AS from_price_pcm
+        FROM rooms
+       GROUP BY house_id
+    ),
+    room_counts AS (
+      SELECT house_id,
+             COUNT(*) AS rooms_total,
+             SUM(CASE WHEN COALESCE(is_let,0)=0 THEN 1 ELSE 0 END) AS rooms_available,
+             SUM(CASE WHEN COALESCE(ensuite,0)=1 THEN 1 ELSE 0 END) AS ensuites_available
+        FROM rooms
+       GROUP BY house_id
+    )
+    SELECT h.id, h.title, h.address, h.city, h.letting_type, h.bedrooms_total,
+           h.bills_option,
+           COALESCE(rc.rooms_total,0)           AS rooms_total,
+           COALESCE(rc.rooms_available,0)       AS available_rooms_total,
+           COALESCE(rc.ensuites_available,0)    AS ensuites_available,
+           p.from_price_pcm,
+           c.cover_path,
+           lp.is_verified                       AS landlord_verified
+      FROM houses h
+      LEFT JOIN room_counts      rc ON rc.house_id = h.id
+      LEFT JOIN cover            c  ON c.house_id  = h.id
+      LEFT JOIN price            p  ON p.house_id  = h.id
+      LEFT JOIN landlord_profiles lp ON lp.landlord_id = h.landlord_id
+     ORDER BY h.id DESC;
+    """
+    rows = conn.execute(sql).fetchall()
+    conn.close()
 
-    try:
-        conn.close()
-    except Exception:
-        pass
+    # Build result dicts the template expects
+    from flask import url_for
+    def make_cover_url(path):
+        if not path:
+            return None
+        fp = path[7:] if path.startswith("static/") else path
+        return url_for("static", filename=fp.lstrip("/"))
+
+    results = []
+    for r in rows:
+        pcm = r["from_price_pcm"]
+        ppw = round(pcm / 4.333) if pcm else None
+        results.append({
+            "id": r["id"],
+            "title": r["title"],
+            "address": r["address"],
+            "city": r["city"],
+            "letting_type": r["letting_type"],
+            "bedrooms_total": r["bedrooms_total"],
+            "bills_option": r["bills_option"],
+            "ensuites_available": r["ensuites_available"],
+            "available_rooms_total": r["available_rooms_total"],
+            "rooms_total": r["rooms_total"],
+            "from_price_pcm": pcm,
+            "from_price_ppw": ppw,
+            "cover_url": make_cover_url(r["cover_path"]),
+            "landlord_verified": r["landlord_verified"],
+        })
 
     return render_template(
         "properties_list.html",
@@ -321,7 +370,6 @@ def properties():
         years=years,
         results=results,
     )
-
 
 @public_bp.route("/about")
 def about():
