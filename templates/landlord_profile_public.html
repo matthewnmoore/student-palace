@@ -93,10 +93,11 @@
             <h3 style="margin-top:0">Accreditations</h3>
             <ul style="margin:0; padding-left:18px">
               {% for a in accreditations %}
+                {% set details = a.note or a.extra_text %}
                 <li style="margin:6px 0">
                   <strong>{{ a.name }}</strong>
-                  {% if a.note %}
-                    <span class="muted">— {{ a.note }}</span>
+                  {% if details %}
+                    <span class="muted">— {{ details }}</span>
                   {% endif %}
                 </li>
               {% endfor %}
