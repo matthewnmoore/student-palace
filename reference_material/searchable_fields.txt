@@ -1,4 +1,23 @@
 
+
+Core Student Search Filters (10 total)
+	1.	City – choose from admin-controlled dropdown (e.g. Swansea, Cardiff, Leeds).
+	2.	Academic year – choose a year (e.g. 2025/2026). Behind the scenes, this maps to dates 1 July → 30 June.
+	3.	Gender preference – Male / Female / Mixed / Either.
+	4.	Group size – number of students searching together.
+	5.	Letting type – Whole property OR House share (room only).
+	6.	Price – maximum rent students are willing to pay.
+	7.	Bills included – Yes / Some / No.
+	8.	Ensuite – tick if they only want rooms with ensuite bathrooms.
+	9.	Suitable for couples – tick if they need a room that allows couples.
+	10.	Accessible for disabled people – tick if they need accessible housing.
+
+
+
+
+
+
+
 Here’s a plain-English reference for how each of the 9 integrated search filters should work in Student Palace:
 
 ⸻
