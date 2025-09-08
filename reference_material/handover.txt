@@ -2,6 +2,240 @@ Student Palace – Handover List (rolled back to bulk editing pages stable point
 ===========================================================================================
 
 
+08/09/2025
+
+STUDENT PALACE – PROJECT HANDOVER SHEET
+(as of September 2025)
+
+⸻
+
+	1.	BRAND & DESIGN SYSTEM
+
+⸻
+
+	•	Brand colours:
+• Primary brand: #5E2B97 (purple)
+• Brand light: #7D3FC6
+• Accent: #FF6F61 (coral)
+• Accent dark: #E85B4D
+• Background: #F9F7FF
+• Text: #333
+• Muted: #666
+• Borders: #DDD
+	•	Rounded corners (8px) and soft shadow on cards.
+	•	Buttons:
+• Accent (coral) = main CTAs.
+• Brand purple = default.
+• Outline style = inverted.
+	•	Cards:
+• Framed with accent left/right borders.
+• For property pages, background is faint coral.
+	•	Layout:
+• .wrap = max width 1100px, padded center alignment.
+• Mobile-first design.
+• Property search filters collapse on desktop, sticky top bar.
+• Mobile filter panel remains simple and clean.
+
+⸻
+
+	2.	DATABASE OVERVIEW
+
+⸻
+
+Core tables:
+
+HOUSES
+	•	id
+	•	landlord_id (foreign key to landlords)
+	•	title
+	•	city (chosen from admin-managed list)
+	•	address (full address, but property cards display short version, no house number)
+	•	bedrooms_total
+	•	letting_type (whole / room-only)
+	•	bills_option (yes / some / no)
+	•	is_let (optional, auto-marked when let_until is reached)
+	•	available_from
+	•	let_until
+	•	feature1..feature5 (short highlights)
+
+ROOMS
+	•	id
+	•	house_id
+	•	name (room name/label)
+	•	is_let (boolean)
+	•	price_pcm
+	•	ensuite (boolean)
+	•	couples_ok (boolean)
+	•	disabled_ok (boolean)
+	•	bed_size
+	•	room_size
+	•	description (full text)
+	•	available_from / let_until
+
+HOUSE_IMAGES
+	•	id
+	•	house_id
+	•	filename / file_path
+	•	is_primary
+	•	sort_order
+
+LANDLORDS
+	•	id
+	•	email
+	•	password (hashed)
+
+LANDLORD_PROFILES
+	•	landlord_id
+	•	display_name
+	•	public_slug
+	•	is_verified (boolean)
+	•	accreditations (links to schemes)
+
+⸻
+
+	3.	BUSINESS RULES
+
+⸻
+
+	•	Cities are controlled by admin; landlords select from dropdown.
+	•	Rooms available = auto-calculated from rooms where is_let = 0.
+	•	“Let until” dates auto-flag as let.
+	•	Rent conversions:
+• Weekly rent = (pcm * 12) / 52 (rounded).
+	•	Images: max 5 per house/room, watermarked, excess uploads trimmed.
+	•	Academic year: 1 Aug – 31 Jul. Listings are filtered into academic year buckets by available_from date.
+	•	Search logic:
+• Whole property = group_size must equal bedrooms_total, all rooms available, year matches.
+• Room only = rooms_available ≥ group_size, year matches.
+
+⸻
+
+	4.	LANDLORD ACCREDITATION
+
+⸻
+
+	•	Accreditation page built so landlords can select from a list of schemes (checkbox + notes).
+	•	Supported UK landlord/agent accreditations (full list researched for Wales and UK):
+• NRLA – National Residential Landlords Association
+• RLA (merged into NRLA)
+• ARLA Propertymark
+• UKALA – UK Association of Letting Agents
+• Safeagent (formerly NALS)
+• Rent Smart Wales (mandatory in Wales)
+• London Landlord Accreditation Scheme
+• DASH Landlord Accreditation (Midlands)
+• Scottish Landlord Register (mandatory)
+• Property Redress Scheme / The Property Ombudsman (agents)
+• Client Money Protect schemes (CMP)
+	•	Landlords’ accreditations and is_verified feed into public display:
+• Green tick badge shown on property cards and property detail page when is_verified = 1.
+
+⸻
+5.	PUBLIC ROUTES & PAGES
+
+⸻
+
+INDEX (/)
+	•	Hero section with tagline: “Your next student home — without the faff.”
+	•	Search form (currently simplified to just a “Find rooms” button linking to /properties).
+	•	Featured property card (placeholder until DB wiring).
+	•	City grid of active cities (admin-managed).
+
+SEARCH (/search)
+	•	Placeholder echo route. Keeps form compatible but not wired yet.
+	•	Expected fields: city, group_size, gender_pref, seeker_gender, ensuite, bills_included, academic_year, letting_type, couples_ok, disabled_ok.
+
+PROPERTY DETAIL (/p/)
+	•	Pulls full house record, landlord (with verification tick), rooms, images, and features.
+	•	Display:
+• Gallery of up to 5 images.
+• Badges for bills included, ensuites, couples OK, disabled access.
+• Room-by-room availability.
+• Verified landlord badge where applicable.
+
+ALL PROPERTIES (/properties)
+	•	Displays all houses in a grid for testing/visual review.
+	•	Each card shows:
+• Cover image (primary image).
+• City.
+• Price “From £X pcm (£Y pw)”.
+• Verified tick if landlord_verified=1.
+• Short address (no house number).
+• Room counts: “X rooms, Y available”.
+• Feature badges (ensuite, bills, etc.) sized consistently in rows of three.
+	•	On desktop:
+• Sticky filter bar at the top with placeholder filters (not wired yet).
+• Grid of property cards, three across.
+	•	On mobile:
+• Clean vertical list, no sticky header.
+
+ABOUT (/about)
+	•	Public about page with friendly site description.
+
+⸻
+
+	6.	FILTERS (DESIGN SPEC)
+
+⸻
+
+Top filter bar (sticky on desktop, collapsible):
+	•	City (dropdown from admin list).
+	•	Group size (1–15).
+	•	Academic year (5 future years).
+	•	House identifies as (gender_pref: Male / Female / Mixed).
+	•	Ensuite (checkbox).
+	•	Bills included (checkbox).
+	•	Letting type (dropdown: whole / room-only).
+	•	Couples OK (checkbox).
+	•	Disabled access (checkbox).
+
+These are currently placeholders in /properties, ready to be wired to queries later.
+
+⸻
+
+	7.	FRONTEND DETAILS
+
+⸻
+
+	•	Property cards have faint coral background (consistent with detail pages).
+	•	Feature badges are uniform size, displayed in rows of 3.
+	•	Verified landlord tick appears next to price.
+	•	Shortened address (drops house number, keeps street and city).
+	•	Sticky filter bar on desktop; collapsible.
+	•	Mobile layout prioritises simplicity (no sticky bar).
+
+⸻
+
+	8.	ADMIN + BACKEND NOTES
+
+⸻
+
+	•	Admin can:
+• Add/edit cities.
+• Manage landlords and profiles.
+• Manage images (with watermark pipeline).
+	•	Database path: /opt/render/project/src/static/uploads/houses/student_palace.db
+	•	DB snapshotting/rollback supported.
+	•	Known stable rollback point: 2025-08-31 baseline.
+
+⸻
+
+	9.	FUTURE NEXT STEPS
+
+⸻
+
+	•	Wire filters on /properties to actual SQL queries.
+	•	Add “Request a viewing” button for rooms.
+	•	Add booking workflow.
+	•	ID verification provider integration (for landlords).
+	•	Two-factor authentication via email for landlord login.
+	•	Helper videos and onboarding materials for users.
+
+
+
+
+
+
 
 08/09/2525
 
