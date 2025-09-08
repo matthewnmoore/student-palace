@@ -1,0 +1,88 @@
+How rooms map to academic years
+	•	You only ever store calendar dates on rooms (when it’s available from, or when the current let ends).
+	•	The “academic year” is not stored. It’s just worked out at search time.
+	•	Each academic year runs 1 July → 30 June.
+	•	To decide which year a room belongs to, take the room’s effective start date:
+	•	If the room is not let → use available_from.
+	•	If the room is let → use let_until + 1 day.
+	•	See which July→June window that start date falls into. That’s the academic year the student search should show it in.
+
+⸻
+
+Examples
+	1.	Room available_from = 20 June 2025 → falls in 2024/2025.
+	2.	Room available_from = 15 August 2025 → falls in 2025/2026.
+	3.	Room is let until 30 Nov 2025 → effective start = 1 Dec 2025 → falls in 2025/2026.
+	4.	Room available_from = 10 April 2026 → falls in 2025/2026.
+	5.	Room available_from = 1 July 2026 → falls in 2026/2027.
+	6.	Room available_from = 30 June 2026 → still inside 2025/2026.
+	7.	Room is let until 15 June 2026 → effective start = 16 June 2026 → still in 2025/2026.
+	8.	Room is let until 30 June 2026 → effective start = 1 July 2026 → in 2026/2027.
+	9.	Room available_from = 5 September 2027 → in 2027/2028.
+	10.	Room available_from = 15 May 2028 → in 2027/2028 (because that year runs 1 July 2027 – 30 June 2028).
+
+
+
+Room → Academic Year Rules
+	1.	Academic year runs from 1 July (year) to 30 June (year+1).
+	•	Example: 2025/2026 = 1 July 2025 → 30 June 2026.
+	2.	Work out the effective start date of the room:
+	•	If room is not let → use available_from.
+	•	If room is let → use let_until + 1 day.
+	3.	Find which academic-year window the effective start date falls into.
+	•	That’s the year label shown to students (e.g. “2025/2026”).
+	4.	Edge rules:
+	•	If the effective start is before 1 July of a given year, it belongs to the previous academic year.
+	•	If it lands exactly on 30 June, it’s still inside that year.
+	•	If it lands exactly on 1 July, it’s the start of the new year.
+	5.	Search filter behaviour:
+	•	Students pick City + Year.
+	•	City = exact match to houses.city.
+	•	Year = July–June window. Only include rooms whose effective start date falls inside that window.
+	6.	Data storage:
+	•	Do not store “2025/2026” in the DB.
+	•	Only store available_from and let_until as dates.
+	•	Academic year is always calculated at query time.
+
+
+
+
+Room Dates → Academic Year Mapping
+
+Case 1: Available now → available_from = 2025-06-20 → effective start = 2025-06-20 → academic year = 2024/2025
+Case 2: Available in summer → available_from = 2025-08-15 → effective start = 2025-08-15 → academic year = 2025/2026
+Case 3: Currently let → let_until = 2025-11-30 → effective start = 2025-12-01 → academic year = 2025/2026
+Case 4: Available spring term → available_from = 2026-04-10 → effective start = 2026-04-10 → academic year = 2025/2026
+Case 5: New cycle starts → available_from = 2026-07-01 → effective start = 2026-07-01 → academic year = 2026/2027
+Case 6: Last day of year → available_from = 2026-06-30 → effective start = 2026-06-30 → academic year = 2025/2026
+Case 7: Let ends mid-June → let_until = 2026-06-15 → effective start = 2026-06-16 → academic year = 2025/2026
+Case 8: Let ends on 30 June → let_until = 2026-06-30 → effective start = 2026-07-01 → academic year = 2026/2027
+Case 9: Future autumn start → available_from = 2027-09-05 → effective start = 2027-09-05 → academic year = 2027/2028
+Case 10: Spring availability → available_from = 2028-05-15 → effective start = 2028-05-15 → academic year = 2027/2028
+
+Rule reminder: Effective start = available_from if not let, otherwise let_until + 1. Academic year = July → June window the effective start falls into.
+
+
+How Student Palace shows academic years
+
+Every property or room is matched to an academic year. The academic year runs from 1 July to 30 June. For example, “2025/2026” means 1 July 2025 up to 30 June 2026.
+
+When you search, Student Palace checks when a room will actually be available:
+	•	If the room is not let, we use its “Available from” date.
+	•	If the room is currently let, we use the day after its “Let until” date.
+
+That date is then slotted into the correct academic year window.
+
+So if a room is free from 15 August 2025, it will show under 2025/2026. If it only becomes free from 1 July 2026, it will show under 2026/2027.
+
+This way, you don’t need to worry about exact dates — just choose your city and academic year, and you’ll only see rooms that are ready for that time.
+
+
+
+
+
+
+
+
+
+
