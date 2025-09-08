@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+{% block title %}Find properties – Student Palace{% endblock %}
+
+{% block content %}
+<section class="wrap" style="margin-top:8px">
+
+  <!-- Page header -->
+  <div class="card card--accent-edges" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <div>
+      <h1 class="page-title" style="margin:0">Find properties</h1>
+      <p class="muted" style="margin:4px 0 0 0">Use filters to refine your search</p>
+    </div>
+    <!-- Mobile filters button -->
+    <button id="openFilters" class="btn" style="display:none;">Filters</button>
+  </div>
+
+  <div class="grid" style="grid-template-columns:280px 1fr; gap:16px; align-items:start; margin-top:12px;">
+
+    <!-- Sidebar (desktop) -->
+    <aside id="filtersSidebar" class="card" style="position:sticky; top:10px; align-self:start; padding-bottom:12px;">
+      <form id="filtersForm" method="get" action="{{ url_for('public.search') if 'public' in globals() else '/search' }}">
+        <h2 class="card-title" style="margin-bottom:10px;">Filters</h2>
+
+        <!-- City -->
+        <label class="field">
+          <span class="label">City</span>
+          <select name="city" required style="width:100%;">
+            <option value="">Choose a city</option>
+            {% for c in cities or [] %}
+              <option value="{{ c.name }}" {% if request.args.get('city')==c.name %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <!-- Academic year -->
+        <label class="field" style="margin-top:8px;">
+          <span class="label">Academic year</span>
+          <select name="year" required style="width:100%;">
+            <option value="">Choose a year</option>
+            {% for y in years or [] %}
+              <option value="{{ y.value }}" {% if request.args.get('year')==y.value %}selected{% endif %}>{{ y.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <!-- Letting type -->
+        <label class="field" style="margin-top:8px;">
+          <span class="label">Letting type</span>
+          <select name="letting_type" style="width:100%;">
+            <option value="">Any</option>
+            <option value="whole" {% if request.args.get('letting_type')=='whole' %}selected{% endif %}>Whole house</option>
+            <option value="share" {% if request.args.get('letting_type')=='share' %}selected{% endif %}>House share (rooms)</option>
+          </select>
+        </label>
+
+        <!-- Group size -->
+        <label class="field" style="margin-top:8px;">
+          <span class="label">Group size</span>
+          <select name="group_size" style="width:100%;">
+            <option value="">Any</option>
+            {% for n in range(1, 10+1) %}
+              <option value="{{ n }}" {% if request.args.get('group_size')|int==n %}selected{% endif %}>{{ n }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <!-- Gender preference (seeker intent) -->
+        <div class="card" style="padding:10px; margin-top:10px;">
+          <div class="field">
+            <span class="label">I want a house that is</span>
+            <select name="want_gender" id="want_gender" style="width:100%;">
+              <option value="">Any</option>
+              <option value="male"   {% if request.args.get('want_gender')=='male' %}selected{% endif %}>Just Male</option>
+              <option value="female" {% if request.args.get('want_gender')=='female' %}selected{% endif %}>Just Female</option>
+              <option value="any"    {% if request.args.get('want_gender')=='any' %}selected{% endif %}>Anything, I am not fussy</option>
+            </select>
+          </div>
+
+          <div class="field" id="seeker_gender_row" style="margin-top:8px; display:none;">
+            <span class="label">Can I politely ask your gender?</span>
+            <select name="seeker_gender" id="seeker_gender" style="width:100%;">
+              <option value="">I’d rather not say</option>
+              <option value="male"   {% if request.args.get('seeker_gender')=='male' %}selected{% endif %}>Male</option>
+              <option value="female" {% if request.args.get('seeker_gender')=='female' %}selected{% endif %}>Female</option>
+            </select>
+          </div>
+          <div class="help" style="margin-top:6px;">We only use this to refine “Anything” results.</div>
+        </div>
+
+        <!-- Ensuite -->
+        <label class="field checkbox" style="margin-top:10px;">
+          <input type="checkbox" name="ensuite" value="1" {% if request.args.get('ensuite') in ['1','on','true','True'] %}checked{% endif %}>
+          <span>Ensuite / own bathroom</span>
+        </label>
+
+        <!-- Bills included -->
+        <label class="field checkbox" style="margin-top:6px;">
+          <input type="checkbox" name="bills_included" value="1" {% if request.args.get('bills_included') in ['1','on','true','True'] %}checked{% endif %}>
+          <span>All bills included</span>
+        </label>
+
+        <!-- Couples OK -->
+        <label class="field checkbox" style="margin-top:6px;">
+          <input type="checkbox" name="couples_ok" value="1" {% if request.args.get('couples_ok') in ['1','on','true','True'] %}checked{% endif %}>
+          <span>Suitable for couples</span>
+        </label>
+
+        <!-- Disability accessible -->
+        <label class="field checkbox" style="margin-top:6px;">
+          <input type="checkbox" name="disabled_ok" value="1" {% if request.args.get('disabled_ok') in ['1','on','true','True'] %}checked{% endif %}>
+          <span>Accessible for disabled people</span>
+        </label>
+
+        <!-- Price range -->
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+          <label class="field">
+            <span class="label">Min price (pcm)</span>
+            <input type="number" name="min_price" min="0" step="50" value="{{ request.args.get('min_price','') }}">
+          </label>
+          <label class="field">
+            <span class="label">Max price (pcm)</span>
+            <input type="number" name="max_price" min="0" step="50" value="{{ request.args.get('max_price','') }}">
+          </label>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn" type="submit">Apply filters</button>
+          <a class="btn btn-outline" href="{{ url_for('public.search') if 'public' in globals() else '/search' }}">Clear</a>
+        </div>
+
+      </form>
+    </aside>
+
+    <!-- Results column -->
+    <main>
+      <!-- Toolbar (sort + count) -->
+      <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div class="muted">
+          {% set total = results|length if results is defined else 0 %}
+          {{ total }} result{{ '' if total==1 else 's' }}
+        </div>
+        <form method="get" id="sortForm" style="display:flex; gap:8px; align-items:center;">
+          {# Preserve current filters in sort form #}
+          {% for k,v in request.args.items() %}
+            {% if k!='sort' %}<input type="hidden" name="{{ k }}" value="{{ v|e }}">{% endif %}
+          {% endfor %}
+          <label class="field" style="margin:0;">
+            <span class="label-inline">Sort</span>
+            <select name="sort" onchange="this.form.submit()">
+              <option value="">Relevance</option>
+              <option value="price_asc"  {% if request.args.get('sort')=='price_asc' %}selected{% endif %}>Price (low → high)</option>
+              <option value="price_desc" {% if request.args.get('sort')=='price_desc' %}selected{% endif %}>Price (high → low)</option>
+              <option value="newest"     {% if request.args.get('sort')=='newest' %}selected{% endif %}>Newest</option>
+            </select>
+          </label>
+        </form>
+      </div>
+
+      <!-- Results grid -->
+      <div class="grid" style="grid-template-columns:repeat( auto-fill, minmax(260px, 1fr) ); gap:14px; margin-top:12px;">
+        {% if results %}
+          {% for h in results %}
+            <article class="card" style="overflow:hidden;">
+              <a href="/p/{{ h.id }}" style="display:block; text-decoration:none; color:inherit;">
+                {% if h.cover_url %}
+                  <img src="{{ h.cover_url }}" alt="" style="width:100%; height:160px; object-fit:cover; display:block;">
+                {% else %}
+                  <div style="height:160px; background:#f3f3f7; display:flex; align-items:center; justify-content:center; color:#999;">No photo</div>
+                {% endif %}
+                <div style="padding:10px;">
+                  <h3 style="margin:0 0 6px 0; font-size:16px; line-height:1.2;">{{ h.title }}</h3>
+                  <div class="muted" style="font-size:13px;">{{ h.city }} • {{ h.address }}</div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                    {% if h.letting_type=='whole' %}
+                      <span class="badge">Whole house</span>
+                    {% else %}
+                      <span class="badge">House share</span>
+                    {% endif %}
+                    {% if h.bills_option=='yes' %}
+                      <span class="badge">Bills included</span>
+                    {% endif %}
+                    {% if h.ensuites_available|default(0,true) > 0 %}
+                      <span class="badge">{{ h.ensuites_available }} ensuite</span>
+                    {% endif %}
+                    {% if h.available_rooms_total|default(0,true) > 0 %}
+                      <span class="badge">{{ h.available_rooms_total }} available</span>
+                    {% endif %}
+                  </div>
+                  {% if h.from_price_ppw or h.from_price_pcm %}
+                    <div style="margin-top:8px; font-weight:600;">
+                      {% if h.from_price_pcm %}From £{{ h.from_price_pcm }} pcm{% endif %}
+                      {% if h.from_price_ppw %}<span class="muted">(~£{{ h.from_price_ppw }} pw)</span>{% endif %}
+                    </div>
+                  {% endif %}
+                </div>
+              </a>
+            </article>
+          {% endfor %}
+        {% else %}
+          <div class="card" style="padding:14px;">
+            <strong>No results yet.</strong>
+            <p class="muted" style="margin:6px 0 0 0;">Try adjusting your filters.</p>
+          </div>
+        {% endif %}
+      </div>
+    </main>
+
+  </div>
+</section>
+
+<!-- Mobile drawer & responsive behavior -->
+<style>
+  /* Basic responsive toggle: hide sidebar on small screens, show Filters button */
+  @media (max-width: 920px){
+    #filtersSidebar { display:none; }
+    #openFilters { display:inline-flex; }
+  }
+  /* Full-screen drawer for mobile filters */
+  .drawer {
+    position: fixed; inset: 0; background: #fff; z-index: 9999;
+    display: none; flex-direction: column;
+  }
+  .drawer.open { display:flex; }
+  .drawer-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px; border-bottom:1px solid var(--border);
+  }
+  .drawer-body {
+    padding:12px; overflow:auto; flex:1;
+  }
+  .drawer-footer {
+    position:sticky; bottom:0; padding:12px; border-top:1px solid var(--border); background:#fff;
+  }
+  .badge {
+    display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px;
+    background: #f0e9fb; color:#5c2ea5;
+  }
+</style>
+
+<!-- Drawer markup (mobile only) -->
+<div id="filtersDrawer" class="drawer" aria-hidden="true" aria-modal="true" role="dialog">
+  <div class="drawer-header">
+    <strong>Filters</strong>
+    <button id="closeFilters" class="btn btn-outline">Close</button>
+  </div>
+  <div class="drawer-body">
+    <form id="filtersFormMobile" method="get" action="{{ url_for('public.search') if 'public' in globals() else '/search' }}">
+      {# Duplicate fields for mobile; simplest for now. Keep names identical so backend is unchanged. #}
+
+      <!-- City -->
+      <label class="field">
+        <span class="label">City</span>
+        <select name="city" required style="width:100%;">
+          <option value="">Choose a city</option>
+          {% for c in cities or [] %}
+            <option value="{{ c.name }}" {% if request.args.get('city')==c.name %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <!-- Academic year -->
+      <label class="field" style="margin-top:8px;">
+        <span class="label">Academic year</span>
+        <select name="year" required style="width:100%;">
+          <option value="">Choose a year</option>
+          {% for y in years or [] %}
+            <option value="{{ y.value }}" {% if request.args.get('year')==y.value %}selected{% endif %}>{{ y.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <!-- Letting type -->
+      <label class="field" style="margin-top:8px;">
+        <span class="label">Letting type</span>
+        <select name="letting_type" style="width:100%;">
+          <option value="">Any</option>
+          <option value="whole" {% if request.args.get('letting_type')=='whole' %}selected{% endif %}>Whole house</option>
+          <option value="share" {% if request.args.get('letting_type')=='share' %}selected{% endif %}>House share (rooms)</option>
+        </select>
+      </label>
+
+      <!-- Group size -->
+      <label class="field" style="margin-top:8px;">
+        <span class="label">Group size</span>
+        <select name="group_size" style="width:100%;">
+          <option value="">Any</option>
+          {% for n in range(1, 10+1) %}
+            <option value="{{ n }}" {% if request.args.get('group_size')|int==n %}selected{% endif %}>{{ n }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <!-- Gender intent + follow-up -->
+      <div class="card" style="padding:10px; margin-top:10px;">
+        <div class="field">
+          <span class="label">I want a house that is</span>
+          <select name="want_gender" id="want_gender_m" style="width:100%;">
+            <option value="">Any</option>
+            <option value="male"   {% if request.args.get('want_gender')=='male' %}selected{% endif %}>Just Male</option>
+            <option value="female" {% if request.args.get('want_gender')=='female' %}selected{% endif %}>Just Female</option>
+            <option value="any"    {% if request.args.get('want_gender')=='any' %}selected{% endif %}>Anything, I am not fussy</option>
+          </select>
+        </div>
+        <div class="field" id="seeker_gender_row_m" style="margin-top:8px; display:none;">
+          <span class="label">Can I politely ask your gender?</span>
+          <select name="seeker_gender" id="seeker_gender_m" style="width:100%;">
+            <option value="">I’d rather not say</option>
+            <option value="male"   {% if request.args.get('seeker_gender')=='male' %}selected{% endif %}>Male</option>
+            <option value="female" {% if request.args.get('seeker_gender')=='female' %}selected{% endif %}>Female</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Ensuite -->
+      <label class="field checkbox" style="margin-top:10px;">
+        <input type="checkbox" name="ensuite" value="1" {% if request.args.get('ensuite') in ['1','on','true','True'] %}checked{% endif %}>
+        <span>Ensuite / own bathroom</span>
+      </label>
+
+      <!-- Bills included -->
+      <label class="field checkbox" style="margin-top:6px;">
+        <input type="checkbox" name="bills_included" value="1" {% if request.args.get('bills_included') in ['1','on','true','True'] %}checked{% endif %}>
+        <span>All bills included</span>
+      </label>
+
+      <!-- Couples OK -->
+      <label class="field checkbox" style="margin-top:6px;">
+        <input type="checkbox" name="couples_ok" value="1" {% if request.args.get('couples_ok') in ['1','on','true','True'] %}checked{% endif %}>
+        <span>Suitable for couples</span>
+      </label>
+
+      <!-- Disability accessible -->
+      <label class="field checkbox" style="margin-top:6px;">
+        <input type="checkbox" name="disabled_ok" value="1" {% if request.args.get('disabled_ok') in ['1','on','true','True'] %}checked{% endif %}>
+        <span>Accessible for disabled people</span>
+      </label>
+
+      <!-- Price range -->
+      <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+        <label class="field">
+          <span class="label">Min price (pcm)</span>
+          <input type="number" name="min_price" min="0" step="50" value="{{ request.args.get('min_price','') }}">
+        </label>
+        <label class="field">
+          <span class="label">Max price (pcm)</span>
+          <input type="number" name="max_price" min="0" step="50" value="{{ request.args.get('max_price','') }}">
+        </label>
+      </div>
+
+      <div class="drawer-footer">
+        <button class="btn" type="submit" style="width:100%;">Show results</button>
+        <a class="btn btn-outline" style="width:100%; margin-top:8px;" href="{{ url_for('public.search') if 'public' in globals() else '/search' }}">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Elements
+  var openBtn = document.getElementById('openFilters');
+  var drawer  = document.getElementById('filtersDrawer');
+  var closeBtn= document.getElementById('closeFilters');
+
+  function openDrawer(){ drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); }
+  function closeDrawer(){ drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); }
+
+  if (openBtn) openBtn.addEventListener('click', openDrawer);
+  if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+
+  // Show the "seeker gender" follow-up only when want_gender == 'any'
+  function toggleFollowUp(selectEl, rowEl){
+    if (!selectEl || !rowEl) return;
+    var v = (selectEl.value || '').toLowerCase();
+    rowEl.style.display = (v === 'any') ? 'block' : 'none';
+  }
+
+  var wantDesktop = document.getElementById('want_gender');
+  var rowDesktop  = document.getElementById('seeker_gender_row');
+  toggleFollowUp(wantDesktop, rowDesktop);
+  if (wantDesktop) wantDesktop.addEventListener('change', function(){ toggleFollowUp(wantDesktop, rowDesktop); });
+
+  var wantMobile = document.getElementById('want_gender_m');
+  var rowMobile  = document.getElementById('seeker_gender_row_m');
+  toggleFollowUp(wantMobile, rowMobile);
+  if (wantMobile) wantMobile.addEventListener('change', function(){ toggleFollowUp(wantMobile, rowMobile); });
+
+  // Optional: copy desktop filters into drawer on mobile open (advanced).
+  // For now we keep two forms; backend reads same names.
+})();
+</script>
+{% endblock %}
