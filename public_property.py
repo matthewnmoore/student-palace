@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from flask import Blueprint, render_template
 from db import get_db
+from utils import get_academic_year_label  # <-- added
 
 # Unique blueprint name so it doesn't clash with the existing 'public' blueprint
 property_public_bp = Blueprint("property_public", __name__)
@@ -76,6 +77,9 @@ def property_public(hid: int):
     epc = (house.get("epc_rating") or "").strip().upper()
     epc_label = f"EPC {epc}" if epc in ("A","B","C","D","E","F","G") else ""
 
+    # Academic year label from rooms
+    academic_year_label = get_academic_year_label(bundle["rooms"])
+
     ctx = dict(
         house=house,
         landlord=landlord,
@@ -83,5 +87,6 @@ def property_public(hid: int):
         rooms=bundle["rooms"],
         bills_label=bills_label,
         epc_label=epc_label,
+        academic_year_label=academic_year_label,  # <-- added
     )
     return render_template("property_public.html", **ctx)
