@@ -44,14 +44,14 @@
           <p style="margin-top:6px">
             <strong>Website:</strong>
             {% if profile.website %}
-              <a href="{{ profile.website }}" target="_blank" rel="noopener"> {{ profile.website }} </a>
+              <a href="{{ profile.website }}" target="_blank" rel="noopener">{{ profile.website }}</a>
             {% else %}—{% endif %}
           </p>
           <p class="muted" style="margin-top:10px">Profile views: {{ profile.profile_views or 0 }}</p>
         </div>
       </div>
 
-      <!-- RIGHT: Media (logo + photo) -->
+      <!-- RIGHT: Media (logo + photo) + accreditations -->
       <aside style="display:flex; flex-direction:column; gap:16px">
         <!-- Logo -->
         <div class="card card--accent-lr">
@@ -86,6 +86,23 @@
             {% endif %}
           </div>
         </div>
+
+        <!-- Accreditations (public) -->
+        {% if accreditations and accreditations|length %}
+          <div class="card card--accent-lr">
+            <h3 style="margin-top:0">Accreditations</h3>
+            <ul style="margin:0; padding-left:18px">
+              {% for a in accreditations %}
+                <li style="margin:6px 0">
+                  <strong>{{ a.name }}</strong>
+                  {% if a.note %}
+                    <span class="muted">— {{ a.note }}</span>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
       </aside>
 
     </div>
