@@ -119,20 +119,20 @@
       </div>
     </div>
 
-       <!-- ACTIONS -->
-    <div class="card actions card--accent-lr">
-      <div class="actions-row">
-        <div class="btn-group-left" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
-          <button class="btn" type="submit" name="action" value="save_only">Save</button>
-          <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
-          <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
-          {% if mode == 'edit' and room %}
-            <a class="btn btn-outline" href="{{ url_for('landlord.room_photos', hid=house.id, rid=room.id) }}">Manage photos</a>
-            <a class="btn" href="{{ url_for('public.room_public', rid=room.id) }}" target="_blank">View public page</a>
-          {% endif %}
-        </div>
-      </div>
+      <!-- ACTIONS -->
+<div class="card actions card--accent-lr">
+  <div class="actions-row">
+    <div class="btn-group-left" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+      <button class="btn" type="submit" name="action" value="save_only">Save</button>
+      <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
+      <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
+      {% if mode == 'edit' and room %}
+        <a class="btn btn-outline" href="{{ url_for('landlord.room_photos', hid=house.id, rid=room.id) }}">Manage photos</a>
+        <a class="btn" href="{{ url_for('room_public.room_public', rid=room.id) }}" target="_blank">View public page</a>
+      {% endif %}
     </div>
+  </div>
+</div>
   </form>
 </section>
 
