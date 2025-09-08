@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Browse properties – Student Palace{% endblock %}
+
+{% block content %}
+<section class="wrap" style="margin-top:8px">
+
+  <!-- Toolbar (count + sort) -->
+  <div class="card card--accent-lr" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;">
+    <div class="muted">
+      {% set total = results|length if results is defined else 0 %}
+      {{ total }} result{{ '' if total==1 else 's' }}
+    </div>
+    <form method="get" id="sortForm" style="display:flex; gap:8px; align-items:center;">
+      {# Preserve any existing query params except 'sort' #}
+      {% for k,v in request.args.items() %}
+        {% if k!='sort' %}<input type="hidden" name="{{ k }}" value="{{ v|e }}">{% endif %}
+      {% endfor %}
+      <label class="field" style="margin:0;">
+        <span class="label-inline">Sort</span>
+        <select name="sort" onchange="this.form.submit()">
+          <option value="">Newest</option>
+          <option value="price_asc"  {% if request.args.get('sort')=='price_asc' %}selected{% endif %}>Price (low → high)</option>
+          <option value="price_desc" {% if request.args.get('sort')=='price_desc' %}selected{% endif %}>Price (high → low)</option>
+        </select>
+      </label>
+    </form>
+  </div>
+
+  <!-- Results grid -->
+  <div class="grid" style="grid-template-columns:repeat( auto-fill, minmax(280px, 1fr) ); gap:14px;">
+    {% if results %}
+      {% for h in results %}
+        <article class="card card--property" style="overflow:hidden;">
+          <a href="/p/{{ h.id }}" style="display:block; text-decoration:none; color:inherit;">
+            {% if h.cover_url %}
+              <img src="{{ h.cover_url }}" alt="" style="width:100%; height:170px; object-fit:cover; display:block;">
+            {% else %}
+              <div style="height:170px; background:#f3f3f7; display:flex; align-items:center; justify-content:center; color:#999;">No photo</div>
+            {% endif %}
+
+            <div style="padding:12px;">
+              <!-- Title line -->
+              <h3 style="margin:0 0 6px 0; font-size:16px; line-height:1.25;">
+                {{ h.title }}
+              </h3>
+
+              <!-- Short address (number/name stripped) -->
+              {% set full_addr = (h.address or '') ~ (', ' ~ h.city if h.city) %}
+              <div class="muted short-addr" data-full="{{ full_addr|e }}" style="font-size:13px; margin-bottom:6px;">
+                {{ full_addr }}
+              </div>
+
+              <!-- Badges: equal 3-up grid -->
+              <div class="mini-badges">
+                {% if h.letting_type=='whole' %}
+                  <span class="badge badge-pill">Whole house</span>
+                {% else %}
+                  <span class="badge badge-pill">House share</span>
+                {% endif %}
+
+                {% if h.bills_option=='yes' %}
+                  <span class="badge badge-pill">Bills included</span>
+                {% endif %}
+
+                {% if (h.ensuites_available|default(0,true)) > 0 %}
+                  <span class="badge badge-pill">{{ h.ensuites_available }} ensuite</span>
+                {% endif %}
+
+                {# Always show rooms/available (we’ll still fit them to the row grid) #}
+                {% set tr = h.total_rooms|default(0,true) %}
+                {% set ar = h.available_rooms|default(h.available_rooms_total|default(0,true), true) %}
+                <span class="badge badge-pill">{{ tr }} rooms</span>
+                <span class="badge badge-pill">{{ ar }} available</span>
+              </div>
+
+              <!-- Price + verified -->
+              {% if h.from_price_pcm or h.from_price_ppw %}
+                <div style="margin-top:10px; font-weight:700; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span>
+                    {% if h.from_price_pcm %}From £{{ h.from_price_pcm }} pcm{% endif %}
+                    {% if h.from_price_ppw %} (≈£{{ h.from_price_ppw }} pw){% endif %}
+                  </span>
+                  {% if h.verified %}
+                    <span title="Verified landlord/agent" aria-label="Verified">✅</span>
+                  {% endif %}
+                </div>
+              {% elif h.verified %}
+                <div style="margin-top:10px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                  <span class="muted">Price on request</span>
+                  <span title="Verified landlord/agent" aria-label="Verified">✅</span>
+                </div>
+              {% endif %}
+            </div>
+          </a>
+        </article>
+      {% endfor %}
+    {% else %}
+      <div class="card card--accent-lr" style="padding:14px;">
+        <strong>No properties yet.</strong>
+        <p class="muted" style="margin:6px 0 0 0;">Once we wire the data, listings will appear here.</p>
+      </div>
+    {% endif %}
+  </div>
+
+</section>
+
+<!-- Styles specific to property cards -->
+<style>
+  /* Faint orange background like the property page highlights */
+  .card--property{
+    background:#FFF7E6;
+    border:1px solid #FFD8A8;
+  }
+  /* Consistent pill size + three per row */
+  .mini-badges{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0,1fr));
+    gap:6px 8px;
+    margin-top:8px;
+  }
+  .badge-pill{
+    display:inline-flex;
+    align-items:center; justify-content:center;
+    min-height:28px;
+    border-radius:999px;
+    white-space:nowrap;
+    font-size:12px;
+    padding:4px 8px;
+    background:#f2ecff;
+    border:1px solid var(--border);
+  }
+  @media (max-width:540px){
+    .mini-badges{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+  }
+</style>
+
+<!-- JS: shorten addresses on cards (strip house number/name; keep street + city) -->
+<script>
+(function(){
+  const els = document.querySelectorAll('.short-addr[data-full]');
+  const streetTypes = [' Road',' Street',' Avenue',' Lane',' Close',' Drive',' Terrace',' Way',' Place',' Crescent',' Court',' Hill',' Gardens',' Park',' Grove',' View',' Parade',' Square',' Row',' Mews'];
+
+  function extractStreet(line1){
+    let keep = line1, hitIdx = -1;
+    // find last street type token
+    for (const t of streetTypes){
+      const i = line1.toLowerCase().lastIndexOf(t.trim().toLowerCase());
+      if (i !== -1){ hitIdx = i + t.length; break; }
+    }
+    if (hitIdx !== -1){
+      const upto = line1.slice(0, hitIdx);
+      // remove leading house numbers / names and unit prefixes
+      keep = upto
+        .replace(/^\s*\d+[A-Za-z]?\s+/, '')      // 12 / 12A
+        .replace(/^\s*(flat|suite|apt|apartment)\b.*?\s/i, '') // Flat 2
+        .trim();
+    }else{
+      keep = line1
+        .replace(/^\s*\d+[A-Za-z]?\s+/, '')
+        .replace(/^\s*(flat|suite|apt|apartment)\b.*?\s/i, '')
+        .trim();
+    }
+    return keep || line1;
+  }
+
+  els.forEach(el=>{
+    const full = el.getAttribute('data-full') || '';
+    const parts = full.split(',').map(s=>s.trim()).filter(Boolean);
+    if (!parts.length){ return; }
+    const line1 = parts[0];
+    const rest  = parts.slice(1); // city usually in rest
+    const street = extractStreet(line1);
+    el.textContent = [street].concat(rest).join(', ');
+  });
+})();
+</script>
+{% endblock %}
