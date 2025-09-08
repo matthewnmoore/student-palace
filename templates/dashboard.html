@@ -35,8 +35,8 @@
         {% if created_at_uk %}<p class="small">Member since: {{ created_at_uk }}</p>{% endif %}
         {% if role_label %}<p class="small">Role: {{ role_label }}</p>{% endif %}
 
-        {# --- VERIFIED STATUS (matches public page logic) --- #}
-        {% set verified = landlord and (landlord.is_verified|default(0, true)) %}
+        {# --- VERIFIED STATUS (from landlord_profiles) --- #}
+        {% set verified = profile and (profile.is_verified|default(0, true)) %}
         <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
           {% if verified %}
             <span aria-hidden="true" style="font-size:18px">✅</span>
