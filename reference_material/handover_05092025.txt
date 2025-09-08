@@ -3,6 +3,192 @@ Student Palace – Handover List (rolled back to bulk editing pages stable point
 
 
 
+08/09/2525
+
+STUDENT PALACE – HANDOVER NOTES (LATEST DEVELOPMENT)
+Date: 8 September 2025
+	1.	Verified Landlord Feature
+
+	•	The verified flag is stored in landlord_profiles.is_verified (integer, 0 or 1).
+	•	All public pages and the dashboard should check verification status from this field.
+	•	The Jinja condition is kept simple: {% set verified = profile and (profile.is_verified|default(0, true)) %}.
+	•	Display: ✅ Verified landlord or ❌ Not verified.
+	•	Works consistently across dashboard, edit profile page, property pages.
+
+	2.	Dashboard (landlord) updates
+
+	•	Verified / not verified banner added inside the Account box.
+	•	Buttons inside Account box:
+• Edit profile (grey outline button).
+• If not verified, show a green button “Get Verified” (placeholder link). Hidden when verified.
+• Purple button “Accreditations” added next to Edit profile. Purple background, white text, reverses the colour scheme to stand out.
+	•	Quick Actions card remains unchanged (Add house, Manage houses, Portfolio, Bulk edits).
+	•	Houses table unchanged except for button alignment fixes.
+	•	All code references verification from landlord_profiles, not landlords.
+
+	3.	Edit Profile Page updates
+
+	•	Verified / not verified banner at the top.
+	•	Styled consistently with the dashboard and other cards.
+	•	Displays green checkmark or cross with matching wording.
+	•	Rest of the profile form unchanged: display name, phone, website, bio, role, email (readonly), save button, back to dashboard, view public page, and logo/photo upload cards.
+
+	4.	Accreditation System (landlord side)
+
+	•	Admin manages the master list of schemes in accreditation_schemes. Admin can add, edit, and delete.
+	•	Landlord has a dedicated page: /landlord/accreditations.
+	•	Page logic:
+• Pull landlord profile for verified banner.
+• Load all active schemes.
+• Show list with checkboxes, one per scheme.
+• Optional notes field (e.g., membership number) per scheme.
+• If landlord already has a scheme selected, it shows pre-checked with notes filled.
+	•	On POST, system updates landlord_accreditations table: inserts, updates, or deletes as needed.
+	•	Flash message confirms save.
+	•	Dashboard button links here.
+
+	5.	Database schema recap (relevant tables)
+
+	•	landlords: id, email, password_hash, created_at.
+	•	landlord_profiles: landlord_id, display_name, phone, website, bio, is_verified (0/1), role, logo_path, photo_path, etc.
+	•	accreditation_schemes: id, name, is_active. (Admin managed).
+	•	landlord_accreditations: landlord_id, scheme_id, extra_text (membership number, optional).
+
+	6.	Routes
+
+	•	Blueprint landlord has url_prefix=”/landlord”.
+	•	Important endpoints:
+• /dashboard – landlord dashboard with verified badge, account box, quick actions, houses table.
+• /landlord/profile – edit profile with verified banner and uploads.
+• /landlord/accreditations – landlord selects accreditations (checkbox + optional text).
+	•	Note: because of the url_prefix, the route decorator for accreditations must be “/accreditations” (not “/landlord/accreditations”), otherwise Flask duplicates the path.
+
+	7.	Style notes
+
+	•	All verification banners use card card–accent-lr.
+	•	Consistent padding (12–14px), margin-bottom (12–14px).
+	•	Flexbox layout: align items center, gap 8–12px.
+	•	Icons: ✅ for verified, ❌ for not verified.
+	•	Verified text bold small font.
+	•	Get Verified button: green background (#28a745), white text.
+	•	Accreditations button: purple background (#6b21a8), white text.
+
+	8.	Outstanding items / future work
+
+	•	Get Verified button currently a placeholder (href=”#” for now). Needs linking when verification workflow is ready.
+	•	Landlord accreditation page layout can be refined visually (styled checkboxes, form grid).
+	•	Admin CRUD for accreditation_schemes is functioning but may need a nicer UI.
+	•	Error originally occurred because the route decorator duplicated “/landlord”. Fixed by keeping it consistent with url_prefix.
+
+	9.	Testing checklist
+
+	•	Log in as landlord → dashboard: shows correct verified status, account box with buttons.
+	•	Edit profile → verified banner styled correctly.
+	•	Click Accreditations button → page loads verified banner and list of accreditations. Can select/deselect, add notes, save, and flash confirms.
+	•	Public property pages still show “Verified landlord” badge correctly.
+
+
+STUDENT PALACE – HANDOVER NOTES (LATEST DEVELOPMENT)
+Date: 8 September 2025
+	1.	Verified Landlord Feature
+
+	•	The verified flag is stored in landlord_profiles.is_verified (integer, 0 or 1).
+	•	All public pages and the dashboard check verification status from this field.
+	•	The Jinja condition is kept simple: {% set verified = profile and (profile.is_verified|default(0, true)) %}.
+	•	Display: ✅ Verified landlord or ❌ Not verified.
+	•	Works consistently across dashboard, edit profile page, property pages.
+
+	2.	Dashboard (landlord) updates
+
+	•	Verified / not verified banner added inside the Account box.
+	•	Buttons inside Account box:
+• Edit profile (grey outline button).
+• If not verified, show a green button “Get Verified” (placeholder link). Hidden when verified.
+• Purple button “Accreditations” added next to Edit profile. Purple background, white text, reverses the colour scheme to stand out.
+	•	Quick Actions card remains unchanged (Add house, Manage houses, Portfolio, Bulk edits).
+	•	Houses table unchanged except for button alignment fixes.
+	•	All code references verification from landlord_profiles, not landlords.
+
+	3.	Edit Profile Page updates
+
+	•	Verified / not verified banner at the top.
+	•	Styled consistently with the dashboard and other cards.
+	•	Displays green checkmark or cross with matching wording.
+	•	Rest of the profile form unchanged: display name, phone, website, bio, role, email (readonly), save button, back to dashboard, view public page, and logo/photo upload cards.
+
+	4.	Accreditation System (landlord side)
+
+	•	Admin manages the master list of schemes in accreditation_schemes. Admin can add, edit, and delete.
+	•	Landlord has a dedicated page: /landlord/accreditations.
+	•	Page logic:
+• Pull landlord profile for verified banner.
+• Load all active schemes.
+• Show list with checkboxes, one per scheme.
+• Optional notes field (e.g., membership number) per scheme.
+• If landlord already has a scheme selected, it shows pre-checked with notes filled.
+	•	On POST, system updates landlord_accreditations table: inserts, updates, or deletes as needed.
+	•	Flash message confirms save.
+	•	Dashboard button links here.
+
+	5.	Database schema recap (relevant tables)
+
+	•	landlords: id, email, password_hash, created_at.
+	•	landlord_profiles: landlord_id, display_name, phone, website, bio, is_verified (0/1), role, logo_path, photo_path, etc.
+	•	accreditation_schemes: id, name, is_active. (Admin managed).
+	•	landlord_accreditations: landlord_id, scheme_id, extra_text (membership number, optional).
+
+	6.	Routes
+
+	•	Blueprint landlord has url_prefix=”/landlord”.
+	•	Important endpoints:
+• /dashboard – landlord dashboard with verified badge, account box, quick actions, houses table.
+• /landlord/profile – edit profile with verified banner and uploads.
+• /landlord/accreditations – landlord selects accreditations (checkbox + optional text).
+	•	Note: because of the url_prefix, the route decorator for accreditations must be “/accreditations” (not “/landlord/accreditations”), otherwise Flask duplicates the path.
+
+	7.	Style notes
+
+	•	All verification banners use card card–accent-lr.
+	•	Consistent padding (12–14px), margin-bottom (12–14px).
+	•	Flexbox layout: align items center, gap 8–12px.
+	•	Icons: ✅ for verified, ❌ for not verified.
+	•	Verified text bold small font.
+	•	Get Verified button: green background (#28a745), white text.
+	•	Accreditations button: purple background (#6b21a8), white text.
+
+	8.	Outstanding items / future work
+
+	•	Get Verified button currently a placeholder (href=”#” for now). Needs linking when verification workflow is ready.
+	•	Landlord accreditation page layout can be refined visually (styled checkboxes, form grid).
+	•	Admin CRUD for accreditation_schemes is functioning but may need a nicer UI.
+	•	Error originally occurred because the route decorator duplicated “/landlord”. Fixed by keeping it consistent with url_prefix.
+
+	9.	Testing checklist
+
+	•	Log in as landlord → dashboard: shows correct verified status, account box with buttons.
+	•	Edit profile → verified banner styled correctly.
+	•	Click Accreditations button → page loads verified banner and list of accreditations. Can select/deselect, add notes, save, and flash confirms.
+	•	Public property pages still show “Verified landlord” badge correctly.
+
+	10.	Troubleshooting
+
+	•	If verification always shows “Not verified”:
+• Check dashboard.py is pulling profile from landlord_profiles.
+• Ensure template uses profile.is_verified not landlord.is_verified.
+• Confirm landlord_profiles.is_verified is set to 1 in DB.
+	•	If dashboard crashes with “no such column: is_verified”:
+• You accidentally queried landlords instead of landlord_profiles. Fix the SELECT.
+	•	If clicking Accreditations button gives a 404:
+• Make sure the route decorator is “@bp.route(’/accreditations’)” not “/landlord/accreditations” because url_prefix already adds “/landlord”.
+• Confirm the template link uses url_for(‘landlord.landlord_accreditations’).
+	•	If accreditations don’t save:
+• Check landlord_accreditations table exists and schema matches (landlord_id, scheme_id, extra_text).
+• Check POST form keys match scheme_{id} and extra_{id}.
+	•	If static files (logo/photo) don’t load:
+• Ensure profile.logo_path and profile.photo_path values are correct relative to /static.
+
+
+
 
 07/09/2025
 
