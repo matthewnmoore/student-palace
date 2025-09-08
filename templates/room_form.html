@@ -67,12 +67,12 @@
       <h2 class="card-title">Availability</h2>
       <div class="grid grid-3" style="align-items:end">
         <label class="check" style="align-self:end">
+          <!-- Hidden default FIRST so unchecked reliably posts 0 -->
+          <input type="hidden" name="is_let" value="0">
           <input type="checkbox" name="is_let" id="is_let" value="1"
                  {% if form and form.is_let in ['1', 1, 'on', True] %}checked{% endif %}>
           <span>Currently let (not available now)</span>
         </label>
-        <!-- Hidden default so unchecked submits 0 -->
-        <input type="hidden" name="is_let" value="0">
 
         {% set let_until_val = (form.let_until or '') if form else '' %}
         <label class="field" id="row_let_until" style="display:none">
@@ -119,20 +119,20 @@
       </div>
     </div>
 
-      <!-- ACTIONS -->
-<div class="card actions card--accent-lr">
-  <div class="actions-row">
-    <div class="btn-group-left" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
-      <button class="btn" type="submit" name="action" value="save_only">Save</button>
-      <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
-      <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
-      {% if mode == 'edit' and room %}
-        <a class="btn btn-outline" href="{{ url_for('landlord.room_photos', hid=house.id, rid=room.id) }}">Manage photos</a>
-       <a class="btn" href="{{ url_for('room_public.room_public', room_id=room.id) }}" target="_blank">View public page</a>
-      {% endif %}
+    <!-- ACTIONS -->
+    <div class="card actions card--accent-lr">
+      <div class="actions-row">
+        <div class="btn-group-left" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+          <button class="btn" type="submit" name="action" value="save_only">Save</button>
+          <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
+          <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
+          {% if mode == 'edit' and room %}
+            <a class="btn btn-outline" href="{{ url_for('landlord.room_photos', hid=house.id, rid=room.id) }}">Manage photos</a>
+            <a class="btn" href="{{ url_for('room_public.room_public', room_id=room.id) }}" target="_blank">View public page</a>
+          {% endif %}
+        </div>
+      </div>
     </div>
-  </div>
-</div>
   </form>
 </section>
 
@@ -244,7 +244,7 @@
     }
   })();
 
-  // Price pcm -> ppw (unchanged)
+  // Price pcm -> ppw
   var pcmInput = document.getElementById('price_pcm');
   var ppwInput = document.getElementById('price_ppw');
   function updatePPW(){
