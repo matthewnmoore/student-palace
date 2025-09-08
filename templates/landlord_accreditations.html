@@ -7,9 +7,9 @@
     <a class="btn btn-outline" href="{{ url_for('landlord.dashboard') }}">Back to dashboard</a>
   </div>
 
-  {# --- VERIFIED BANNER (matches site style) --- #}
+  {# --- VERIFIED BANNER --- #}
   {% set verified = profile and (profile.is_verified|default(0, true)) %}
-  <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
+  <div class="card card--accent-edges" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
     {% if verified %}
       <span aria-hidden="true" style="font-size:20px">✅</span>
       <div style="font-weight:600">You’re verified. Tenants will see a verified badge on your listings.</div>
@@ -27,13 +27,13 @@
     {% endif %}
   {% endwith %}
 
-  <div class="card card--accent-lr">
+  <div class="card card--accent-edges">
     {% if schemes and schemes|length %}
       <form method="post">
         <table class="table" style="margin:0">
           <thead>
             <tr>
-              <th style="width:60px">Select</th>
+              <th style="width:64px">Select</th>
               <th>Accreditation</th>
               <th style="width:360px">Notes / Membership # (optional)</th>
             </tr>
@@ -48,17 +48,23 @@
                     <span class="label-inline" style="display:none">Select</span>
                   </label>
                 </td>
-                <td><strong>{{ s.name }}</strong></td>
                 <td>
-                  {% if s.has_notes %}
-                    <input type="text"
-                           name="extra_{{ s.id }}"
-                           value="{{ current.get(s.id, '') }}"
-                           placeholder="e.g., Membership number or notes"
-                           style="width:100%">
-                  {% else %}
-                    <span class="muted">—</span>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <strong>{{ s.name }}</strong>
+                    {% if not s.is_active %}
+                      <span class="badge" style="background:#eee;border:1px solid #ddd;color:#555;padding:2px 6px;border-radius:6px;font-size:12px">inactive</span>
+                    {% endif %}
+                  </div>
+                  {% if s.help_text %}
+                    <div class="muted" style="margin-top:4px">{{ s.help_text }}</div>
                   {% endif %}
+                </td>
+                <td>
+                  <input type="text"
+                         name="extra_{{ s.id }}"
+                         value="{{ current.get(s.id, '') }}"
+                         placeholder="e.g., Membership number or internal note"
+                         style="width:100%">
                 </td>
               </tr>
             {% endfor %}
