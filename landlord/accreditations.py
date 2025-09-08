@@ -1,3 +1,4 @@
+# landlord/accreditations.py
 from __future__ import annotations
 
 from flask import render_template, request, redirect, url_for, flash
@@ -22,14 +23,14 @@ def landlord_accreditations():
     ).fetchone()
 
     # Active accreditations for landlords to choose from
-    schemes = conn.execute(
+    accreditations = conn.execute(
         """
         SELECT id,
                name,
                help_text,
                is_active,
                sort_order,
-               1 AS has_notes  -- toggle has_notes to 0 if you ever want no notes box
+               1 AS has_notes  -- set to 0 if you ever want no notes box
         FROM accreditation_types
         WHERE is_active = 1
         ORDER BY sort_order ASC, name ASC
@@ -39,52 +40,52 @@ def landlord_accreditations():
     # Current selections for this landlord
     rows = conn.execute(
         """
-        SELECT scheme_id, COALESCE(extra_text,'') AS extra_text
+        SELECT accreditation_id, COALESCE(note,'') AS note
         FROM landlord_accreditations
         WHERE landlord_id = ?
         """,
         (lid,),
     ).fetchall()
-    current = {row["scheme_id"]: row["extra_text"] for row in rows}
+    current = {row["accreditation_id"]: row["note"] for row in rows}
 
     if request.method == "POST":
-        # Build a set of checked scheme IDs from form
+        # Build a set of checked accreditation IDs from form
         checked_ids = set()
-        for s in schemes:
-            key = f"scheme_{s['id']}"
+        for a in accreditations:
+            key = f"accreditation_{a['id']}"
             if request.form.get(key) in ("1", "on", "true"):
-                checked_ids.add(s["id"])
+                checked_ids.add(a["id"])
 
         # Upsert checked ones (with notes), delete unchecked ones
-        for s in schemes:
-            sid = s["id"]
-            notes = (request.form.get(f"extra_{sid}") or "").strip()
+        for a in accreditations:
+            aid = a["id"]
+            notes = (request.form.get(f"extra_{aid}") or "").strip()
 
-            if sid in checked_ids:
+            if aid in checked_ids:
                 # Insert or update
-                if sid in current:
+                if aid in current:
                     conn.execute(
                         """
                         UPDATE landlord_accreditations
-                        SET extra_text = ?
-                        WHERE landlord_id = ? AND scheme_id = ?
+                        SET note = ?
+                        WHERE landlord_id = ? AND accreditation_id = ?
                         """,
-                        (notes, lid, sid),
+                        (notes, lid, aid),
                     )
                 else:
                     conn.execute(
                         """
-                        INSERT INTO landlord_accreditations (landlord_id, scheme_id, extra_text)
+                        INSERT INTO landlord_accreditations (landlord_id, accreditation_id, note)
                         VALUES (?, ?, ?)
                         """,
-                        (lid, sid, notes),
+                        (lid, aid, notes),
                     )
             else:
                 # Remove if previously chosen
-                if sid in current:
+                if aid in current:
                     conn.execute(
-                        "DELETE FROM landlord_accreditations WHERE landlord_id = ? AND scheme_id = ?",
-                        (lid, sid),
+                        "DELETE FROM landlord_accreditations WHERE landlord_id = ? AND accreditation_id = ?",
+                        (lid, aid),
                     )
 
         conn.commit()
@@ -97,6 +98,6 @@ def landlord_accreditations():
     return render_template(
         "landlord_accreditations.html",
         profile=profile,
-        schemes=schemes,
+        schemes=accreditations,  # template still expects 'schemes'
         current=current,
     )
