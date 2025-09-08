@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Your accreditations – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Your accreditations</h1>
+    <a class="btn btn-outline" href="{{ url_for('landlord.dashboard') }}">Back to dashboard</a>
+  </div>
+
+  {# --- VERIFIED BANNER (matches site style) --- #}
+  {% set verified = profile and (profile.is_verified|default(0, true)) %}
+  <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
+    {% if verified %}
+      <span aria-hidden="true" style="font-size:20px">✅</span>
+      <div style="font-weight:600">You’re verified. Tenants will see a verified badge on your listings.</div>
+    {% else %}
+      <span aria-hidden="true" style="font-size:20px">❌</span>
+      <div style="font-weight:600">Not verified. Verification increases tenant trust.</div>
+    {% endif %}
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card card--accent-lr">
+    {% if schemes and schemes|length %}
+      <form method="post">
+        <table class="table" style="margin:0">
+          <thead>
+            <tr>
+              <th style="width:60px">Select</th>
+              <th>Accreditation</th>
+              <th style="width:360px">Notes / Membership # (optional)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in schemes %}
+              {% set chosen = (s.id in current.keys()) %}
+              <tr>
+                <td>
+                  <label class="check" style="margin:0">
+                    <input type="checkbox" name="scheme_{{ s.id }}" value="1" {% if chosen %}checked{% endif %}>
+                    <span class="label-inline" style="display:none">Select</span>
+                  </label>
+                </td>
+                <td><strong>{{ s.name }}</strong></td>
+                <td>
+                  {% if s.has_notes %}
+                    <input type="text"
+                           name="extra_{{ s.id }}"
+                           value="{{ current.get(s.id, '') }}"
+                           placeholder="e.g., Membership number or notes"
+                           style="width:100%">
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" type="submit">Save accreditations</button>
+          <a class="btn btn-outline" href="{{ url_for('landlord.dashboard') }}">Cancel</a>
+        </div>
+      </form>
+    {% else %}
+      <p class="muted" style="margin:0">No accreditations are available right now.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
