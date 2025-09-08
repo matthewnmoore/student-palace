@@ -137,7 +137,58 @@ if there are no results then remove the ensuite and inclusive bills from the sea
 
 
 
+SEARCH FIELDS (Landing Page)
+	1.	City (required)
 
+	•	Dropdown of active cities.
+	•	Only show results for the chosen city.
+
+	2.	Group size (required)
+
+	•	Show only houses that can accommodate the group right now (within the chosen academic year window).
+	•	House share listings: a house qualifies if it has at least that many rooms effectively available during the year window.
+	•	Whole house listings: a house qualifies if its total bedrooms and available bedrooms are exactly equal to the group size, and the house is effectively available during the year window.
+
+	3.	Academic year (required)
+
+	•	Academic year runs 1 July → 30 June (e.g., 2025/2026 = 1 Jul 2025 – 30 Jun 2026).
+	•	A room’s effective start date is:
+• if is_let = 1 and let_until is set → day after let_until.
+• otherwise → available_from (or “today” if empty).
+	•	A house/room qualifies for an academic year if its effective start date falls inside that year’s window.
+
+	4.	Gender preference (required)
+
+	•	Landlord sets house as: “Male Only” / “Female Only” / “Anyone / Mixed”.
+	•	Student answers in two steps:
+A. “I want a house that is…” → options:
+• “Just Male”
+• “Just Female”
+• “Anything, I am not fussy”
+B. If “Anything…” chosen → follow-up:
+• “Male”
+• “Female”
+• “I’d rather not say”
+	•	Result logic:
+• Just Male → show “Male Only”.
+• Just Female → show “Female Only”.
+• Anything + Male → show “Anyone/Mixed” + “Male Only”.
+• Anything + Female → show “Anyone/Mixed” + “Female Only”.
+• Anything + Prefer not to say → show “Anyone/Mixed” + “Male Only” + “Female Only”.
+
+	5.	Ensuite (optional)
+
+	•	Checkbox: “Must have ensuite”.
+	•	If checked: only show rooms with ensuite (or, for whole houses, only those where every room for that group has ensuite).
+
+	6.	Bills included (optional)
+
+	•	Checkbox: “Bills included”.
+	•	If checked: only houses with bills_option = "yes".
+
+⸻
+
+Do you want me to also rewrite the group size rule in a few plain examples (like we did for the academic year) so you’ve got a reference list of “what passes / what doesn’t”?
 
 
 
