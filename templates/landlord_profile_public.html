@@ -12,30 +12,30 @@
 
     <!-- Verified / not verified banner -->
     {% if profile.is_verified|default(0, true) %}
-      <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0">
-        <span aria-hidden="true" style="font-size:20px; color:#22c55e">✔️</span>
+      <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0; background:#ecfdf5; border:1px solid #22c55e; color:#065f46">
+        <span aria-hidden="true" style="font-size:20px;">✔️</span>
         <div style="font-weight:600">Verified – Listings from this landlord display a verified badge.</div>
       </div>
     {% else %}
-      <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0">
-        <span aria-hidden="true" style="font-size:20px; color:#f59e0b">❌</span>
+      <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0; background:#f3f4f6; border:1px solid #d1d5db; color:#374151">
+        <span aria-hidden="true" style="font-size:20px;">❌</span>
         <div style="font-weight:600">Not verified – Get verified to boost renter trust.</div>
       </div>
     {% endif %}
 
     <!-- Two-column layout -->
-    <div class="grid" style="grid-template-columns: 1fr 320px; gap:16px; align-items:start">
+    <div class="grid" style="grid-template-columns: 1fr 280px; gap:16px; align-items:start">
 
       <!-- LEFT: About + contact -->
-      <div>
+      <div style="display:flex; flex-direction:column; gap:16px">
         <!-- About -->
-        <div class="card card--accent-lr">
+        <div class="card card--accent-lr" style="min-height:220px; display:flex; flex-direction:column">
           <h2 style="margin:0 0 8px">About</h2>
-          <p>{{ profile.bio or 'No bio provided yet.' }}</p>
+          <p style="margin-top:0; flex:1">{{ profile.bio or 'No bio provided yet.' }}</p>
         </div>
 
         <!-- Contact -->
-        <div class="card card--accent-lr">
+        <div class="card card--accent-lr" style="min-height:160px">
           <h2 style="margin:0 0 8px">Contact</h2>
           <div class="grid grid-2">
             <p><strong>Email:</strong> {{ contact_email or '—' }}</p>
@@ -51,12 +51,12 @@
         </div>
       </div>
 
-      <!-- RIGHT: Media (logo + photo) + accreditations -->
+      <!-- RIGHT: Media (smaller cards) -->
       <aside style="display:flex; flex-direction:column; gap:16px">
         <!-- Logo -->
         <div class="card card--accent-lr">
           <h3 style="margin-top:0">Logo</h3>
-          <div style="width:100%; max-width:220px; aspect-ratio:1/1; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff">
+          <div style="width:100%; max-width:180px; aspect-ratio:1/1; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff">
             {% if profile.logo_path %}
               <img
                 src="{{ url_for('static', filename=profile.logo_path) }}?v={{ profile.profile_views or 0 }}"
@@ -73,7 +73,7 @@
         <!-- Photo -->
         <div class="card card--accent-lr">
           <h3 style="margin-top:0">Photo</h3>
-          <div style="width:100%; max-width:220px; aspect-ratio:1/1; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff">
+          <div style="width:100%; max-width:180px; aspect-ratio:1/1; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff">
             {% if profile.photo_path %}
               <img
                 src="{{ url_for('static', filename=profile.photo_path) }}?v={{ profile.profile_views or 0 }}"
@@ -86,27 +86,27 @@
             {% endif %}
           </div>
         </div>
-
-        <!-- Accreditations (public) -->
-        {% if accreditations and accreditations|length %}
-          <div class="card card--accent-lr">
-            <h3 style="margin-top:0">Accreditations</h3>
-            <ul style="margin:0; padding-left:18px">
-              {% for a in accreditations %}
-                {% set details = a.note or a.extra_text %}
-                <li style="margin:6px 0">
-                  <strong>{{ a.name }}</strong>
-                  {% if details %}
-                    <span class="muted">— {{ details }}</span>
-                  {% endif %}
-                </li>
-              {% endfor %}
-            </ul>
-          </div>
-        {% endif %}
       </aside>
 
     </div>
+
+    <!-- FULL-WIDTH: Accreditations -->
+    <div class="card card--accent-lr" style="margin-top:16px">
+      <h2 style="margin:0 0 8px">Accreditations</h2>
+      {% if accreditations and accreditations|length %}
+        <ul style="margin:0; padding-left:20px">
+          {% for a in accreditations %}
+            <li>
+              <strong>{{ a.name }}</strong>
+              {% if a.help_text %}<span class="muted"> – {{ a.help_text }}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No accreditations listed.</p>
+      {% endif %}
+    </div>
+
   {% endif %}
 </section>
 {% endblock %}
