@@ -1,0 +1,13 @@
+option 1
+
+Got it — if it’s 1 token per room regardless of live/draft, here’s the clean way to run it, in plain English:
+	•	A token gets attached the moment a room is created (first save). That token becomes active immediately and carries the room’s entitlement for its whole life (12 months for standard; lifetime has no expiry). Whether the room is visible or hidden doesn’t matter — the token is still “in use”.
+	•	Deleting a room does not refund or free the token. The token’s status stays consumed (active/expired later). That prevents gaming (create/delete to reuse tokens).
+	•	Cloning/duplicating a room needs another token. Same for creating a brand-new room: each distinct room record must have exactly one token.
+	•	Moving a token: either disallow completely (simplest and fairest), or allow a very tight window (e.g., within 24 hours of first activation and only if the new target room is empty/new). Pick one rule and stick to it.
+	•	Expiry: when a token hits its end date, the room becomes un-publishable until a new token is attached. You can still let landlords edit the room while it’s “unpaid”, but they can’t republish without attaching a fresh token.
+	•	Wallet UX: show “Unused tokens” and “In use” with the room name and expiry; on room create, auto-attach the oldest unused token; if none, send them to checkout.
+	•	Admin gifts/trials/fixed dates still work: they’re just tokens with different policies (duration or a hard expiry); attaching them at create behaves the same.
+	•	Migration for existing rooms: auto-mint one “intro token” per existing room with a future expiry (e.g., 3 months). After that, they’ll need to purchase or add gifted tokens.
+
+That setup keeps the rules simple, closes loopholes, and makes billing predictable. If you want, I can write the exact policy text you can paste into your T&Cs and UI copy so landlords know the deal.
