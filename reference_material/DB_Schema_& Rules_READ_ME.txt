@@ -1,6 +1,228 @@
 =================================================================
 Student Palace – Internal Reference File
 =================================================================
+
+
+
+
+	1.	CORE ENTITIES
+
+⸻
+
+HOUSES
+	•	id (PK)
+	•	landlord_id (FK → landlords.id)
+	•	title (string)
+	•	city (string, from admin-managed list)
+	•	address (string – full, but property cards drop house number)
+	•	bedrooms_total (int)
+	•	letting_type (enum: whole / share)
+	•	bills_option (enum: yes / some / no)
+	•	is_let (bool, auto set when let_until reached)
+	•	available_from (date)
+	•	let_until (date)
+	•	feature1..feature5 (short highlights, ≤ 40 chars each)
+
+ROOMS
+	•	id (PK)
+	•	house_id (FK → houses.id)
+	•	name (string)
+	•	is_let (bool)
+	•	price_pcm (int)
+	•	ensuite (bool)
+	•	couples_ok (bool)
+	•	disabled_ok (bool)
+	•	bed_size (string)
+	•	room_size (string)
+	•	description (text)
+	•	available_from (date)
+	•	let_until (date)
+
+HOUSE_IMAGES
+	•	id (PK)
+	•	house_id (FK → houses.id)
+	•	filename / file_path
+	•	is_primary (bool)
+	•	sort_order (int)
+
+LANDLORDS
+	•	id (PK)
+	•	email (string)
+	•	password (hashed string)
+
+LANDLORD_PROFILES
+	•	landlord_id (FK → landlords.id)
+	•	display_name (string)
+	•	public_slug (string)
+	•	is_verified (bool)
+	•	accreditations (text / references scheme list)
+
+⸻
+
+	2.	BUSINESS RULES
+
+⸻
+
+Cities
+	•	Admin-only control.
+	•	Landlords can only pick from dropdown.
+
+Rooms available
+	•	Auto-calculated: count rooms where is_let = 0.
+
+“Let until” dates
+	•	Automatically mark rooms/houses as let when date reached.
+
+Rent conversions
+	•	Weekly rent (pppw) = (pcm * 12) / 52 (rounded).
+
+Images
+	•	Max 5 per house/room.
+	•	Pipeline applies watermark.
+	•	Excess uploads are trimmed and error message shown.
+
+Academic year
+	•	Runs 1 Aug – 31 Jul.
+	•	Listings matched into years by available_from date.
+
+Search logic
+	•	Whole property: group_size == bedrooms_total AND rooms_available == bedrooms_total AND year matches.
+	•	Room only: rooms_available ≥ group_size AND year matches.
+
+Verification
+	•	landlord_profiles.is_verified = 1 → show green tick in property cards and detail pages.
+
+⸻
+
+	3.	LANDLORD ACCREDITATIONS
+
+⸻
+
+Supported schemes (UK, focus on Wales):
+	•	NRLA (National Residential Landlords Association)
+	•	ARLA Propertymark
+	•	UKALA
+	•	Safeagent (ex-NALS)
+	•	Rent Smart Wales (mandatory)
+	•	London Landlord Accreditation Scheme
+	•	DASH Landlord Accreditation (Midlands)
+	•	Scottish Landlord Register (mandatory)
+	•	The Property Ombudsman / Property Redress Scheme
+	•	Client Money Protect (CMP)
+
+UI behaviour:
+	•	Landlord can select from checkboxes + optional notes.
+	•	Selections stored in landlord_profiles.
+
+⸻
+
+	4.	PUBLIC ROUTES
+
+⸻
+
+/
+	•	Home page.
+	•	Hero message.
+	•	Search form (currently simplified to button linking to /properties).
+	•	Featured property card (placeholder).
+	•	Grid of admin-controlled cities.
+
+/search
+	•	Placeholder.
+	•	Holds query params for: city, group_size, gender_pref, seeker_gender, ensuite, bills_included, academic_year, letting_type, couples_ok, disabled_ok.
+
+/p/
+	•	Property detail page.
+	•	Pulls house + landlord (for verification), rooms, images, features.
+	•	Shows gallery, badges, per-room availability.
+
+/properties
+	•	All properties listing (no filters yet, placeholders only).
+	•	Cards show:
+• Image (primary).
+• City.
+• From £X pcm (£Y pw).
+• Verified tick if landlord_verified.
+• Short address (no house number).
+• “X rooms, Y available”.
+• Feature badges uniform size, 3 per row.
+	•	Desktop: sticky filter bar (collapsible).
+	•	Mobile: vertical list, no sticky bar.
+
+/about
+	•	Public about page.
+
+⸻
+
+	5.	FILTER SPEC
+
+⸻
+
+Top filter bar (desktop sticky, collapsible):
+	•	City (dropdown from admin).
+	•	Group size (1–15).
+	•	Academic year (dropdown, 5 years forward).
+	•	House identifies as (want_gender: Male / Female / Mixed).
+	•	Ensuite (checkbox).
+	•	Bills included (checkbox).
+	•	Letting type (whole / share).
+	•	Couples OK (checkbox).
+	•	Disabled access (checkbox).
+
+⸻
+
+	6.	FRONTEND NOTES
+
+⸻
+
+	•	Brand purple + coral accent, consistent across pages.
+	•	Cards have faint coral background on listings and detail pages.
+	•	Feature badges: fixed size, grouped in rows of 3.
+	•	Property cards: short address, verified tick next to price.
+	•	Sticky top bar with collapsible filters on desktop.
+	•	Mobile layout is simple and non-sticky.
+
+⸻
+
+	7.	ADMIN + BACKEND
+
+⸻
+
+	•	Admin login.
+	•	Manage landlords, profiles, and images.
+	•	Manage cities list.
+	•	DB path: /opt/render/project/src/static/uploads/houses/student_palace.db
+	•	Stable rollback point: 2025-08-31 baseline.
+
+⸻
+
+	8.	NEXT STEPS
+
+⸻
+
+	•	Wire /properties filters to live SQL queries.
+	•	Add viewing request workflow.
+	•	Integrate landlord ID verification.
+	•	Add 2FA for landlord login.
+	•	Upload helper/onboarding videos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 FILE: DB_Schema_& Rules_READ_ME.txt
 PURPOSE:
     - Permanent reference for database schema, photo upload rules,
