@@ -1,5 +1,5 @@
 from flask import render_template, request, redirect, url_for, flash
-from datetime import datetime as dt, date, timedelta
+from datetime import datetime as dt
 from db import get_db
 from utils import current_landlord_id, require_landlord, owned_house_or_none
 from .helpers import room_form_values, room_counts
@@ -25,47 +25,6 @@ def _parse_checkbox(request, name: str) -> int:
     """
     values = [str(v).strip().lower() for v in request.form.getlist(name)]
     return 1 if ("1" in values or "on" in values or "true" in values) else 0
-
-
-def _normalize_dates_for_is_let(vals: dict) -> None:
-    """
-    Server-side guard:
-    - If not let:
-        • clear let_until
-        • ensure available_from is present and <= today (defaults to today)
-    - If let:
-        • if available_from missing but let_until exists, set available_from = let_until + 1 day
-    """
-    is_let = int(vals.get("is_let") or 0)
-    let_until = (vals.get("let_until") or "").strip()
-    available_from = (vals.get("available_from") or "").strip()
-
-    if not is_let:
-        vals["let_until"] = ""  # clear
-        today_iso = date.today().isoformat()
-
-        # If blank or in the future, clamp to today
-        if not available_from:
-            vals["available_from"] = today_iso
-        else:
-            try:
-                y, m, d = map(int, available_from.split("-"))
-                af = date(y, m, d)
-                if af > date.today():
-                    vals["available_from"] = today_iso
-            except Exception:
-                # bad/partial date -> set today
-                vals["available_from"] = today_iso
-        return
-
-    # is_let == 1
-    if not available_from and let_until:
-        try:
-            y, m, d = map(int, let_until.split("-"))
-            next_day = date(y, m, d) + timedelta(days=1)
-            vals["available_from"] = next_day.isoformat()
-        except Exception:
-            pass
 
 
 @bp.route("/landlord/houses/<int:hid>/rooms")
@@ -114,19 +73,13 @@ def room_new(hid):
         return redirect(url_for("landlord.rooms_list", hid=hid))
 
     if request.method == "POST":
+        # Parse all form fields (includes self-healing of dates)
         vals, errors = room_form_values(request)
 
-        # ✅ Force correct parsing of checkboxes
+        # ✅ Force correct parsing of checkboxes (overwrites any ambiguous values)
         vals["is_let"] = _parse_is_let(request)
         vals["couples_ok"] = _parse_checkbox(request, "couples_ok")
         vals["disabled_ok"] = _parse_checkbox(request, "disabled_ok")
-
-        # ✅ Normalize dates based on is_let
-        _normalize_dates_for_is_let(vals)
-
-        # ✅ Ignore "let until" errors if not currently let
-        if int(vals.get("is_let", 0)) == 0 and errors:
-            errors = [e for e in errors if "let until" not in e.lower()]
 
         if errors:
             for e in errors:
@@ -192,19 +145,13 @@ def room_edit(hid, rid):
         return redirect(url_for("landlord.rooms_list", hid=hid))
 
     if request.method == "POST":
+        # Parse all form fields (includes self-healing of dates)
         vals, errors = room_form_values(request)
 
-        # ✅ Force correct parsing of checkboxes
+        # ✅ Force correct parsing of checkboxes (overwrites any ambiguous values)
         vals["is_let"] = _parse_is_let(request)
         vals["couples_ok"] = _parse_checkbox(request, "couples_ok")
         vals["disabled_ok"] = _parse_checkbox(request, "disabled_ok")
-
-        # ✅ Normalize dates based on is_let
-        _normalize_dates_for_is_let(vals)
-
-        # ✅ Ignore "let until" errors if not currently let
-        if int(vals.get("is_let", 0)) == 0 and errors:
-            errors = [e for e in errors if "let until" not in e.lower()]
 
         if errors:
             for e in errors:
