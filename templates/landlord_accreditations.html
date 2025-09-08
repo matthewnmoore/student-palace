@@ -44,7 +44,7 @@
               <tr>
                 <td>
                   <label class="check" style="margin:0">
-                    <input type="checkbox" name="scheme_{{ s.id }}" value="1" {% if chosen %}checked{% endif %}>
+                    <input type="checkbox" name="accreditation_{{ s.id }}" value="1" {% if chosen %}checked{% endif %}>
                     <span class="label-inline" style="display:none">Select</span>
                   </label>
                 </td>
@@ -61,7 +61,7 @@
                 </td>
                 <td>
                   <input type="text"
-                         name="extra_{{ s.id }}"
+                         name="note_{{ s.id }}"
                          value="{{ current.get(s.id, '') }}"
                          placeholder="e.g., Membership number or internal note"
                          style="width:100%">
