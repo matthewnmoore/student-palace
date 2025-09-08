@@ -151,37 +151,39 @@
   var letUntil = document.getElementById('let_until');
   var availFrom = document.getElementById('available_from');
 
-  // ---- Timezone-safe helpers (ISO strings, UTC maths) ----
-  function todayISO(){
-    // returns 'YYYY-MM-DD' for *today* in UTC to avoid local DST shifting
-    return new Date().toISOString().slice(0,10);
+  // ---- Local-date helpers (no UTC / ISO conversions) ----
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function toLocalISO(d){
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
   }
-  function june30NextYearISO(){
-    // always 30 June next (calendar) year
-    var y = new Date().getUTCFullYear() + 1;
+  function todayLocalISO(){
+    var d = new Date();               // local time
+    return toLocalISO(d);
+  }
+  function june30NextYearLocalISO(){
+    var y = new Date().getFullYear() + 1;
     return y + '-06-30';
   }
-  function nextDayISO(iso){
-    // add 1 day using UTC so it never slips to the previous day
+  function nextDayLocalISO(iso){
     var parts = (iso || '').split('-');
     var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
     if (!y || !m || !d) return '';
-    var dt = new Date(Date.UTC(y, m - 1, d));
-    dt.setUTCDate(dt.getUTCDate() + 1);
-    return dt.toISOString().slice(0,10);
+    var dt = new Date(y, m - 1, d);   // local date
+    dt.setDate(dt.getDate() + 1);     // add 1 day locally
+    return toLocalISO(dt);
   }
 
   function applyDefaultsForState(checked){
     if (checked){
-      var lu = june30NextYearISO();
+      var lu = june30NextYearLocalISO();
       if (letUntil) letUntil.value = lu;
-      if (availFrom) availFrom.value = nextDayISO(lu);
+      if (availFrom) availFrom.value = nextDayLocalISO(lu);
       if (rowLetUntil) rowLetUntil.style.display = 'block';
     } else {
-      var today = todayISO();
-      if (availFrom && !availFrom.value) availFrom.value = today;
-      if (letUntil) letUntil.value = ''; // clear when not let
       if (rowLetUntil) rowLetUntil.style.display = 'none';
+      if (letUntil) letUntil.value = '';        // clear when not let
+      // Only set Available From if blank; do NOT overwrite a user value
+      if (availFrom && !availFrom.value) availFrom.value = todayLocalISO();
     }
   }
 
@@ -194,7 +196,7 @@
     if (!letUntil || !availFrom) return;
     letUntil.addEventListener('change', function(){
       if (!letUntil.value) return;
-      availFrom.value = nextDayISO(letUntil.value);
+      availFrom.value = nextDayLocalISO(letUntil.value);
     });
   }
 
@@ -207,34 +209,33 @@
   syncVisibilityOnly();
   wireAutoNextDay();
 
-  // On initial load: if "Currently let" is ticked and no values yet, set the stable defaults.
+  // Initial defaults (local)
   (function initialDefaults(){
     var checked = isLet && isLet.checked;
     if (checked){
       if (letUntil && !letUntil.value){
-        letUntil.value = june30NextYearISO();
+        letUntil.value = june30NextYearLocalISO();
       }
       if (availFrom){
         if (!availFrom.value && letUntil.value){
-          availFrom.value = nextDayISO(letUntil.value);
+          availFrom.value = nextDayLocalISO(letUntil.value);
         } else if (!availFrom.value){
-          // fallback if both empty for some reason
-          var lu = june30NextYearISO();
-          letUntil.value = lu;
-          availFrom.value = nextDayISO(lu);
+          var lu = june30NextYearLocalISO();
+          if (letUntil) letUntil.value = lu;
+          availFrom.value = nextDayLocalISO(lu);
         }
       }
     } else {
       if (availFrom && !availFrom.value){
-        availFrom.value = todayISO();
+        availFrom.value = todayLocalISO();
       }
-      if (letUntil && !isLet.checked){
+      if (letUntil){
         letUntil.value = '';
       }
     }
   })();
 
-  // Price pcm -> ppw helper
+  // Price pcm -> ppw (unchanged)
   var pcmInput = document.getElementById('price_pcm');
   var ppwInput = document.getElementById('price_ppw');
   function updatePPW(){
@@ -252,4 +253,3 @@
   }
 })();
 </script>
-{% endblock %}
