@@ -30,16 +30,29 @@
   {% else %}
 
     <div class="grid grid-2">
-      <!-- Account -->
-      <div class="card card--accent-lr">
-        <h3 class="mt-0">Account</h3>
-        <p><strong>{{ landlord.email }}</strong></p>
-        {% if created_at_uk %}<p class="small">Member since: {{ created_at_uk }}</p>{% endif %}
-        {% if role_label %}<p class="small">Role: {{ role_label }}</p>{% endif %}
-        <p style="margin-top:10px">
-          <a class="btn btn-outline" href="{{ url_for('landlord.landlord_profile') }}">Edit profile</a>
-        </p>
-      </div>
+     <!-- Account -->
+<div class="card card--accent-lr">
+  <h3 class="mt-0">Account</h3>
+  <p><strong>{{ landlord.email }}</strong></p>
+  {% if created_at_uk %}<p class="small">Member since: {{ created_at_uk }}</p>{% endif %}
+  {% if role_label %}<p class="small">Role: {{ role_label }}</p>{% endif %}
+
+  {# --- VERIFIED STATUS --- #}
+  {% set verified = landlord and (landlord.is_verified|default(0, true)) %}
+  <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+    {% if verified %}
+      <span aria-hidden="true" style="font-size:18px">✅</span>
+      <span class="small" style="font-weight:600">Verified landlord</span>
+    {% else %}
+      <span aria-hidden="true" style="font-size:18px">❌</span>
+      <span class="small" style="font-weight:600">Not verified</span>
+    {% endif %}
+  </div>
+
+  <p style="margin-top:10px">
+    <a class="btn btn-outline" href="{{ url_for('landlord.landlord_profile') }}">Edit profile</a>
+  </p>
+</div>
 
       <!-- Quick actions -->
       <div class="card card--accent-lr">
