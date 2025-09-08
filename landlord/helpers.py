@@ -1,103 +1,162 @@
-# landlord/helpers.py
+from utils import clean_bool
+from db import get_db  # kept for parity with your file, even if unused here
+from datetime import datetime as dt, date, timedelta
 
-from datetime import date
-from typing import Tuple, Dict, List
-from flask import Request
 
-def _clean_int(v: str, default: int = 0) -> int:
-    try:
-        if v is None:
-            return default
-        v = str(v).replace(",", "").strip()
-        if v == "":
-            return default
-        return max(0, int(float(v)))
-    except Exception:
-        return default
-
-def _clean_text(v: str) -> str:
-    return (v or "").strip()
-
-def _clean_iso_date(v: str) -> str:
+def _parse_uk_date(value: str) -> str:
     """
-    Accepts 'YYYY-MM-DD' and returns the same, or '' if invalid/empty.
-    Uses date.fromisoformat (no timezone, no midnight conversion).
+    Accepts 'DD/MM/YYYY' (UK) or 'YYYY-MM-DD' (HTML date input) and returns ISO 'YYYY-MM-DD'.
+    Returns '' if empty or invalid.
     """
-    s = (v or "").strip()
-    if not s:
+    if not value:
         return ""
-    try:
-        d = date.fromisoformat(s)
-        return d.isoformat()  # 'YYYY-MM-DD'
-    except Exception:
+    value = value.strip()
+    if not value:
         return ""
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            d = dt.strptime(value, fmt).date()
+            return d.isoformat()
+        except Exception:
+            continue
+    return ""
 
-def _checkbox_raw(request: Request, name: str) -> int:
-    """
-    Light checkbox read (rooms.py will overwrite for certain fields anyway).
-    Keep this tolerant so form preview doesn’t break.
-    """
-    vals = [str(v).strip().lower() for v in request.form.getlist(name)]
-    return 1 if ("1" in vals or "on" in vals or "true" in vals) else 0
 
-def room_form_values(request: Request) -> Tuple[Dict[str, object], List[str]]:
-    """
-    Build the values dict for a room form without doing any timezone math.
-    Dates remain pure 'YYYY-MM-DD' strings.
-    """
-    errors: List[str] = []
+def _to_date(iso_str: str) -> date | None:
+    """Convert 'YYYY-MM-DD' to date or None."""
+    if not iso_str:
+        return None
+    try:
+        return dt.strptime(iso_str, "%Y-%m-%d").date()
+    except Exception:
+        return None
 
-    name = _clean_text(request.form.get("name"))
+
+def _iso(d: date | None) -> str:
+    return d.isoformat() if d else ""
+
+
+def _june_30_next_year(today: date) -> date:
+    """Always 30 June next calendar year from 'today'."""
+    return date(today.year + 1, 6, 30)
+
+
+def room_form_values(request):
+    name = (request.form.get("name") or "").strip()
+    ensuite = clean_bool("ensuite")
+    bed_size = (request.form.get("bed_size") or "").strip()
+    tv = clean_bool("tv")
+    desk_chair = clean_bool("desk_chair")
+    wardrobe = clean_bool("wardrobe")
+    chest_drawers = clean_bool("chest_drawers")
+    lockable_door = clean_bool("lockable_door")
+    wired_internet = clean_bool("wired_internet")
+    room_size = (request.form.get("room_size") or "").strip()
+
+    # NEW FIELD: description
+    description = (request.form.get("description") or "").strip()
+
+    # NEW FIELDS
+    raw_price = (request.form.get("price_pcm") or "").strip()
+    try:
+        price_pcm = int(raw_price.replace(",", ""))
+    except Exception:
+        price_pcm = 0
+    safe = clean_bool("safe")
+    dressing_table = clean_bool("dressing_table")
+    mirror = clean_bool("mirror")
+    bedside_table = clean_bool("bedside_table")
+    blinds = clean_bool("blinds")
+    curtains = clean_bool("curtains")
+    sofa = clean_bool("sofa")
+
+    # NEW SEARCHABLE FIELDS
+    couples_ok = clean_bool("couples_ok")
+    disabled_ok = clean_bool("disabled_ok")
+
+    # NEW AVAILABILITY FIELDS
+    is_let = clean_bool("is_let")
+    available_from_in = (request.form.get("available_from") or "").strip()
+    let_until_in = (request.form.get("let_until") or "").strip()
+
+    available_from_iso = _parse_uk_date(available_from_in)
+    let_until_iso = _parse_uk_date(let_until_in)
+
+    # Self-healing date logic
+    today = date.today()
+    af = _to_date(available_from_iso)
+    lu = _to_date(let_until_iso)
+
+    if is_let:
+        # Default let_until to 30 June next year if missing
+        if not lu:
+            lu = _june_30_next_year(today)
+        # available_from must be day after let_until
+        if not af or af <= lu:
+            af = lu + timedelta(days=1)
+    else:
+        # Room available now
+        if not af:
+            af = today
+        # Force let_until to one day before available_from (FIXED)
+        lu = af - timedelta(days=1)
+
+    # Back to ISO for DB
+    available_from_iso = _iso(af)
+    let_until_iso = _iso(lu)
+
+    errors = []
     if not name:
-        errors.append("Please enter a room name.")
+        errors.append("Room name is required.")
+    if len(name) > 20:
+        errors.append("Room name cannot be longer than 20 characters.")
+    if len(description) > 1200:
+        errors.append("Room description cannot be longer than 1200 characters.")
+    if bed_size not in ("Single", "Small double", "Double", "King"):
+        errors.append("Please choose a valid bed size.")
 
-    bed_size = _clean_text(request.form.get("bed_size"))
-    if not bed_size:
-        errors.append("Please choose a bed size.")
+    # NOTE: We no longer error on ordering; we fixed it above.
 
-    vals: Dict[str, object] = {
-        # Basics
+    return ({
         "name": name,
-        "room_size": _clean_text(request.form.get("room_size")),
+        "description": description,
+        "ensuite": ensuite,
         "bed_size": bed_size,
-        "price_pcm": _clean_int(request.form.get("price_pcm"), 0),
+        "tv": tv,
+        "desk_chair": desk_chair,
+        "wardrobe": wardrobe,
+        "chest_drawers": chest_drawers,
+        "lockable_door": lockable_door,
+        "wired_internet": wired_internet,
+        "room_size": room_size,
+        # NEW FIELDS
+        "price_pcm": price_pcm,
+        "safe": safe,
+        "dressing_table": dressing_table,
+        "mirror": mirror,
+        "bedside_table": bedside_table,
+        "blinds": blinds,
+        "curtains": curtains,
+        "sofa": sofa,
+        # NEW SEARCHABLE FIELDS
+        "couples_ok": couples_ok,
+        "disabled_ok": disabled_ok,
+        # AVAILABILITY (healed)
+        "is_let": is_let,
+        "available_from": available_from_iso,
+        "let_until": let_until_iso,
+    }, errors)
 
-        # Description
-        "description": _clean_text(request.form.get("description")),
 
-        # Feature checkboxes
-        "ensuite":         _checkbox_raw(request, "ensuite"),
-        "tv":              _checkbox_raw(request, "tv"),
-        "desk_chair":      _checkbox_raw(request, "desk_chair"),
-        "wardrobe":        _checkbox_raw(request, "wardrobe"),
-        "chest_drawers":   _checkbox_raw(request, "chest_drawers"),
-        "lockable_door":   _checkbox_raw(request, "lockable_door"),
-        "wired_internet":  _checkbox_raw(request, "wired_internet"),
-        "safe":            _checkbox_raw(request, "safe"),
-        "dressing_table":  _checkbox_raw(request, "dressing_table"),
-        "mirror":          _checkbox_raw(request, "mirror"),
-        "bedside_table":   _checkbox_raw(request, "bedside_table"),
-        "blinds":          _checkbox_raw(request, "blinds"),
-        "curtains":        _checkbox_raw(request, "curtains"),
-        "sofa":            _checkbox_raw(request, "sofa"),
-
-        # Availability (parsed as DATE ONLY)
-        "is_let":         _checkbox_raw(request, "is_let"),
-        "let_until":      _clean_iso_date(request.form.get("let_until")),
-        "available_from": _clean_iso_date(request.form.get("available_from")),
-        
-        # Couples/disabled (rooms.py will overwrite, but keep here for completeness)
-        "couples_ok":     _checkbox_raw(request, "couples_ok"),
-        "disabled_ok":    _checkbox_raw(request, "disabled_ok"),
-    }
-
-    # If the user typed an invalid date, surface a gentle error (optional)
-    raw_lu = (request.form.get("let_until") or "").strip()
-    if raw_lu and not vals["let_until"]:
-        errors.append("‘Let until’ must be a valid date (YYYY-MM-DD).")
-
-    raw_af = (request.form.get("available_from") or "").strip()
-    if raw_af and not vals["available_from"]:
-        errors.append("‘Available from’ must be a valid date (YYYY-MM-DD).")
-
-    return vals, errors
+def room_counts(conn, hid):
+    """Return (max_rooms, current_count) for a given house."""
+    row = conn.execute(
+        "SELECT bedrooms_total FROM houses WHERE id=?",
+        (hid,)
+    ).fetchone()
+    max_rooms = int(row["bedrooms_total"]) if row else 0
+    cnt = conn.execute(
+        "SELECT COUNT(*) AS c FROM rooms WHERE house_id=?",
+        (hid,)
+    ).fetchone()["c"]
+    return max_rooms, int(cnt)
