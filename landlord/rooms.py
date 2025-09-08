@@ -29,29 +29,42 @@ def _parse_checkbox(request, name: str) -> int:
 
 def _normalize_dates_for_is_let(vals: dict) -> None:
     """
-    Basic server-side guard:
-    - If not let, clear let_until (so it can’t linger).
-    - If let, ensure available_from is present; if missing but let_until exists,
-      set available_from = let_until + 1 day (matches the JS behaviour).
+    Mirror portfolio logic:
+    - If let: let_until = next 30 June (if missing), available_from = let_until + 1 (if missing/<=).
+    - If available: available_from = today (if missing), let_until = day before available_from.
     """
-    is_let = int(vals.get("is_let") or 0)
-    let_until = (vals.get("let_until") or "").strip()
-    available_from = (vals.get("available_from") or "").strip()
+    from datetime import datetime as dt, date, timedelta
 
-    if not is_let:
-        vals["let_until"] = ""  # clear
-        # available_from stays as provided (could be today/future)
-        return
-
-    # is_let == 1
-    if not available_from and let_until:
+    def _to_date(iso_str: str) -> date | None:
         try:
-            y, m, d = map(int, let_until.split("-"))
-            next_day = date(y, m, d) + timedelta(days=1)
-            vals["available_from"] = next_day.isoformat()
+            return dt.strptime((iso_str or "").strip(), "%Y-%m-%d").date()
         except Exception:
-            # If parsing fails, leave as-is (optional)
-            pass
+            return None
+
+    def _next_june_30(today: date) -> date:
+        y = today.year + (1 if (today.month, today.day) > (6, 30) else 0)
+        return date(y, 6, 30)
+
+    is_let = int(vals.get("is_let") or 0)
+    af = _to_date(vals.get("available_from") or "")
+    lu = _to_date(vals.get("let_until") or "")
+    today = date.today()
+
+    if is_let:
+        # If let: ensure let_until and available_from follow the pattern
+        if not lu:
+            lu = _next_june_30(today)
+        if not af or af <= lu:
+            af = lu + timedelta(days=1)
+    else:
+        # If available: ensure available_from has a value, and let_until is day before
+        if not af:
+            af = today
+        if not lu or lu >= af:
+            lu = af - timedelta(days=1)
+
+    vals["available_from"] = af.isoformat() if af else ""
+    vals["let_until"] = lu.isoformat() if lu else ""
 
 
 @bp.route("/landlord/houses/<int:hid>/rooms")
