@@ -21,7 +21,7 @@
       <form id="filtersForm" method="get" action="{{ url_for('public.search') if 'public' in globals() else '/search' }}">
         <h2 class="card-title" style="margin-bottom:10px;">Filters</h2>
 
-        <!-- City -->
+        <!-- (1) City -->
         <label class="field">
           <span class="label">City</span>
           <select name="city" required style="width:100%;">
@@ -32,7 +32,7 @@
           </select>
         </label>
 
-        <!-- Academic year -->
+        <!-- (2) Academic year -->
         <label class="field" style="margin-top:8px;">
           <span class="label">Academic year</span>
           <select name="year" required style="width:100%;">
@@ -43,7 +43,7 @@
           </select>
         </label>
 
-        <!-- Letting type -->
+        <!-- (3) Letting type -->
         <label class="field" style="margin-top:8px;">
           <span class="label">Letting type</span>
           <select name="letting_type" style="width:100%;">
@@ -53,7 +53,7 @@
           </select>
         </label>
 
-        <!-- Group size -->
+        <!-- (4) Group size -->
         <label class="field" style="margin-top:8px;">
           <span class="label">Group size</span>
           <select name="group_size" style="width:100%;">
@@ -64,7 +64,7 @@
           </select>
         </label>
 
-        <!-- Gender preference (seeker intent) -->
+        <!-- (5) Gender intent + follow-up -->
         <div class="card" style="padding:10px; margin-top:10px;">
           <div class="field">
             <span class="label">I want a house that is</span>
@@ -87,31 +87,31 @@
           <div class="help" style="margin-top:6px;">We only use this to refine “Anything” results.</div>
         </div>
 
-        <!-- Ensuite -->
+        <!-- (6) Ensuite -->
         <label class="field checkbox" style="margin-top:10px;">
           <input type="checkbox" name="ensuite" value="1" {% if request.args.get('ensuite') in ['1','on','true','True'] %}checked{% endif %}>
           <span>Ensuite / own bathroom</span>
         </label>
 
-        <!-- Bills included -->
+        <!-- (7) Bills included -->
         <label class="field checkbox" style="margin-top:6px;">
           <input type="checkbox" name="bills_included" value="1" {% if request.args.get('bills_included') in ['1','on','true','True'] %}checked{% endif %}>
           <span>All bills included</span>
         </label>
 
-        <!-- Couples OK -->
+        <!-- (8) Couples OK -->
         <label class="field checkbox" style="margin-top:6px;">
           <input type="checkbox" name="couples_ok" value="1" {% if request.args.get('couples_ok') in ['1','on','true','True'] %}checked{% endif %}>
           <span>Suitable for couples</span>
         </label>
 
-        <!-- Disability accessible -->
+        <!-- (9) Disability accessible -->
         <label class="field checkbox" style="margin-top:6px;">
           <input type="checkbox" name="disabled_ok" value="1" {% if request.args.get('disabled_ok') in ['1','on','true','True'] %}checked{% endif %}>
           <span>Accessible for disabled people</span>
         </label>
 
-        <!-- Price range -->
+        <!-- (10) Price range -->
         <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
           <label class="field">
             <span class="label">Min price (pcm)</span>
@@ -161,34 +161,60 @@
       <div class="grid" style="grid-template-columns:repeat( auto-fill, minmax(260px, 1fr) ); gap:14px; margin-top:12px;">
         {% if results %}
           {% for h in results %}
-            <article class="card" style="overflow:hidden;">
+            {# Fallbacks for badges #}
+            {% set bills_mode = (h.bills_option or h.bills_included or 'no') %}
+            <article class="card card--accent-lr" style="overflow:hidden;">
               <a href="/p/{{ h.id }}" style="display:block; text-decoration:none; color:inherit;">
                 {% if h.cover_url %}
-                  <img src="{{ h.cover_url }}" alt="" style="width:100%; height:160px; object-fit:cover; display:block;">
+                  <img src="{{ h.cover_url }}" alt="" style="width:100%; height:170px; object-fit:cover; display:block;">
                 {% else %}
-                  <div style="height:160px; background:#f3f3f7; display:flex; align-items:center; justify-content:center; color:#999;">No photo</div>
+                  <div style="height:170px; background:#f3f3f7; display:flex; align-items:center; justify-content:center; color:#999;">No photo</div>
                 {% endif %}
                 <div style="padding:10px;">
-                  <h3 style="margin:0 0 6px 0; font-size:16px; line-height:1.2;">{{ h.title }}</h3>
-                  <div class="muted" style="font-size:13px;">{{ h.city }} • {{ h.address }}</div>
+                  <h3 style="margin:0 0 6px 0; font-size:16px; line-height:1.25;">{{ h.title }}</h3>
+                  <div class="muted" style="font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    {{ h.city }} • {{ h.address }}
+                  </div>
+
+                  <!-- Badges row -->
                   <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
                     {% if h.letting_type=='whole' %}
                       <span class="badge">Whole house</span>
                     {% else %}
                       <span class="badge">House share</span>
                     {% endif %}
-                    {% if h.bills_option=='yes' %}
+                    {% if bills_mode=='yes' %}
                       <span class="badge">Bills included</span>
+                    {% elif bills_mode=='some' %}
+                      <span class="badge">Some bills</span>
                     {% endif %}
                     {% if h.ensuites_available|default(0,true) > 0 %}
                       <span class="badge">{{ h.ensuites_available }} ensuite</span>
+                    {% elif h.ensuites_total|default(0,true) > 0 %}
+                      <span class="badge">{{ h.ensuites_total }} ensuite</span>
                     {% endif %}
                     {% if h.available_rooms_total|default(0,true) > 0 %}
                       <span class="badge">{{ h.available_rooms_total }} available</span>
                     {% endif %}
+                    {% if h.gender_preference in ['Male','Male Only'] %}
+                      <span class="badge">Male only</span>
+                    {% elif h.gender_preference in ['Female','Female Only'] %}
+                      <span class="badge">Female only</span>
+                    {% endif %}
                   </div>
-                  {% if h.from_price_ppw or h.from_price_pcm %}
-                    <div style="margin-top:8px; font-weight:600;">
+
+                  <!-- Highlights (mini list) -->
+                  <ul class="highlights-mini">
+                    {% if h.bedrooms_total %}<li>{{ h.bedrooms_total }} bedrooms</li>{% endif %}
+                    {% if h.shared_bathrooms|default(0,true) > 0 %}<li>{{ h.shared_bathrooms }} shared bathrooms</li>{% endif %}
+                    {% if h.couples_ok_available|default(0,true) > 0 %}<li>{{ h.couples_ok_available }} rooms for couples</li>{% endif %}
+                    {% if h.disabled_ok_available|default(0,true) > 0 %}<li>{{ h.disabled_ok_available }} accessible rooms</li>{% endif %}
+                    {% if h.epc_rating %}<li>EPC {{ h.epc_rating|upper }}</li>{% endif %}
+                  </ul>
+
+                  <!-- Price summary (if your backend supplies it) -->
+                  {% if h.from_price_pcm or h.from_price_ppw %}
+                    <div style="margin-top:6px; font-weight:600;">
                       {% if h.from_price_pcm %}From £{{ h.from_price_pcm }} pcm{% endif %}
                       {% if h.from_price_ppw %}<span class="muted">(~£{{ h.from_price_ppw }} pw)</span>{% endif %}
                     </div>
@@ -216,6 +242,7 @@
     #filtersSidebar { display:none; }
     #openFilters { display:inline-flex; }
   }
+
   /* Full-screen drawer for mobile filters */
   .drawer {
     position: fixed; inset: 0; background: #fff; z-index: 9999;
@@ -232,10 +259,18 @@
   .drawer-footer {
     position:sticky; bottom:0; padding:12px; border-top:1px solid var(--border); background:#fff;
   }
+
   .badge {
     display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px;
     background: #f0e9fb; color:#5c2ea5;
   }
+
+  /* Mini highlights list in cards */
+  .highlights-mini{
+    list-style:disc; padding-left:16px; margin:8px 0 0 0;
+    font-size:13px; line-height:1.5;
+  }
+  .highlights-mini li{ margin:3px 0; }
 </style>
 
 <!-- Drawer markup (mobile only) -->
@@ -363,8 +398,8 @@
   var drawer  = document.getElementById('filtersDrawer');
   var closeBtn= document.getElementById('closeFilters');
 
-  function openDrawer(){ drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); }
-  function closeDrawer(){ drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); }
+  function openDrawer(){ if(drawer){drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false');} }
+  function closeDrawer(){ if(drawer){drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true');} }
 
   if (openBtn) openBtn.addEventListener('click', openDrawer);
   if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
@@ -385,9 +420,6 @@
   var rowMobile  = document.getElementById('seeker_gender_row_m');
   toggleFollowUp(wantMobile, rowMobile);
   if (wantMobile) wantMobile.addEventListener('change', function(){ toggleFollowUp(wantMobile, rowMobile); });
-
-  // Optional: copy desktop filters into drawer on mobile open (advanced).
-  // For now we keep two forms; backend reads same names.
 })();
 </script>
 {% endblock %}
