@@ -1,1 +1,361 @@
 
+{% extends "base.html" %}
+{% block title %}Find properties – Student Palace{% endblock %}
+
+{% block content %}
+<section class="wrap" style="margin-top:8px">
+
+  <!-- STICKY FILTER BAR (desktop) -->
+  <div class="filters-wrap" data-open="false">
+    <div class="filters-bar card card--accent-lr">
+      <div class="filters-bar__top">
+        <!-- Left: Collapsed summary & toggle -->
+        <div class="filters-summary">
+          <button class="btn btn-outline" id="filtersToggle" type="button">Filters</button>
+          <div class="summary-pills">
+            <span class="pill">City: Any</span>
+            <span class="pill">Group: Any</span>
+            <span class="pill">Year: Any</span>
+            <span class="pill">Gender: Any/Mixed</span>
+          </div>
+        </div>
+
+        <!-- Right: count + sort -->
+        <div class="filters-right">
+          <div class="muted">
+            {% set total = results|length if results is defined else 0 %}
+            {{ total }} result{{ '' if total==1 else 's' }}
+          </div>
+          <form method="get" id="sortForm" class="sort-form">
+            {# keep future-proof: preserve query params except sort #}
+            {% for k,v in request.args.items() %}
+              {% if k!='sort' %}<input type="hidden" name="{{ k }}" value="{{ v|e }}">{% endif %}
+            {% endfor %}
+            <label class="field" style="margin:0;">
+              <span class="label-inline">Sort</span>
+              <select name="sort" onchange="this.form.submit()">
+                <option value="">Relevance</option>
+                <option value="price_asc"  {% if request.args.get('sort')=='price_asc' %}selected{% endif %}>Price (low → high)</option>
+                <option value="price_desc" {% if request.args.get('sort')=='price_desc' %}selected{% endif %}>Price (high → low)</option>
+                <option value="newest"     {% if request.args.get('sort')=='newest' %}selected{% endif %}>Newest</option>
+              </select>
+            </label>
+          </form>
+        </div>
+      </div>
+
+      <!-- Expanded panel with ALL 10 FILTERS (placeholders only) -->
+      <form class="filters-panel" method="get" action="#">
+        <div class="grid filters-grid">
+          <!-- 1) City -->
+          <label class="field">
+            <span class="label">City</span>
+            <select name="city">
+              <option value="">Any</option>
+              {% for c in cities or [] %}
+                <option value="{{ c.name if c is mapping else c }}">{{ c.name if c is mapping else c }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <!-- 2) Group size -->
+          <label class="field">
+            <span class="label">Group size</span>
+            <select name="group_size">
+              <option value="">Any</option>
+              {% for n in range(1, 15+1) %}
+                <option value="{{ n }}">{{ n }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <!-- 3) Academic year -->
+          <label class="field">
+            <span class="label">Academic year</span>
+            <select name="year">
+              <option value="">Any</option>
+              {% set base = 2025 %}
+              {% for y in range(base, base+5) %}
+                <option value="{{ y }}/{{ y+1 }}">{{ y }}/{{ y+1 }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <!-- 4) House identifies as -->
+          <label class="field">
+            <span class="label">House identifies as</span>
+            <select name="want_gender">
+              <option value="">Any/Mixed</option>
+              <option value="male">Just Male</option>
+              <option value="female">Just Female</option>
+              <option value="any">Anything/Mixed</option>
+            </select>
+          </label>
+
+          <!-- 5) Ensuite -->
+          <label class="field checkbox">
+            <input type="checkbox" name="ensuite" value="1">
+            <span>Ensuite / own bathroom</span>
+          </label>
+
+          <!-- 6) Bills included -->
+          <label class="field checkbox">
+            <input type="checkbox" name="bills_included" value="1">
+            <span>All bills included</span>
+          </label>
+
+          <!-- 7) Letting type -->
+          <label class="field">
+            <span class="label">Letting type</span>
+            <select name="letting_type">
+              <option value="">Any</option>
+              <option value="share">House share</option>
+              <option value="whole">Whole house</option>
+            </select>
+          </label>
+
+          <!-- 8) Couples -->
+          <label class="field checkbox">
+            <input type="checkbox" name="couples_ok" value="1">
+            <span>Suitable for couples</span>
+          </label>
+
+          <!-- 9) Disability access -->
+          <label class="field checkbox">
+            <input type="checkbox" name="disabled_ok" value="1">
+            <span>Accessible for disabled people</span>
+          </label>
+
+          <!-- 10) (Optional) Price placeholders so layout feels real -->
+          <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px;">
+            <label class="field">
+              <span class="label">Min price (pcm)</span>
+              <input type="number" name="min_price" min="0" step="50" placeholder="e.g. 400">
+            </label>
+            <label class="field">
+              <span class="label">Max price (pcm)</span>
+              <input type="number" name="max_price" min="0" step="50" placeholder="e.g. 900">
+            </label>
+          </div>
+        </div>
+
+        <div class="filters-actions">
+          <button class="btn" type="submit">Apply (placeholder)</button>
+          <button class="btn btn-outline" type="button" id="filtersHide">Hide</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- RESULTS GRID -->
+  <div class="grid cards-grid">
+    {% if results %}
+      {% for h in results %}
+        {% set verified = (h.landlord_verified if 'landlord_verified' in h else h.is_verified) %}
+        <article class="card card--soft-orange property-card">
+          <a href="/p/{{ h.id }}" class="card-link">
+            {% if h.cover_url %}
+              <img src="{{ h.cover_url }}" alt="" class="card-cover">
+            {% else %}
+              <div class="card-cover placeholder">No photo</div>
+            {% endif %}
+
+            <div class="card-body">
+              <!-- Price + Verified -->
+              {% if h.from_price_pcm or h.from_price_ppw %}
+                <div class="price-row">
+                  <div class="price-main">
+                    {% if h.from_price_pcm %}From £{{ h.from_price_pcm }} pcm{% endif %}
+                    {% if h.from_price_ppw %}<span class="muted">(£{{ h.from_price_ppw }} pw)</span>{% endif %}
+                  </div>
+                  {% if verified %}
+                    <span class="tick" title="Verified landlord">✅</span>
+                  {% endif %}
+                </div>
+              {% endif %}
+
+              <!-- Address (short, no house number) -->
+              <div class="muted short-addr"
+                   data-full="{{ (h.address or '') ~ (', ' ~ h.city if h.city) | e }}">
+                {{ (h.address or '') ~ (', ' ~ h.city if h.city) }}
+              </div>
+
+              <!-- Meta badges -->
+              <div class="meta-badges">
+                {% if h.letting_type=='whole' %}
+                  <span class="badge">Whole house</span>
+                {% else %}
+                  <span class="badge">House share</span>
+                {% endif %}
+                {% if h.bills_option=='yes' %}
+                  <span class="badge">Bills included</span>
+                {% endif %}
+                {% if h.ensuites_available|default(0,true) > 0 %}
+                  <span class="badge">{{ h.ensuites_available }} ensuite</span>
+                {% endif %}
+                {% if h.available_rooms_total|default(0,true) > 0 or h.bedrooms_total|default(0,true) > 0 %}
+                  <span class="badge">
+                    {{ h.bedrooms_total|default(0,true) }} rooms · {{ h.available_rooms_total|default(0,true) }} available
+                  </span>
+                {% endif %}
+              </div>
+
+              <!-- Feature chips (3 per row, uniform size) -->
+              <ul class="feature-chips">
+                {% set chips = [] %}
+                {% if h.wifi %}{% set chips = chips + ['Wi-Fi'] %}{% endif %}
+                {% if h.bike_storage %}{% set chips = chips + ['Bike storage'] %}{% endif %}
+                {% if h.off_street_parking %}{% set chips = chips + ['Off-street parking'] %}{% endif %}
+                {% if h.cctv %}{% set chips = chips + ['CCTV'] %}{% endif %}
+                {% if h.garden %}{% set chips = chips + ['Garden'] %}{% endif %}
+                {% if h.common_area_tv %}{% set chips = chips + ['TV (communal)'] %}{% endif %}
+                {% for label in chips[0:6] %}
+                  <li class="chip">{{ label }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </a>
+        </article>
+      {% endfor %}
+    {% else %}
+      <div class="card">
+        <strong>No results yet.</strong>
+        <p class="muted" style="margin-top:6px;">(This is just the visual shell — we’ll wire the filters later.)</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<style>
+  /* ---- Sticky, collapsible filters ---- */
+  .filters-wrap{
+    position: sticky; top: 0; z-index: 50;
+  }
+  @media (max-width: 920px){
+    .filters-wrap{ position: static; } /* keep mobile as-is */
+  }
+  .filters-bar{
+    padding: 12px 14px;
+    margin: 10px 0 12px;
+  }
+  .filters-bar__top{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .filters-summary{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .summary-pills{ display:flex; gap:6px; flex-wrap:wrap; }
+  .pill{
+    display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid var(--border);
+    background:#f6f3ff; font-size:12px; color:#5c2ea5;
+  }
+  .filters-right{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+
+  .filters-panel{
+    display:none; margin-top:10px;
+    border-top:1px dashed var(--border); padding-top:10px;
+  }
+  .filters-wrap[data-open="true"] .filters-panel{ display:block; }
+  .filters-grid{ grid-template-columns: repeat(4, minmax(180px, 1fr)); }
+  @media (max-width: 1100px){ .filters-grid{ grid-template-columns: repeat(3, minmax(180px, 1fr)); } }
+  @media (max-width: 920px){ .filters-grid{ grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
+  @media (max-width: 560px){ .filters-grid{ grid-template-columns: 1fr; } }
+
+  .filters-actions{
+    display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;
+  }
+
+  /* ---- Cards grid (3-up desktop) ---- */
+  .cards-grid{
+    grid-template-columns: repeat( auto-fill, minmax(260px, 1fr) );
+    gap: 14px;
+    margin-top: 10px;
+  }
+
+  /* ---- Property card ---- */
+  .card--soft-orange{
+    background:#FFF7E6; border-color:#FFD8A8;
+  }
+  .property-card{ overflow:hidden; padding:0; }
+  .card-link{ display:block; color:inherit; text-decoration:none; }
+  .card-cover{ width:100%; height:180px; object-fit:cover; display:block; }
+  .card-cover.placeholder{
+    display:flex; align-items:center; justify-content:center; color:#999; background:#f3f3f7; height:180px;
+  }
+  .card-body{ padding:12px; }
+
+  .price-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    font-weight:700;
+  }
+  .price-main .muted{ font-weight:600; margin-left:6px; }
+
+  .tick{ font-size:18px; line-height:1; }
+
+  .short-addr{ margin-top:4px; font-size:13px; }
+
+  .meta-badges{
+    display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;
+  }
+  .badge{
+    min-width: 0; text-align:center; white-space:nowrap;
+  }
+
+  /* Feature chips: uniform size, 3 per row */
+  .feature-chips{
+    list-style:none; margin:10px 0 0; padding:0;
+    display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:6px;
+  }
+  .feature-chips .chip{
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:6px 8px;
+    text-align:center;
+    background:#fff;
+    min-height: 32px; display:flex; align-items:center; justify-content:center;
+    font-size: 12px; font-weight:600;
+  }
+
+  /* Keep top bar framed like other pages */
+  .filters-bar.card--accent-lr{
+    border-left: var(--accent-border) solid var(--brand);
+    border-right: var(--accent-border) solid var(--brand);
+  }
+</style>
+
+<script>
+  (function(){
+    // Collapse / expand
+    var wrap = document.querySelector('.filters-wrap');
+    var toggle = document.getElementById('filtersToggle');
+    var hideBtn = document.getElementById('filtersHide');
+    if (toggle && wrap){
+      toggle.addEventListener('click', function(){
+        var open = wrap.getAttribute('data-open') === 'true';
+        wrap.setAttribute('data-open', open ? 'false' : 'true');
+        toggle.textContent = open ? 'Filters' : 'Hide filters';
+      });
+    }
+    if (hideBtn && wrap){
+      hideBtn.addEventListener('click', function(){
+        wrap.setAttribute('data-open','false');
+        if (toggle) toggle.textContent = 'Filters';
+      });
+    }
+
+    // Shorten address (remove house number; keep street + city)
+    function tidy(line){
+      if (!line) return '';
+      var parts = (line || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+      if (!parts.length) return line;
+      var first = parts[0];
+      // strip leading number or "Flat/Apt ..."
+      first = first.replace(/^(flat|suite|apt|apartment)\b.*?\s/i, '');
+      first = first.replace(/^\d+\s+/, ''); // remove leading house number
+      return [first].concat(parts.slice(1)).join(', ');
+    }
+    document.querySelectorAll('.short-addr[data-full]').forEach(function(el){
+      var full = el.getAttribute('data-full') || el.textContent || '';
+      el.textContent = tidy(full);
+    });
+  })();
+</script>
+{% endblock %}
