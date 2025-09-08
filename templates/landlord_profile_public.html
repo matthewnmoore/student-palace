@@ -4,22 +4,24 @@
 <section class="wrap">
   {% if not profile %}
     <h1>Landlord not found</h1>
-    <div class="card card--accent-lr"><p class="help">This profile doesn’t exist.</p></div>
+    <div class="card card--accent-lr">
+      <p class="help">This profile doesn’t exist.</p>
+    </div>
   {% else %}
 
     <!-- Header / name -->
     <h1 style="margin-bottom:8px">{{ profile.display_name or 'Landlord' }}</h1>
 
-    <!-- Verified / not verified banner (correct appearance) -->
-    {% if profile.is_verified|default(0, true) %}
-      <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0; background:#ecfdf5; border:1px solid #22c55e; color:#065f46">
-        <span aria-hidden="true" style="font-size:20px;">✔️</span>
-        <div style="font-weight:600">Verified – Listings from this landlord display a verified badge.</div>
+    {# Status banner (verified / not verified) #}
+    {% if profile and (profile.is_verified|default(0, true)) %}
+      <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
+        <span aria-hidden="true" style="font-size:20px">✅</span>
+        <div style="font-weight:600">You’re verified – your listings show a verified badge to tenants.</div>
       </div>
     {% else %}
-      <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0; background:#f3f4f6; border:1px solid #d1d5db; color:#374151">
-        <span aria-hidden="true" style="font-size:20px;">❌</span>
-        <div style="font-weight:600">Not verified – Get verified to boost renter trust.</div>
+      <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
+        <span aria-hidden="true" style="font-size:20px">❌</span>
+        <div style="font-weight:600">Not verified – get verified to boost renter trust.</div>
       </div>
     {% endif %}
 
@@ -92,16 +94,18 @@
 
     <!-- FULL-WIDTH: Accreditations -->
     <div class="card card--accent-lr" style="margin-top:16px">
-      <h2 style="margin:0 0 8px">Accreditations</h2>
+      <h2 style="margin:0 0 12px">Accreditations</h2>
       {% if accreditations and accreditations|length %}
-        <ul style="margin:0; padding-left:20px">
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px">
           {% for a in accreditations %}
-            <li>
+            <div>
               <strong>{{ a.name }}</strong>
-              {% if a.note %}<span class="muted"> – {{ a.note }}</span>{% endif %}
-            </li>
+              {% if a.help_text %}
+                <div class="muted small">{{ a.help_text }}</div>
+              {% endif %}
+            </div>
           {% endfor %}
-        </ul>
+        </div>
       {% else %}
         <p class="muted">No accreditations listed.</p>
       {% endif %}
