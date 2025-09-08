@@ -13,6 +13,7 @@ def _next_june_30(today: date) -> date:
     y = today.year + (1 if (today.month, today.day) > (6, 30) else 0)
     return date(y, 6, 30)
 
+
 def _parse_iso(d: str) -> date | None:
     try:
         return date.fromisoformat((d or "").strip())
@@ -33,18 +34,18 @@ def rooms_portfolio_edit():
     rows = conn.execute(
         """
         SELECT
-          r.id            AS room_id,
-          r.house_id      AS house_id,
-          r.name          AS room_name,
-          r.price_pcm     AS price_pcm,
-          r.is_let        AS is_let,
-          r.let_until     AS let_until,
+          r.id             AS room_id,
+          r.house_id       AS house_id,
+          r.name           AS room_name,
+          r.price_pcm      AS price_pcm,
+          r.is_let         AS is_let,
+          r.let_until      AS let_until,
           r.available_from AS available_from,
-          r.bed_size      AS bed_size,
+          r.bed_size       AS bed_size,
           COALESCE(r.ensuite,0)     AS ensuite,
           COALESCE(r.couples_ok,0)  AS couples_ok,
-          h.title         AS house_title,
-          h.city          AS city
+          h.title          AS house_title,
+          h.city           AS city
         FROM rooms r
         JOIN houses h ON h.id = r.house_id
         WHERE h.landlord_id = ?
@@ -92,10 +93,10 @@ def rooms_portfolio_edit_apply(rid: int):
             set_price = None
 
     # ---- Availability (optional, same defaults/rules as bulk) ----
-vals = [str(v).strip().lower() for v in request.form.getlist("is_let")]
-is_let = 1 if ("1" in vals or "on" in vals or "true" in vals) else 0
-let_until_in = (request.form.get("let_until") or "").strip()
-available_from_in = (request.form.get("available_from") or "").strip()
+    vals = [str(v).strip().lower() for v in request.form.getlist("is_let")]
+    is_let = 1 if ("1" in vals or "on" in vals or "true" in vals) else 0
+    let_until_in = (request.form.get("let_until") or "").strip()
+    available_from_in = (request.form.get("available_from") or "").strip()
 
     today = date.today()
     lu = _parse_iso(let_until_in)
