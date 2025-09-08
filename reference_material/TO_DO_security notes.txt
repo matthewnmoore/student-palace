@@ -1,5 +1,61 @@
 SECURITY NOTE — Tenant/Landlord Authorization (Critical)
 
+
+
+
+
+
+Student Palace Security Rollout Checklist (plain text)
+	1.	Ownership checks (IDOR)
+	•	Add an “owned_house_or_abort” and “owned_room_or_abort” check.
+	•	Apply it to every landlord route (houses, rooms, photos, floorplans, EPC, etc.).
+	•	Result: a landlord can only ever touch their own data.
+	2.	Authentication hardening
+	•	All landlord routes behind login (already true).
+	•	Ensure sessions use secure cookies (HttpOnly, Secure, SameSite).
+	•	Add logout and session expiry.
+	3.	Forms and inputs
+	•	Validate everything coming in (choices, numbers, dates).
+	•	Sanitize text output with Jinja autoescape (already in place).
+	•	File uploads: check type, size, watermark, store outside web root if possible.
+	4.	Security headers
+	•	Add headers: HSTS, Content-Security-Policy, X-Frame-Options, X-Content-Type-Options.
+	•	These cut off whole classes of browser attacks.
+	5.	Rate limiting & brute force
+	•	Throttle login attempts per IP/account.
+	•	Throttle sensitive actions (e.g., photo upload, delete).
+	6.	Secrets & config
+	•	Keep secrets in environment variables.
+	•	Never commit them to GitHub.
+	7.	Monitoring
+	•	Log denied attempts (403/404).
+	•	Keep error logs.
+	•	Optional: basic alerting if repeated attacks.
+	8.	Backups
+	•	Database and uploads backed up daily.
+	•	Test restoring at least once.
+	9.	External check
+	•	Once stable, get a pen tester to run through.
+	•	Fix anything critical they find.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Problem (in plain English)
 	•	Our landlord dashboard pages are addressable by predictable IDs (e.g., /landlord/houses/123/edit).
 	•	If a route doesn’t verify ownership, a logged-in Landlord A could type Landlord B’s house ID in the URL and view/edit B’s data.
