@@ -4,18 +4,18 @@
 <section class="wrap">
   <h1>Edit your profile</h1>
 
-  {# Status banner (verified / not verified) #}
-  {% if profile and (profile.is_verified|default(0, true)) %}
-    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:12px; padding:14px 16px; margin-bottom:14px">
-      <span aria-hidden="true" style="font-size:22px; color:#22c55e">✔️</span>
-      <div style="flex:1; font-weight:600">You’re verified – Your listings will display a verified badge to tenants.</div>
-    </div>
-  {% else %}
-    <div class="card card--accent-lr" style="display:flex;align-items:center;gap:12px; padding:14px 16px; margin-bottom:14px">
-      <span aria-hidden="true" style="font-size:22px; color:#f59e0b">❌</span>
-      <div style="flex:1; font-weight:600">Not verified – Get verified to boost renter trust.</div>
-    </div>
-  {% endif %}
+ {# Status banner (verified / not verified) #}
+{% if profile and (profile.is_verified|default(0, true)) %}
+  <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
+    <span aria-hidden="true" style="font-size:20px">✅</span>
+    <div style="font-weight:600">You’re verified – your listings show a verified badge to tenants.</div>
+  </div>
+{% else %}
+  <div class="card card--accent-lr" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px">
+    <span aria-hidden="true" style="font-size:20px">❌</span>
+    <div style="font-weight:600">Not verified – get verified to boost renter trust.</div>
+  </div>
+{% endif %}
 
   <div class="grid" style="grid-template-columns: 1fr 320px; gap:16px; align-items:start">
 
