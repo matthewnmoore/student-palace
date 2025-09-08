@@ -1,86 +1,173 @@
 # admin/schema.py
 from __future__ import annotations
+
 import sqlite3
 from db import get_db
 
-def migrate_accreditations_schema(conn: sqlite3.Connection) -> None:
-    """
-    Ensure landlord_accreditations references accreditation_types and uses:
-      landlord_id | accreditation_id | note
-    If an older table (scheme_id/extra_text → accreditation_schemes) exists,
-    rebuild it and migrate any rows by matching on the accreditation NAME.
-    Safe to run repeatedly.
-    """
-    def cols(table: str) -> set[str]:
-        try:
-            return {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
-        except Exception:
-            return set()
+def _table_has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    try:
+        cols = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        names = [r["name"] if isinstance(r, sqlite3.Row) else r[1] for r in cols]
+        return column in names
+    except Exception:
+        return False
 
-    # Already correct? nothing to do.
-    lac = cols("landlord_accreditations")
-    if {"landlord_id", "accreditation_id", "note"} <= lac:
+def _fk_targets(conn: sqlite3.Connection, table: str) -> list[tuple[str, str]]:
+    """Returns list of (table, column) FK targets for given table."""
+    try:
+        rows = conn.execute(f"PRAGMA foreign_key_list({table})").fetchall()
+        out = []
+        for r in rows:
+            # row fields: id, seq, table, from, to, on_update, on_delete, match
+            t = r["table"] if isinstance(r, sqlite3.Row) else r[2]
+            to_col = r["to"] if isinstance(r, sqlite3.Row) else r[5]
+            out.append((t, to_col))
+        return out
+    except Exception:
+        return []
+
+def _rebuild_landlord_accreditations(conn: sqlite3.Connection) -> None:
+    """
+    Ensure landlord_accreditations references accreditation_types(id).
+    If it currently targets accreditation_schemes, rebuild it.
+    """
+    # If table doesn't exist, create the correct shape and return.
+    exists = conn.execute("""
+        SELECT name FROM sqlite_master
+         WHERE type='table' AND name='landlord_accreditations'
+    """).fetchone()
+
+    wants_sql = """
+        CREATE TABLE landlord_accreditations_new(
+            landlord_id INTEGER NOT NULL,
+            scheme_id   INTEGER NOT NULL,
+            extra_text  TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY (landlord_id, scheme_id),
+            FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE,
+            FOREIGN KEY (scheme_id)   REFERENCES accreditation_types(id) ON DELETE CASCADE
+        )
+    """
+
+    if not exists:
+        conn.execute(wants_sql)
+        conn.execute("ALTER TABLE landlord_accreditations_new RENAME TO landlord_accreditations")
+        conn.commit()
         return
 
-    # Old shape present?
-    if {"landlord_id", "scheme_id", "extra_text"} <= lac:
-        # How many rows to migrate?
+    # If exists, check current FK targets.
+    targets = _fk_targets(conn, "landlord_accreditations")
+    # Look for any FK pointing at accreditation_schemes
+    points_to_old = any(t[0] == "accreditation_schemes" for t in targets)
+
+    if not points_to_old:
+        # Already fine (or has no FKs); make sure columns exist then exit.
+        if not _table_has_column(conn, "landlord_accreditations", "extra_text"):
+            conn.execute("ALTER TABLE landlord_accreditations ADD COLUMN extra_text TEXT NOT NULL DEFAULT ''")
+            conn.commit()
+        return
+
+    # Rebuild: copy data across (best effort) then swap tables.
+    conn.execute("BEGIN")
+    try:
+        conn.execute(wants_sql)
+        # Copy what we can (if old table had the same columns)
         try:
-            cnt = conn.execute("SELECT COUNT(*) AS c FROM landlord_accreditations").fetchone()["c"]
+            conn.execute("""
+                INSERT OR IGNORE INTO landlord_accreditations_new(landlord_id, scheme_id, extra_text)
+                SELECT landlord_id, scheme_id, COALESCE(extra_text,'')
+                  FROM landlord_accreditations
+            """)
         except Exception:
-            cnt = 0
+            # Fallback: copy without extra_text if column didn't exist
+            conn.execute("""
+                INSERT OR IGNORE INTO landlord_accreditations_new(landlord_id, scheme_id, extra_text)
+                SELECT landlord_id, scheme_id, ''
+                  FROM landlord_accreditations
+            """)
+        conn.execute("DROP TABLE landlord_accreditations")
+        conn.execute("ALTER TABLE landlord_accreditations_new RENAME TO landlord_accreditations")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
-        # Rebuild table (SQLite requires table swap for FK changes)
-        conn.execute("PRAGMA foreign_keys=OFF")
-        conn.execute("BEGIN")
-
+def ensure_extra_schema() -> None:
+    """
+    Add-only, idempotent schema tweaks:
+      - site_settings defaults
+      - students + student_favourites
+      - accreditation_types master list
+      - landlord_accreditations junction with FK -> accreditation_types
+    """
+    conn = get_db()
+    try:
+        # site_settings
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS landlord_accreditations_new(
-                landlord_id INTEGER NOT NULL,
-                accreditation_id INTEGER NOT NULL,
-                note TEXT NOT NULL DEFAULT '',
-                PRIMARY KEY (landlord_id, accreditation_id),
-                FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE,
-                FOREIGN KEY (accreditation_id) REFERENCES accreditation_types(id) ON DELETE CASCADE
+            CREATE TABLE IF NOT EXISTS site_settings(
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        defaults = {
+            "show_metric_landlords": "1",
+            "show_metric_houses": "1",
+            "show_metric_rooms": "1",
+            "show_metric_students": "0",
+            "show_metric_photos": "0",
+            "terms_md": "",
+            "signups_enabled": "1",
+            "logins_enabled":  "1",
+        }
+        for k, v in defaults.items():
+            conn.execute(
+                "INSERT OR IGNORE INTO site_settings (key, value) VALUES (?, ?)",
+                (k, v),
+            )
+
+        # students
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS students(
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                email         TEXT UNIQUE NOT NULL,
+                name          TEXT NOT NULL DEFAULT '',
+                phone_number  TEXT NOT NULL DEFAULT '',
+                created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f','now')),
+                updated_at    TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        if not _table_has_column(conn, "students", "phone_number"):
+            conn.execute("ALTER TABLE students ADD COLUMN phone_number TEXT NOT NULL DEFAULT ''")
+        if not _table_has_column(conn, "students", "updated_at"):
+            conn.execute("ALTER TABLE students ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''")
+
+        # favourites
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS student_favourites(
+                student_id INTEGER NOT NULL,
+                house_id   INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f','now')),
+                PRIMARY KEY (student_id, house_id),
+                FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+                FOREIGN KEY (house_id)   REFERENCES houses(id)   ON DELETE CASCADE
             )
         """)
 
-        if cnt > 0:
-            # Migrate by NAME: accreditation_schemes.name == accreditation_types.name
-            conn.execute("""
-                INSERT OR IGNORE INTO landlord_accreditations_new (landlord_id, accreditation_id, note)
-                SELECT la.landlord_id,
-                       at.id    AS accreditation_id,
-                       la.extra_text AS note
-                  FROM landlord_accreditations la
-                  JOIN accreditation_schemes s ON s.id = la.scheme_id
-                  JOIN accreditation_types  at ON at.name = s.name
-            """)
+        # accreditation_types (admin-managed list)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS accreditation_types(
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                name       TEXT UNIQUE NOT NULL,
+                slug       TEXT UNIQUE NOT NULL,
+                is_active  INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                help_text  TEXT NOT NULL DEFAULT ''
+            )
+        """)
 
-        conn.execute("DROP TABLE landlord_accreditations")
-        conn.execute("ALTER TABLE landlord_accreditations_new RENAME TO landlord_accreditations")
+        # landlord_accreditations must reference accreditation_types
+        _rebuild_landlord_accreditations(conn)
 
-        conn.execute("COMMIT")
-        conn.execute("PRAGMA foreign_keys=ON")
-        return
-
-    # Table missing entirely → create the correct one
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS landlord_accreditations(
-            landlord_id INTEGER NOT NULL,
-            accreditation_id INTEGER NOT NULL,
-            note TEXT NOT NULL DEFAULT '',
-            PRIMARY KEY (landlord_id, accreditation_id),
-            FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE,
-            FOREIGN KEY (accreditation_id) REFERENCES accreditation_types(id) ON DELETE CASCADE
-        )
-    """)
-
-def ensure_extra_schema() -> None:
-    """Called from admin/__init__.py at import time."""
-    conn = get_db()
-    try:
-        migrate_accreditations_schema(conn)
+        conn.commit()
     finally:
         try:
             conn.close()
