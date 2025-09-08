@@ -18,8 +18,12 @@
   <div class="card card--accent-lr">
     <h2 class="mt-0" style="text-align:center">Search Student Properties</h2>
 
-    <form action="{{ url_for('public.search') }}" method="get" class="grid grid-2 form-compact-labels" style="max-width:820px;margin:0 auto">
-
+   <div style="text-align:center; margin-top:20px;">
+  <a href="{{ url_for('public.properties') }}" class="btn btn-accent" style="min-width:260px;">
+    Find rooms
+  </a>
+</div>
+      
       <!-- City -->
       <label class="field" style="text-align:center">
         <span class="label-inline">City</span>
