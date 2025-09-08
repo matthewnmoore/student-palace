@@ -182,8 +182,13 @@
     } else {
       if (rowLetUntil) rowLetUntil.style.display = 'none';
       if (letUntil) letUntil.value = '';        // clear when not let
-      // Only set Available From if blank; do NOT overwrite a user value
-      if (availFrom && !availFrom.value) availFrom.value = todayLocalISO();
+      // Ensure an "available" date: if blank OR in the future, set to today.
+      if (availFrom){
+        var today = todayLocalISO();
+        if (!availFrom.value || availFrom.value > today){
+          availFrom.value = today;
+        }
+      }
     }
   }
 
@@ -226,8 +231,12 @@
         }
       }
     } else {
-      if (availFrom && !availFrom.value){
-        availFrom.value = todayLocalISO();
+      if (availFrom){
+        var today = todayLocalISO();
+        // If blank or future, clamp to today so it's clearly available.
+        if (!availFrom.value || availFrom.value > today){
+          availFrom.value = today;
+        }
       }
       if (letUntil){
         letUntil.value = '';
@@ -253,3 +262,4 @@
   }
 })();
 </script>
+{% endblock %}
