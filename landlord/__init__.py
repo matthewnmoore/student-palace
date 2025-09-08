@@ -20,7 +20,7 @@ from . import bulk as _bulk  # Whole-house edit routes
 from . import rooms_all_edit as _rooms_all_edit  # noqa: F401,E402  # NEW: portfolio room-level edits
 from . import portfolio as _portfolio  # noqa: F401,E402
 from . import delete as _delete  # noqa: F401,E402  # NEW
-
+from . import accreditations as _accreditations  # noqa: F401,E402
 
 
 
