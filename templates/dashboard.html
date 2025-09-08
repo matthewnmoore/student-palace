@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – Student Palace{% endblock %}
+{% block content %}
+<section class="wrap">
+  <div class="flex-between" style="margin-bottom:12px">
+    <h1 class="mt-0">Landlord dashboard</h1>
+    {% if landlord %}
+      <a class="btn" href="{{ url_for('landlord.landlord_houses') }}">Manage houses</a>
+    {% endif %}
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% if not landlord %}
+    <div class="card card--accent-lr">
+      <p class="mt-0">You’re not logged in.</p>
+      <p style="margin-top:10px">
+        <a class="btn" href="{{ url_for('auth.login') }}">Log in</a>
+        <a class="btn btn-outline" href="{{ url_for('auth.signup') }}">Create an account</a>
+      </p>
+    </div>
+  {% else %}
+
+    <div class="grid grid-2">
+      <!-- Account -->
+      <div class="card card--accent-lr">
+        <h3 class="mt-0">Account</h3>
+        <p><strong>{{ landlord.email }}</strong></p>
+        {% if created_at_uk %}<p class="small">Member since: {{ created_at_uk }}</p>{% endif %}
+        {% if role_label %}<p class="small">Role: {{ role_label }}</p>{% endif %}
+
+        {# --- VERIFIED STATUS (from landlord_profiles) --- #}
+        {% set verified = profile and (profile.is_verified|default(0, true)) %}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          {% if verified %}
+            <span aria-hidden="true" style="font-size:18px">✅</span>
+            <span class="small" style="font-weight:600">Verified landlord</span>
+          {% else %}
+            <span aria-hidden="true" style="font-size:18px">❌</span>
+            <span class="small" style="font-weight:600">Not verified</span>
+          {% endif %}
+        </div>
+
+        <p style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap">
+          <a class="btn btn-outline" href="{{ url_for('landlord.landlord_profile') }}">Edit profile</a>
+          <a class="btn" href="{{ url_for('landlord.landlord_accreditations') }}" style="background:#6b21a8; border-color:#6b21a8; color:#fff;">Accreditations</a>
+          {% if not verified %}
+            <a class="btn" href="#" style="background:#28a745; border-color:#28a745; color:#fff;">Get Verified</a>
+          {% endif %}
+        </p>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="card card--accent-lr">
+        <h3 class="mt-0">Quick actions</h3>
+        <div class="qa-grid">
+          <a class="btn" href="{{ url_for('landlord.house_new') }}">Add a new house</a>
+          <a class="btn btn-outline" href="{{ url_for('landlord.landlord_houses') }}">Manage houses</a>
+          <a class="btn btn-outline" href="{{ url_for('landlord.portfolio') }}">Portfolio</a>
+          <span></span>
+          <a class="btn" href="{{ url_for('landlord.rooms_portfolio_edit') }}">Bulk rooms edit</a>
+          <a class="btn btn-outline" href="{{ url_for('landlord.bulk_edit') }}">Bulk house edit</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Houses table -->
+    <div class="card card--accent-lr" style="margin-top:14px">
+      <h3 class="mt-0">Your houses</h3>
+      {% if houses and houses|length %}
+        <table class="table landlord-table" style="margin:0; table-layout:auto;">
+          <thead>
+            <tr>
+              <th style="width:90px">ID</th>
+              <th style="width:auto">Title</th>
+              <th style="width:140px">City</th>
+              <th style="width:120px">Letting</th>
+              <th style="width:120px">Availability</th>
+              <th style="width:1%; white-space:nowrap;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in houses %}
+              <tr>
+                <td>{{ h.id }}</td>
+                <td><strong>{{ h.title }}</strong></td>
+                <td>{{ h.city }}</td>
+                <td>{{ 'Whole' if h.letting_type=='whole' else 'Share' }}</td>
+                <td>{{ h.bedrooms_total or 0 }} / {{ h.available_rooms_total or 0 }}</td>
+                <td class="actions-cell">
+                  <div class="actions-row">
+                    <a class="btn" href="{{ url_for('landlord.house_edit', hid=h.id) }}">Edit</a>
+                    <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=h.id) }}">Rooms</a>
+                    <a class="btn btn-outline" href="{{ url_for('landlord.house_photos', hid=h.id) }}">Photos</a>
+                    <a class="btn btn-outline" href="{{ url_for('landlord.house_floorplans', hid=h.id) }}">Floor plans</a>
+                    <a class="btn" href="{{ url_for('public.property_public', house_id=h.id) }}" target="_blank" rel="noopener">Public</a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">No houses yet.</p>
+      {% endif %}
+    </div>
+
+  {% endif %}
+</section>
+
+<style>
+  /* Quick actions layout */
+  .qa-grid{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:10px}
+  .qa-grid>span{display:block}
+  @media (max-width:720px){.qa-grid{grid-template-columns:1fr}.qa-grid>span{display:none}}
+  .landlord-table .actions-cell{white-space:nowrap}
+  .actions-row{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+  .actions-row .btn,
+  .actions-row .btn.btn-outline{padding-left:12px;padding-right:12px}
+</style>
+{% endblock %}
