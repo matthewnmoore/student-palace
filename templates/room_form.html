@@ -128,7 +128,7 @@
       <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
       {% if mode == 'edit' and room %}
         <a class="btn btn-outline" href="{{ url_for('landlord.room_photos', hid=house.id, rid=room.id) }}">Manage photos</a>
-        <a class="btn" href="{{ url_for('room_public.room_public', rid=room.id) }}" target="_blank">View public page</a>
+       <a class="btn" href="{{ url_for('room_public.room_public', room_id=room.id) }}" target="_blank">View public page</a>
       {% endif %}
     </div>
   </div>
