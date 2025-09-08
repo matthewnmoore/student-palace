@@ -1,38 +1,55 @@
-cat > backup_to_dropbox.py <<'PY'
 import os, sys, tarfile, time, tempfile, pathlib
 import dropbox
+from dropbox.exceptions import ApiError
 
-# Paths
-UPLOADS_DIR = "/opt/render/project/src/static/uploads"  # contains houses/, rooms/ and the DB inside houses/
-DBX_DEST_DIR = "/StudentPalace/backups"  # Dropbox folder path (root-relative)
+# What to back up
+UPLOADS_DIR = "/opt/render/project/src/static/uploads"  # contains houses/, rooms/ (symlink), and the DB inside houses/
+# Where to put it in Dropbox (root-relative)
+DBX_DEST_DIR = "/StudentPalace/backups"
 
-token = os.environ.get("DROPBOX_TOKEN") or os.environ.get("DROPBOX_ACCESS_TOKEN")
-if not token:
-    print("ERROR: Set env var DROPBOX_TOKEN with a Dropbox long-lived access token.", file=sys.stderr)
-    sys.exit(1)
+def main():
+    token = os.environ.get("DROPBOX_TOKEN") or os.environ.get("DROPBOX_ACCESS_TOKEN")
+    if not token:
+        print("ERROR: Set env var DROPBOX_TOKEN with a Dropbox access token.", file=sys.stderr)
+        sys.exit(1)
 
-ts = time.strftime("%Y%m%d-%H%M%S")
-archive_name = f"student-palace-backup-{ts}.tar.gz"
+    src = pathlib.Path(UPLOADS_DIR)
+    if not src.exists():
+        print(f"ERROR: Source path not found: {UPLOADS_DIR}", file=sys.stderr)
+        sys.exit(2)
 
-# Build archive in /tmp
-tmp_path = os.path.join(tempfile.gettempdir(), archive_name)
-src = pathlib.Path(UPLOADS_DIR)
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    archive_name = f"student-palace-backup-{ts}.tar.gz"
+    tmp_path = os.path.join(tempfile.gettempdir(), archive_name)
 
-if not src.exists():
-    print(f"ERROR: Source path not found: {UPLOADS_DIR}", file=sys.stderr)
-    sys.exit(2)
+    print(f"Creating archive: {tmp_path}")
+    # tar.add(..., recursive=True) follows symlinks by default and stores their targets,
+    # which is what we want (capture rooms/ content even if it's a symlink).
+    with tarfile.open(tmp_path, "w:gz") as tar:
+        tar.add(UPLOADS_DIR, arcname="uploads")
 
-print(f"Creating archive: {tmp_path}")
-with tarfile.open(tmp_path, "w:gz") as tar:
-    # archive entire uploads/ tree (includes houses/, rooms/ symlink, and DB inside houses/)
-    tar.add(UPLOADS_DIR, arcname="uploads")
+    dbx = dropbox.Dropbox(token)
 
-# Upload to Dropbox
-dbx = dropbox.Dropbox(token)
-dropbox_path = f"{DBX_DEST_DIR}/{archive_name}"
-print(f"Uploading to Dropbox: {dropbox_path}")
-with open(tmp_path, "rb") as f:
-    dbx.files_upload(f.read(), dropbox_path, mode=dropbox.files.WriteMode.add, mute=True)
+    # Ensure destination folder exists (create if missing)
+    try:
+        dbx.files_get_metadata(DBX_DEST_DIR)
+    except ApiError:
+        try:
+            dbx.files_create_folder_v2(DBX_DEST_DIR)
+        except ApiError:
+            pass  # If it already exists or another race happened, we’ll keep going
 
-print("✅ Backup uploaded:", dropbox_path)
-PY
+    dropbox_path = f"{DBX_DEST_DIR}/{archive_name}"
+    print(f"Uploading to Dropbox: {dropbox_path}")
+    with open(tmp_path, "rb") as f:
+        dbx.files_upload(
+            f.read(),
+            dropbox_path,
+            mode=dropbox.files.WriteMode.add,
+            mute=True,
+        )
+
+    print("✅ Backup uploaded:", dropbox_path)
+
+if __name__ == "__main__":
+    main()
