@@ -316,7 +316,7 @@ def properties():
         pass
 
     return render_template(
-        "properties.html",
+        "properties_list.html",
         cities=cities,
         years=years,
         results=results,
