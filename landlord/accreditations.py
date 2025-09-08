@@ -1,3 +1,4 @@
+# landlord/accreditations.py
 from __future__ import annotations
 
 from flask import render_template, request, redirect, url_for, flash
@@ -9,12 +10,10 @@ from . import bp
 @bp.route("/landlord/accreditations", methods=["GET", "POST"])
 def landlord_accreditations():
     """
-    Landlord selects accreditations (checkbox + optional notes).
-
+    Landlord can tick accreditations and add an optional note.
     Uses:
       - accreditation_types(id, name, help_text, is_active, sort_order)
-      - landlord_accreditations(landlord_id, scheme_id, extra_text)
-        where scheme_id → accreditation_types.id
+      - landlord_accreditations(landlord_id, accreditation_id, note, extra_text)
     """
     r = require_landlord()
     if r:
@@ -23,76 +22,81 @@ def landlord_accreditations():
 
     conn = get_db()
 
-    # Landlord profile (for verified banner)
+    # Landlord profile (for the verified banner)
     profile = conn.execute(
         "SELECT * FROM landlord_profiles WHERE landlord_id = ?",
         (lid,),
     ).fetchone()
 
-    # Active accreditations to choose from (admin-managed)
-    schemes = conn.execute(
+    # List of active accreditations to choose from
+    accreditations = conn.execute(
         """
-        SELECT id, name, help_text, is_active, sort_order,
-               1 AS has_notes
-          FROM accreditation_types
-         WHERE is_active = 1
-         ORDER BY sort_order ASC, name ASC
+        SELECT
+            id,
+            name,
+            help_text,
+            is_active,
+            sort_order,
+            1 AS has_notes
+        FROM accreditation_types
+        WHERE is_active = 1
+        ORDER BY sort_order ASC, name ASC
         """
     ).fetchall()
 
     # Current selections for this landlord
     rows = conn.execute(
         """
-        SELECT scheme_id, COALESCE(extra_text,'') AS extra_text
-          FROM landlord_accreditations
-         WHERE landlord_id = ?
+        SELECT accreditation_id, COALESCE(note,'') AS note
+        FROM landlord_accreditations
+        WHERE landlord_id = ?
         """,
         (lid,),
     ).fetchall()
-    current = {int(row["scheme_id"]): row["extra_text"] for row in rows}
+    current = {row["accreditation_id"]: row["note"] for row in rows}
 
     if request.method == "POST":
         # Which boxes were checked?
-        checked_ids: set[int] = set()
-        for s in schemes:
-            sid = int(s["id"])
-            if request.form.get(f"scheme_{sid}") in ("1", "on", "true"):
-                checked_ids.add(sid)
+        checked_ids = set()
+        for a in accreditations:
+            key = f"accreditation_{a['id']}"
+            if request.form.get(key) in ("1", "on", "true"):
+                checked_ids.add(int(a["id"]))
 
-        # Upsert checked ones (with notes); delete unchecked ones
-        for s in schemes:
-            sid = int(s["id"])
-            notes = (request.form.get(f"extra_{sid}") or "").strip()
+        # Upsert checked items (with note), delete unchecked
+        for a in accreditations:
+            aid = int(a["id"])
+            note_val = (request.form.get(f"note_{aid}") or "").strip()
 
-            if sid in checked_ids:
-                if sid in current:
+            if aid in checked_ids:
+                if aid in current:
                     # Update existing
                     conn.execute(
                         """
                         UPDATE landlord_accreditations
-                           SET extra_text = ?
-                         WHERE landlord_id = ? AND scheme_id = ?
+                           SET note = ?
+                         WHERE landlord_id = ? AND accreditation_id = ?
                         """,
-                        (notes, lid, sid),
+                        (note_val, lid, aid),
                     )
                 else:
                     # Insert new
                     conn.execute(
                         """
-                        INSERT INTO landlord_accreditations (landlord_id, scheme_id, extra_text)
+                        INSERT INTO landlord_accreditations (landlord_id, accreditation_id, note)
                         VALUES (?, ?, ?)
                         """,
-                        (lid, sid, notes),
+                        (lid, aid, note_val),
                     )
             else:
                 # Remove if previously chosen
-                if sid in current:
+                if aid in current:
                     conn.execute(
                         """
                         DELETE FROM landlord_accreditations
-                         WHERE landlord_id = ? AND scheme_id = ?
+                         WHERE landlord_id = ? AND accreditation_id = ?
                         """,
-                        (lid, sid),
+                        (lid, aid),
                     )
 
         conn.commit()
@@ -106,7 +110,7 @@ def landlord_accreditations():
     return render_template(
         "landlord_accreditations.html",
         profile=profile,
-        schemes=schemes,          # list of accreditation_types
-        current=current,          # {scheme_id: extra_text}
-        selected_ids=selected_ids # for persistent checkmarks
+        schemes=accreditations,     # template expects 'schemes'
+        current=current,            # {accreditation_id: note}
+        selected_ids=selected_ids,  # keep checkmarks
     )
