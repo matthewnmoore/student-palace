@@ -1,0 +1,43 @@
+Core search filters (students will expect these):
+	•	City
+	•	Academic year (derived from availability dates)
+	•	Group size (whole property vs number of available rooms)
+	•	Price (maximum per person per week or per month)
+	•	Bills included (yes / some / no)
+	•	Ensuite bathroom (yes / no)
+	•	Suitable for couples (yes / no)
+	•	Accessible for disabled people (yes / no)
+
+⸻
+
+Optional / advanced filters (could be added as checkboxes or “more filters”):
+	•	Bed size (Single / Small double / Double / King)
+	•	Gender preference (Male / Female / Mixed / Either)
+	•	Shared bathrooms (number)
+	•	Parking (off-street / local)
+	•	Wi-Fi / Wired internet
+	•	TV in room
+	•	Desk & chair
+	•	Wardrobe
+	•	Lockable door
+	•	Dishwasher
+	•	Washing machine
+	•	Tumble dryer
+	•	Microwave
+	•	Garden / Roof terrace
+	•	Games room / Cinema room
+	•	CCTV / Video door entry / Fob entry system
+	•	Bike storage
+	•	Central heating / Air conditioning
+
+⸻
+
+Not realistically searchable (good to show on property details but not worth as a filter):
+	•	Room size (free text, inconsistent)
+	•	Coffee maker
+	•	Vacuum cleaner
+	•	Dressing table
+	•	Mirror
+	•	Bedside table
+	•	Blinds / Curtains
+	•	Sofa
