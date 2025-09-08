@@ -62,7 +62,7 @@
       </div>
     </div>
 
-    <!-- AVAILABILITY -->
+   <!-- AVAILABILITY -->
 <div class="card card--accent-lr">
   <h2 class="card-title">Availability</h2>
   {% set is_let_checked = (form and form.is_let in ['1', 1, 'on', True]) %}
@@ -70,17 +70,8 @@
   {% set available_from_val = (form.available_from or '') if form else '' %}
 
   <div class="grid grid-3" style="align-items:end">
-    <!-- Hidden default FIRST so unchecked submits 0 safely -->
-    <input type="hidden" name="is_let" value="0">
-
     <label class="check" style="align-self:end">
-      <input
-        type="checkbox"
-        name="is_let"
-        id="is_let"
-        value="1"
-        {% if is_let_checked %}checked{% endif %}
-      >
+      <input type="checkbox" name="is_let" id="is_let" value="1" {% if is_let_checked %}checked{% endif %}>
       <span>Currently let (not available now)</span>
     </label>
 
