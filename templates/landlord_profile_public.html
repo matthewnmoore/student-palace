@@ -1,79 +1,112 @@
-# public_landlord.py (or wherever your public routes live)
-from __future__ import annotations
+{% extends "base.html" %}
+{% block title %}{{ (profile.display_name or 'Landlord') ~ ' – Student Palace' if profile else 'Landlord – Student Palace' }}{% endblock %}
+{% block content %}
+<section class="wrap">
+  {% if not profile %}
+    <h1>Landlord not found</h1>
+    <div class="card card--accent-lr"><p class="help">This profile doesn’t exist.</p></div>
+  {% else %}
 
-from flask import Blueprint, render_template, abort
-from db import get_db
+    <!-- Header / name -->
+    <h1 style="margin-bottom:8px">{{ profile.display_name or 'Landlord' }}</h1>
 
-bp = Blueprint("public", __name__)
+    <!-- Verified / not verified banner (correct appearance) -->
+    {% if profile.is_verified|default(0, true) %}
+      <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0; background:#ecfdf5; border:1px solid #22c55e; color:#065f46">
+        <span aria-hidden="true" style="font-size:20px;">✔️</span>
+        <div style="font-weight:600">Verified – Listings from this landlord display a verified badge.</div>
+      </div>
+    {% else %}
+      <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:12px 0; background:#f3f4f6; border:1px solid #d1d5db; color:#374151">
+        <span aria-hidden="true" style="font-size:20px;">❌</span>
+        <div style="font-weight:600">Not verified – Get verified to boost renter trust.</div>
+      </div>
+    {% endif %}
 
-@bp.route("/landlord/<slug>")
-def landlord_public_profile(slug: str):
-    conn = get_db()
-    try:
-        # 1) Profile by public_slug
-        profile = conn.execute(
-            """
-            SELECT *
-            FROM landlord_profiles
-            WHERE public_slug = ?
-            """,
-            (slug,),
-        ).fetchone()
+    <!-- Two-column layout -->
+    <div class="grid" style="grid-template-columns: 1fr 280px; gap:16px; align-items:start">
 
-        if not profile:
-            # Render the same template with profile=None so it shows the "not found" state
-            return render_template(
-                "landlord_public_profile.html",
-                profile=None,
-                contact_email=None,
-                accreditations=[],
-            )
+      <!-- LEFT: About + contact -->
+      <div style="display:flex; flex-direction:column; gap:16px">
+        <!-- About -->
+        <div class="card card--accent-lr" style="min-height:220px; display:flex; flex-direction:column">
+          <h2 style="margin:0 0 8px">About</h2>
+          <p style="margin-top:0; flex:1">{{ profile.bio or 'No bio provided yet.' }}</p>
+        </div>
 
-        landlord_id = profile["landlord_id"]
+        <!-- Contact -->
+        <div class="card card--accent-lr" style="min-height:160px">
+          <h2 style="margin:0 0 8px">Contact</h2>
+          <div class="grid grid-2">
+            <p><strong>Email:</strong> {{ contact_email or '—' }}</p>
+            <p><strong>Phone:</strong> {{ profile.phone or '—' }}</p>
+          </div>
+          <p style="margin-top:6px">
+            <strong>Website:</strong>
+            {% if profile.website %}
+              <a href="{{ profile.website }}" target="_blank" rel="noopener">{{ profile.website }}</a>
+            {% else %}—{% endif %}
+          </p>
+          <p class="muted" style="margin-top:10px">Profile views: {{ profile.profile_views or 0 }}</p>
+        </div>
+      </div>
 
-        # 2) Contact email from landlords table
-        row = conn.execute(
-            "SELECT email FROM landlords WHERE id = ?",
-            (landlord_id,),
-        ).fetchone()
-        contact_email = row["email"] if row else None
+      <!-- RIGHT: Media (smaller cards) -->
+      <aside style="display:flex; flex-direction:column; gap:16px">
+        <!-- Logo -->
+        <div class="card card--accent-lr">
+          <h3 style="margin-top:0">Logo</h3>
+          <div style="width:100%; max-width:180px; aspect-ratio:1/1; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff">
+            {% if profile.logo_path %}
+              <img
+                src="{{ url_for('static', filename=profile.logo_path) }}?v={{ profile.profile_views or 0 }}"
+                alt="Landlord logo"
+                style="width:100%; height:100%; object-fit:cover">
+            {% else %}
+              <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#b9a6ff; font-weight:700">
+                LOGO
+              </div>
+            {% endif %}
+          </div>
+        </div>
 
-        # 3) Accreditations (IMPORTANT: use accreditation_id)
-        accreditations = conn.execute(
-            """
-            SELECT
-              at.id,
-              at.name,
-              COALESCE(la.note, la.extra_text, '') AS note,
-              COALESCE(at.help_text, '') AS help_text
-            FROM landlord_accreditations AS la
-            JOIN accreditation_types     AS at
-              ON at.id = la.accreditation_id
-            WHERE la.landlord_id = ?
-              AND at.is_active = 1
-            ORDER BY at.sort_order ASC, at.name ASC
-            """,
-            (landlord_id,),
-        ).fetchall()
+        <!-- Photo -->
+        <div class="card card--accent-lr">
+          <h3 style="margin-top:0">Photo</h3>
+          <div style="width:100%; max-width:180px; aspect-ratio:1/1; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#f6f3ff">
+            {% if profile.photo_path %}
+              <img
+                src="{{ url_for('static', filename=profile.photo_path) }}?v={{ profile.profile_views or 0 }}"
+                alt="Landlord photo"
+                style="width:100%; height:100%; object-fit:cover">
+            {% else %}
+              <div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#b9a6ff; font-weight:700">
+                PHOTO
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </aside>
 
-        # 4) Increment profile views (non-fatal if it fails)
-        try:
-            conn.execute(
-                "UPDATE landlord_profiles SET profile_views = COALESCE(profile_views,0) + 1 WHERE landlord_id = ?",
-                (landlord_id,),
-            )
-            conn.commit()
-        except Exception:
-            pass
+    </div>
 
-        return render_template(
-            "landlord_public_profile.html",
-            profile=profile,
-            contact_email=contact_email,
-            accreditations=accreditations,
-        )
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
+    <!-- FULL-WIDTH: Accreditations -->
+    <div class="card card--accent-lr" style="margin-top:16px">
+      <h2 style="margin:0 0 8px">Accreditations</h2>
+      {% if accreditations and accreditations|length %}
+        <ul style="margin:0; padding-left:20px">
+          {% for a in accreditations %}
+            <li>
+              <strong>{{ a.name }}</strong>
+              {% if a.note %}<span class="muted"> – {{ a.note }}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No accreditations listed.</p>
+      {% endif %}
+    </div>
+
+  {% endif %}
+</section>
+{% endblock %}
