@@ -21,13 +21,18 @@ def landlord_accreditations():
         "SELECT * FROM landlord_profiles WHERE landlord_id = ?", (lid,)
     ).fetchone()
 
-    # Active schemes for landlords to choose from
+    # Active accreditations for landlords to choose from
     schemes = conn.execute(
         """
-        SELECT id, name, 1 AS has_notes  -- toggle has_notes to 0 if you ever want no notes box
-        FROM accreditation_schemes
+        SELECT id,
+               name,
+               help_text,
+               is_active,
+               sort_order,
+               1 AS has_notes  -- toggle has_notes to 0 if you ever want no notes box
+        FROM accreditation_types
         WHERE is_active = 1
-        ORDER BY id ASC
+        ORDER BY sort_order ASC, name ASC
         """
     ).fetchall()
 
