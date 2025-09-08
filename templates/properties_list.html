@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}All properties – Student Palace{% endblock %}
+
+{% block content %}
+<section class="wrap" style="margin-top:8px">
+
+  <!-- Header -->
+  <div class="card card--accent-edges" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <div>
+      <h1 class="page-title" style="margin:0">All properties</h1>
+      <p class="muted" style="margin:4px 0 0 0">Showing everything. Filters are placeholders for later.</p>
+    </div>
+    <!-- Mobile filters button -->
+    <button id="openFilters" class="btn" style="display:none;">Filters</button>
+  </div>
+
+  <div class="grid" style="grid-template-columns:280px 1fr; gap:16px; align-items:start; margin-top:12px;">
+
+    <!-- Sidebar filters (desktop) -->
+    <aside id="filtersSidebar" class="card" style="position:sticky; top:10px; align-self:start; padding-bottom:12px;">
+      <form>
+        <h2 class="card-title" style="margin-bottom:10px;">Filters (placeholder)</h2>
+
+        <label class="field">
+          <span class="label">City</span>
+          <select disabled style="width:100%; opacity:.6;">
+            <option>Coming soon</option>
+          </select>
+        </label>
+
+        <label class="field" style="margin-top:8px;">
+          <span class="label">Academic year</span>
+          <select disabled style="width:100%; opacity:.6;">
+            <option>Coming soon</option>
+          </select>
+        </label>
+
+        <label class="field" style="margin-top:8px;">
+          <span class="label">Letting type</span>
+          <select disabled style="width:100%; opacity:.6;">
+            <option>Coming soon</option>
+          </select>
+        </label>
+
+        <label class="field" style="margin-top:8px;">
+          <span class="label">Group size</span>
+          <select disabled style="width:100%; opacity:.6;">
+            <option>Coming soon</option>
+          </select>
+        </label>
+
+        <div class="card" style="padding:10px; margin-top:10px;">
+          <div class="field">
+            <span class="label">I want a house that is</span>
+            <select disabled style="width:100%; opacity:.6;">
+              <option>Coming soon</option>
+            </select>
+          </div>
+          <div class="field" style="margin-top:8px;">
+            <span class="label">Your gender (optional)</span>
+            <select disabled style="width:100%; opacity:.6;">
+              <option>Coming soon</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="field checkbox" style="margin-top:10px; opacity:.8;">
+          <input type="checkbox" disabled> <span>Ensuite / own bathroom</span>
+        </label>
+
+        <label class="field checkbox" style="margin-top:6px; opacity:.8;">
+          <input type="checkbox" disabled> <span>All bills included</span>
+        </label>
+
+        <label class="field checkbox" style="margin-top:6px; opacity:.8;">
+          <input type="checkbox" disabled> <span>Suitable for couples</span>
+        </label>
+
+        <label class="field checkbox" style="margin-top:6px; opacity:.8;">
+          <input type="checkbox" disabled> <span>Accessible for disabled people</span>
+        </label>
+
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; opacity:.8;">
+          <label class="field">
+            <span class="label">Min price (pcm)</span>
+            <input type="number" disabled placeholder="—">
+          </label>
+          <label class="field">
+            <span class="label">Max price (pcm)</span>
+            <input type="number" disabled placeholder="—">
+          </label>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn" type="button" disabled>Apply filters</button>
+          <button class="btn btn-outline" type="button" disabled>Clear</button>
+        </div>
+      </form>
+    </aside>
+
+    <!-- Results -->
+    <main>
+      <!-- Toolbar (count + sort placeholder) -->
+      <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div class="muted">
+          {% set total = results|length if results is defined else 0 %}
+          {{ total }} result{{ '' if total==1 else 's' }}
+        </div>
+        <form style="display:flex; gap:8px; align-items:center;">
+          <label class="field" style="margin:0; opacity:.8;">
+            <span class="label-inline">Sort</span>
+            <select disabled>
+              <option>Relevance</option>
+            </select>
+          </label>
+        </form>
+      </div>
+
+      <!-- Cards grid -->
+      <div class="grid" style="grid-template-columns:repeat( auto-fill, minmax(260px, 1fr) ); gap:14px; margin-top:12px;">
+        {% if results %}
+          {% for h in results %}
+            <article class="card" style="overflow:hidden;">
+              <a href="/p/{{ h.id }}" style="display:block; text-decoration:none; color:inherit;">
+                {% if h.cover_url %}
+                  <img src="{{ h.cover_url }}" alt="" style="width:100%; height:160px; object-fit:cover; display:block;">
+                {% else %}
+                  <div style="height:160px; background:#f3f3f7; display:flex; align-items:center; justify-content:center; color:#999;">No photo</div>
+                {% endif %}
+                <div style="padding:10px;">
+                  <h3 style="margin:0 0 6px 0; font-size:16px; line-height:1.2;">{{ h.title }}</h3>
+                  <div class="muted" style="font-size:13px;">{{ h.city }} • {{ h.address }}</div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                    <span class="badge">{{ 'Whole house' if h.letting_type=='whole' else 'House share' }}</span>
+                    {% if h.bills_option=='yes' %}<span class="badge">Bills included</span>{% endif %}
+                    {% if (h.ensuites_available or 0) > 0 %}
+                      <span class="badge">{{ h.ensuites_available }} ensuite</span>
+                    {% endif %}
+                    {% if (h.available_rooms_total or 0) > 0 %}
+                      <span class="badge">{{ h.available_rooms_total }} available</span>
+                    {% endif %}
+                  </div>
+                  {% if h.from_price_pcm or h.from_price_ppw %}
+                    <div style="margin-top:8px; font-weight:600;">
+                      {% if h.from_price_pcm %}From £{{ h.from_price_pcm }} pcm{% endif %}
+                      {% if h.from_price_ppw %}<span class="muted"> (~£{{ h.from_price_ppw }} pw)</span>{% endif %}
+                    </div>
+                  {% endif %}
+                </div>
+              </a>
+            </article>
+          {% endfor %}
+        {% else %}
+          <div class="card" style="padding:14px;">
+            <strong>No properties yet.</strong>
+            <p class="muted" style="margin:6px 0 0 0;">Add a house, or check your images/addresses.</p>
+          </div>
+        {% endif %}
+      </div>
+    </main>
+
+  </div>
+</section>
+
+<!-- Styles for drawer + badges -->
+<style>
+  @media (max-width: 920px){
+    #filtersSidebar { display:none; }
+    #openFilters { display:inline-flex; }
+  }
+  .drawer {
+    position: fixed; inset: 0; background: #fff; z-index: 9999;
+    display: none; flex-direction: column;
+  }
+  .drawer.open { display:flex; }
+  .drawer-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px; border-bottom:1px solid var(--border);
+  }
+  .drawer-body { padding:12px; overflow:auto; flex:1; }
+  .drawer-footer {
+    position:sticky; bottom:0; padding:12px; border-top:1px solid var(--border); background:#fff;
+  }
+  .badge {
+    display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px;
+    background: #f0e9fb; color:#5c2ea5;
+  }
+</style>
+
+<!-- Mobile drawer (same placeholders) -->
+<div id="filtersDrawer" class="drawer" aria-hidden="true" aria-modal="true" role="dialog">
+  <div class="drawer-header">
+    <strong>Filters</strong>
+    <button id="closeFilters" class="btn btn-outline">Close</button>
+  </div>
+  <div class="drawer-body">
+    <form>
+      <label class="field">
+        <span class="label">City</span>
+        <select disabled style="width:100%; opacity:.6;"><option>Coming soon</option></select>
+      </label>
+      <label class="field" style="margin-top:8px;">
+        <span class="label">Academic year</span>
+        <select disabled style="width:100%; opacity:.6;"><option>Coming soon</option></select>
+      </label>
+      <label class="field" style="margin-top:8px;">
+        <span class="label">Letting type</span>
+        <select disabled style="width:100%; opacity:.6;"><option>Coming soon</option></select>
+      </label>
+      <label class="field" style="margin-top:8px;">
+        <span class="label">Group size</span>
+        <select disabled style="width:100%; opacity:.6;"><option>Coming soon</option></select>
+      </label>
+      <div class="card" style="padding:10px; margin-top:10px;">
+        <div class="field">
+          <span class="label">I want a house that is</span>
+          <select disabled style="width:100%; opacity:.6;"><option>Coming soon</option></select>
+        </div>
+        <div class="field" style="margin-top:8px;">
+          <span class="label">Your gender (optional)</span>
+          <select disabled style="width:100%; opacity:.6;"><option>Coming soon</option></select>
+        </div>
+      </div>
+      <label class="field checkbox" style="margin-top:10px; opacity:.8;"><input type="checkbox" disabled> <span>Ensuite</span></label>
+      <label class="field checkbox" style="margin-top:6px; opacity:.8;"><input type="checkbox" disabled> <span>Bills included</span></label>
+      <label class="field checkbox" style="margin-top:6px; opacity:.8;"><input type="checkbox" disabled> <span>Couples OK</span></label>
+      <label class="field checkbox" style="margin-top:6px; opacity:.8;"><input type="checkbox" disabled> <span>Accessible</span></label>
+
+      <div class="drawer-footer">
+        <button class="btn" type="button" disabled style="width:100%;">Show results</button>
+        <button class="btn btn-outline" type="button" disabled style="width:100%; margin-top:8px;">Clear</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  var openBtn = document.getElementById('openFilters');
+  var drawer  = document.getElementById('filtersDrawer');
+  var closeBtn= document.getElementById('closeFilters');
+  function openDrawer(){ drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); }
+  function closeDrawer(){ drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); }
+  if (openBtn) openBtn.addEventListener('click', openDrawer);
+  if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+})();
+</script>
+{% endblock %}
