@@ -1,178 +1,131 @@
-# admin/accreditations.py
+# landlord/accreditations.py
 from __future__ import annotations
 
-import sqlite3
 from flask import render_template, request, redirect, url_for, flash
-from models import get_active_cities_safe  # not used here but keeps import parity style
 from db import get_db
-from . import bp, _is_admin
-
-# ------------------------------------
-# Schema safety (idempotent, add-only)
-# ------------------------------------
-def _ensure_accreditation_schema(conn: sqlite3.Connection) -> None:
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS accreditation_types(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            slug TEXT UNIQUE NOT NULL,
-            is_active INTEGER NOT NULL DEFAULT 1,
-            sort_order INTEGER NOT NULL DEFAULT 0,
-            help_text TEXT NOT NULL DEFAULT ''
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS landlord_accreditations(
-            landlord_id INTEGER NOT NULL,
-            accreditation_id INTEGER NOT NULL,
-            note TEXT NOT NULL DEFAULT '',
-            PRIMARY KEY (landlord_id, accreditation_id),
-            FOREIGN KEY (landlord_id) REFERENCES landlords(id) ON DELETE CASCADE,
-            FOREIGN KEY (accreditation_id) REFERENCES accreditation_types(id) ON DELETE CASCADE
-        )
-    """)
-    conn.commit()
+from utils import require_landlord, current_landlord_id
+from . import bp
 
 
-def _slugify(name: str) -> str:
-    s = (name or "").strip().lower()
-    out = []
-    prev_dash = False
-    for ch in s:
-        if ch.isalnum():
-            out.append(ch)
-            prev_dash = False
-        else:
-            if not prev_dash:
-                out.append("-")
-                prev_dash = True
-    slug = "".join(out).strip("-") or "accreditation"
-    return slug
+@bp.route("/landlord/accreditations", methods=["GET", "POST"])
+def landlord_accreditations():
+    """
+    Let a landlord choose accreditations (checkbox + optional notes).
 
-
-# ----------------
-# Admin pages
-# ----------------
-@bp.route("/accreditations", methods=["GET", "POST"])
-def admin_accreditations():
-    if not _is_admin():
-        return redirect(url_for("admin.admin_login"))
+    Data model:
+      - Admin manages accreditation_types (id, name, help_text, sort_order, is_active).
+      - Landlord selections live in landlord_accreditations (landlord_id, scheme_id, extra_text).
+        NOTE: 'scheme_id' points to accreditation_types.id (historic column name retained).
+    """
+    r = require_landlord()
+    if r:
+        return r
+    lid = current_landlord_id()
 
     conn = get_db()
     try:
-        _ensure_accreditation_schema(conn)
+        # Landlord profile (for verified banner)
+        profile = conn.execute(
+            "SELECT * FROM landlord_profiles WHERE landlord_id = ?", (lid,)
+        ).fetchone()
+
+        # Current selections for this landlord
+        rows = conn.execute(
+            """
+            SELECT scheme_id, COALESCE(extra_text,'') AS extra_text
+            FROM landlord_accreditations
+            WHERE landlord_id = ?
+            """,
+            (lid,),
+        ).fetchall()
+        current = {row["scheme_id"]: row["extra_text"] for row in rows}
+        current_ids = set(current.keys())
+
+        # Active accreditations (admin-managed)
+        active = conn.execute(
+            """
+            SELECT id, name, COALESCE(help_text,'') AS help_text,
+                   COALESCE(sort_order, 0) AS sort_order,
+                   COALESCE(is_active, 1) AS is_active
+            FROM accreditation_types
+            WHERE is_active = 1
+            ORDER BY sort_order ASC, name ASC
+            """
+        ).fetchall()
+        active_ids = {r["id"] for r in active}
+
+        # Inactive but previously selected (so the landlord can unselect if desired)
+        missing_ids = list(current_ids - active_ids)
+        inactive_selected = []
+        if missing_ids:
+            placeholders = ",".join("?" for _ in missing_ids)
+            inactive_selected = conn.execute(
+                f"""
+                SELECT id, name, COALESCE(help_text,'') AS help_text,
+                       COALESCE(sort_order, 0) AS sort_order,
+                       COALESCE(is_active, 0) AS is_active
+                FROM accreditation_types
+                WHERE id IN ({placeholders})
+                ORDER BY name ASC
+                """,
+                tuple(missing_ids),
+            ).fetchall()
+
+        # Final list shown to the landlord
+        # Keep actives first (admin order), then any inactive-but-selected.
+        schemes = list(active) + list(inactive_selected)
 
         if request.method == "POST":
-            action = (request.form.get("action") or "").strip()
+            # Build a set of checked scheme IDs from form (covering both active and inactive-visible)
+            checked_ids = set()
+            for s in schemes:
+                key = f"scheme_{s['id']}"
+                if request.form.get(key) in ("1", "on", "true"):
+                    checked_ids.add(s["id"])
 
-            if action == "add":
-                name = (request.form.get("name") or "").strip()
-                help_text = (request.form.get("help_text") or "").strip()
-                active = 1 if (request.form.get("is_active") == "on") else 1  # default ON
-                if not name:
-                    flash("Name is required.", "error")
+            # Upsert checked ones (with notes), delete unchecked ones
+            for s in schemes:
+                sid = s["id"]
+                notes = (request.form.get(f"extra_{sid}") or "").strip()
+
+                if sid in checked_ids:
+                    if sid in current:
+                        conn.execute(
+                            """
+                            UPDATE landlord_accreditations
+                               SET extra_text = ?
+                             WHERE landlord_id = ? AND scheme_id = ?
+                            """,
+                            (notes, lid, sid),
+                        )
+                    else:
+                        conn.execute(
+                            """
+                            INSERT INTO landlord_accreditations (landlord_id, scheme_id, extra_text)
+                            VALUES (?, ?, ?)
+                            """,
+                            (lid, sid, notes),
+                        )
                 else:
-                    base = _slugify(name)
-                    # ensure unique slug
-                    slug = base
-                    i = 2
-                    while conn.execute(
-                        "SELECT 1 FROM accreditation_types WHERE slug=?", (slug,)
-                    ).fetchone():
-                        slug = f"{base}-{i}"
-                        i += 1
-                    try:
-                        # sort_order to end of list
-                        row = conn.execute("SELECT COALESCE(MAX(sort_order),0) AS m FROM accreditation_types").fetchone()
-                        next_sort = int(row["m"] if row and "m" in row.keys() else 0) + 10
-                        conn.execute("""
-                            INSERT INTO accreditation_types(name, slug, is_active, sort_order, help_text)
-                            VALUES(?,?,?,?,?)
-                        """, (name, slug, active, next_sort, help_text))
-                        conn.commit()
-                        flash(f"Added accreditation: {name}", "ok")
-                    except sqlite3.IntegrityError:
-                        flash("That accreditation already exists.", "error")
+                    if sid in current:
+                        conn.execute(
+                            "DELETE FROM landlord_accreditations WHERE landlord_id = ? AND scheme_id = ?",
+                            (lid, sid),
+                        )
 
-            elif action in ("activate", "deactivate"):
-                try:
-                    aid = int(request.form.get("id") or 0)
-                except Exception:
-                    aid = 0
-                if aid:
-                    val = 1 if action == "activate" else 0
-                    conn.execute("UPDATE accreditation_types SET is_active=? WHERE id=?", (val, aid))
-                    conn.commit()
-                    flash("Status updated.", "ok")
+            conn.commit()
+            flash("Accreditations updated.", "ok")
+            return redirect(url_for("landlord.landlord_accreditations"))
 
-            elif action == "delete":
-                try:
-                    aid = int(request.form.get("id") or 0)
-                except Exception:
-                    aid = 0
-                if aid:
-                    conn.execute("DELETE FROM accreditation_types WHERE id=?", (aid,))
-                    conn.commit()
-                    flash("Accreditation deleted.", "ok")
-
-            elif action == "edit":
-                # Inline edit for name/help_text
-                try:
-                    aid = int(request.form.get("id") or 0)
-                except Exception:
-                    aid = 0
-                name = (request.form.get("name") or "").strip()
-                help_text = (request.form.get("help_text") or "").strip()
-                is_active = 1 if (request.form.get("is_active") == "on") else 0
-                if aid and name:
-                    # update name; keep slug stable unless empty (legacy)
-                    row = conn.execute("SELECT slug FROM accreditation_types WHERE id=?", (aid,)).fetchone()
-                    slug = (row["slug"] if row and "slug" in row.keys() else "") or _slugify(name)
-                    # ensure slug unique if we just generated it
-                    if not row or not row["slug"]:
-                        base = slug
-                        i = 2
-                        while conn.execute(
-                            "SELECT 1 FROM accreditation_types WHERE slug=? AND id<>?",
-                            (slug, aid)
-                        ).fetchone():
-                            slug = f"{base}-{i}"
-                            i += 1
-                    conn.execute("""
-                        UPDATE accreditation_types
-                           SET name=?,
-                               help_text=?,
-                               is_active=?,
-                               slug=?
-                         WHERE id=?
-                    """, (name, help_text, is_active, slug, aid))
-                    conn.commit()
-                    flash("Accreditation updated.", "ok")
-
-            elif action == "reorder":
-                # Accepts multiple sort_order[id]=value pairs
-                # Form fields will be like order_<id>
-                rows = conn.execute("SELECT id FROM accreditation_types").fetchall()
-                ids = [int(r["id"]) for r in rows] if rows else []
-                changed = 0
-                for rid in ids:
-                    key = f"order_{rid}"
-                    try:
-                        val = int(request.form.get(key) or 0)
-                    except Exception:
-                        val = 0
-                    conn.execute("UPDATE accreditation_types SET sort_order=? WHERE id=?", (val, rid))
-                    changed += 1
-                conn.commit()
-                if changed:
-                    flash("Order saved.", "ok")
-
-        items = conn.execute("""
-            SELECT id, name, slug, is_active, sort_order, help_text
-              FROM accreditation_types
-             ORDER BY sort_order ASC, name ASC
-        """).fetchall()
-
-        return render_template("admin_accreditations.html", items=items)
+        # GET render
+        return render_template(
+            "landlord_accreditations.html",
+            profile=profile,
+            schemes=schemes,
+            current=current,
+        )
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
