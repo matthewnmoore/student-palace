@@ -1,0 +1,70 @@
+FULL RUN DOWN OF FIX
+
+What was broken (symptoms)
+	•	On the single room Add/Edit page, ticking or unticking “Currently let” sometimes made Save / Save & Exit fail.
+	•	The portfolio bulk edit page worked fine.
+
+Root cause
+	1.	Two sources of truth for availability:
+	•	The helper (room_form_values) was already “healing” dates.
+	•	The route was also normalizing dates.
+	•	This double-handling caused inconsistencies.
+	2.	Empty let_until when “Available”:
+	•	The single-room page cleared let_until to an empty string when marked not let.
+	•	If the DB or validation doesn’t like blank dates, save fails.
+	3.	Hidden checkbox value collisions:
+	•	Having both a visible “is_let=1” and hidden “is_let=0” field confused parsing.
+	•	The portfolio page didn’t do this, which is why it worked.
+
+What we changed
+	•	Made the route (Python) the only authority on availability logic.
+	•	Updated the template (HTML/JS) to match portfolio behaviour (no blank let_until).
+	•	Simplified the helper so it only parses inputs, no longer tries to apply availability rules.
+
+Exact file changes
+	1.	room_form.html
+
+	•	Removed the hidden “is_let=0” input.
+	•	Updated the behaviour script to portfolio-style logic:
+• If let: let_until defaults to next June 30, available_from = let_until + 1.
+• If available: available_from defaults to today if missing, let_until = available_from − 1.
+• Never clears let_until to blank.
+	•	Removed extra closing  tags after the Availability card.
+
+	2.	landlord/helpers.py
+
+	•	room_form_values no longer heals dates.
+	•	It no longer parses is_let.
+	•	It only parses available_from and let_until into ISO strings, leaving the logic for the route.
+
+	3.	landlord/rooms.py
+
+	•	Kept parsing is_let with getlist() so only “1” means checked.
+	•	Replaced _normalize_dates_for_is_let with portfolio-style rules:
+• If let: let_until = next June 30 (if missing), available_from = let_until + 1 (if missing/≤).
+• If available: available_from = today (if missing), let_until = available_from − 1 (if missing/≥).
+	•	Ensures valid ISO dates, never blank strings.
+
+Why it works now
+	•	One authority (the route) applies the rules.
+	•	No blank dates are submitted or saved.
+	•	Template keeps fields consistent for the user.
+	•	Behaviour is now identical to the working portfolio page.
+
+Manual test flow
+	1.	Edit page (available → let): tick “Currently let”, leave let_until blank. It should auto-fill next June 30, available_from becomes +1 day. Save works.
+	2.	Edit page (let → available): untick “Currently let”. Available_from auto-fills to today, let_until becomes day before. Save works.
+	3.	No changes → Save & Exit: still saves without error.
+	4.	Compare to portfolio page: both behave the same.
+
+Gotchas
+	•	If you ever add a hidden “is_let=0” again, always parse with request.form.getlist(“is_let”).
+	•	Keep _normalize_dates_for_is_let as the only place that applies availability rules. Don’t reintroduce logic into the helper.
+	•	If you change date formats, adjust _parse_uk_date but leave the normalization in the route.
+
+Commit message template
+Unify room availability logic (single-room page ↔ portfolio)
+	•	room_form.html: align JS to portfolio; remove hidden is_let; never clear let_until; fix extra closers.
+	•	helpers.py: room_form_values no longer applies availability logic; only parses fields + dates; stops parsing is_let.
+	•	rooms.py: replace _normalize_dates_for_is_let with portfolio rules; route is single source of truth for is_let + dates.
+	•	Result: toggling “Currently let” saves reliably; no blank let_until; behaviour matches portfolio page.
