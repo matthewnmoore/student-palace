@@ -49,10 +49,10 @@
 
         <p style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap">
           <a class="btn btn-outline" href="{{ url_for('landlord.landlord_profile') }}">Edit profile</a>
-          <a class="btn" href="{{ url_for('landlord.landlord_accreditations') }}" style="background:#6b21a8; border-color:#6b21a8; color:#fff;">Accreditations</a>
           {% if not verified %}
             <a class="btn" href="#" style="background:#28a745; border-color:#28a745; color:#fff;">Get Verified</a>
           {% endif %}
+          <a class="btn" href="/landlord/accreditations" style="background:#6b21a8; border-color:#6b21a8; color:#fff;">Accreditations</a>
         </p>
       </div>
 
@@ -77,12 +77,12 @@
         <table class="table landlord-table" style="margin:0; table-layout:auto;">
           <thead>
             <tr>
-              <th style="width:90px">ID</th>
-              <th style="width:auto">Title</th>
+              <th style="width:90px">ID</th>                
+              <th style="width:auto">Title</th>              
               <th style="width:140px">City</th>
               <th style="width:120px">Letting</th>
               <th style="width:120px">Availability</th>
-              <th style="width:1%; white-space:nowrap;">Actions</th>
+              <th style="width:1%; white-space:nowrap;">Actions</th>  
             </tr>
           </thead>
           <tbody>
@@ -119,9 +119,19 @@
   .qa-grid{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:10px}
   .qa-grid>span{display:block}
   @media (max-width:720px){.qa-grid{grid-template-columns:1fr}.qa-grid>span{display:none}}
+
+  /* Actions cell */
   .landlord-table .actions-cell{white-space:nowrap}
-  .actions-row{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+  .actions-row{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    white-space:nowrap;
+  }
   .actions-row .btn,
-  .actions-row .btn.btn-outline{padding-left:12px;padding-right:12px}
+  .actions-row .btn.btn-outline{
+    padding-left:12px;
+    padding-right:12px;
+  }
 </style>
 {% endblock %}
