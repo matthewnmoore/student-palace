@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Find properties – Student Palace{% endblock %}
+
+{% block content %}
+<section class="wrap" style="margin-top:8px">
+
+  <!-- Sticky filters bar (framed) -->
+  <div class="card card--accent-lr sticky-top" style="padding:10px 12px; border-radius:12px;">
+    <form id="filtersForm" method="get" action="{{ url_for('public.properties') }}" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <strong style="white-space:nowrap;">Filters:</strong>
+
+      <!-- Placeholders only (wire later) -->
+      <label class="field" style="min-width:200px; flex:1;">
+        <span class="label-inline">City</span>
+        <select name="city">
+          <option value="">Any</option>
+          {% for c in cities or [] %}
+            <option value="{{ c.name }}" {% if request.args.get('city')==c.name %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field" style="min-width:160px;">
+        <span class="label-inline">Year</span>
+        <select name="year">
+          <option value="">Any</option>
+          {% for y in years or [] %}
+            <option value="{{ y.value }}" {% if request.args.get('year')==y.value %}selected{% endif %}>{{ y.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field" style="min-width:160px;">
+        <span class="label-inline">Letting type</span>
+        <select name="letting_type">
+          <option value="">Any</option>
+          <option value="whole" {% if request.args.get('letting_type')=='whole' %}selected{% endif %}>Whole house</option>
+          <option value="share" {% if request.args.get('letting_type')=='share' %}selected{% endif %}>House share</option>
+        </select>
+      </label>
+
+      <label class="field" style="min-width:140px;">
+        <span class="label-inline">Group size</span>
+        <select name="group_size">
+          <option value="">Any</option>
+          {% for n in range(1, 10+1) %}
+            <option value="{{ n }}" {% if request.args.get('group_size')|int==n %}selected{% endif %}>{{ n }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="field checkbox" style="margin-left:auto;">
+        <input type="checkbox" name="ensuite" value="1" {% if request.args.get('ensuite') in ['1','on','true','True'] %}checked{% endif %}>
+        <span>Ensuite</span>
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="bills_included" value="1" {% if request.args.get('bills_included') in ['1','on','true','True'] %}checked{% endif %}>
+        <span>Bills included</span>
+      </label>
+
+      <button class="btn" type="submit">Update</button>
+      <a class="btn btn-outline" href="{{ url_for('public.properties') }}">Clear</a>
+    </form>
+  </div>
+
+  <!-- Framed results area -->
+  <div class="card card--accent-lr" style="margin-top:12px;">
+
+    <!-- Top row: count + sort (no banner title) -->
+    <div class="flex-between" style="gap:10px; margin-bottom:10px;">
+      <div class="muted">
+        {% set total = results|length if results is defined else 0 %}
+        {{ total }} result{{ '' if total==1 else 's' }}
+      </div>
+      <form method="get" id="sortForm" style="display:flex; gap:8px; align-items:center;">
+        {% for k,v in request.args.items() %}
+          {% if k!='sort' %}<input type="hidden" name="{{ k }}" value="{{ v|e }}">{% endif %}
+        {% endfor %}
+        <label class="field" style="margin:0;">
+          <span class="label-inline">Sort</span>
+          <select name="sort" onchange="this.form.submit()">
+            <option value="">Relevance</option>
+            <option value="price_asc"  {% if request.args.get('sort')=='price_asc' %}selected{% endif %}>Price (low → high)</option>
+            <option value="price_desc" {% if request.args.get('sort')=='price_desc' %}selected{% endif %}>Price (high → low)</option>
+            <option value="newest"     {% if request.args.get('sort')=='newest' %}selected{% endif %}>Newest</option>
+          </select>
+        </label>
+      </form>
+    </div>
+
+    <!-- Results grid: 3 across on desktop -->
+    <div class="grid listings-grid">
+      {% if results %}
+        {% for h in results %}
+          <article class="card" style="overflow:hidden; margin:0;">
+            <a href="/p/{{ h.id }}" style="display:block; text-decoration:none; color:inherit;">
+              {% if h.cover_url %}
+                <img src="{{ h.cover_url }}" alt="" style="width:100%; height:200px; object-fit:cover; display:block;">
+              {% else %}
+                <div style="height:200px; background:#f3f3f7; display:flex; align-items:center; justify-content:center; color:#999;">No photo</div>
+              {% endif %}
+              <div style="padding:10px;">
+                <h3 style="margin:0 0 6px 0; font-size:16px; line-height:1.2;">{{ h.title }}</h3>
+                <div class="muted" style="font-size:13px;">{{ h.city }}{% if h.short_address %} • {{ h.short_address }}{% endif %}</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                  <span class="badge">{{ 'Whole house' if h.letting_type=='whole' else 'House share' }}</span>
+                  {% if h.bills_option=='yes' %}<span class="badge">Bills included</span>{% endif %}
+                  {% if h.ensuites_available|default(0,true) > 0 %}<span class="badge">{{ h.ensuites_available }} ensuite</span>{% endif %}
+                  {% if h.available_rooms_total|default(0,true) > 0 %}<span class="badge">{{ h.available_rooms_total }} available</span>{% endif %}
+                </div>
+                {% if h.from_price_ppw or h.from_price_pcm %}
+                  <div style="margin-top:8px; font-weight:600;">
+                    {% if h.from_price_pcm %}From £{{ h.from_price_pcm }} pcm{% endif %}
+                    {% if h.from_price_ppw %}<span class="muted"> (~£{{ h.from_price_ppw }} pw)</span>{% endif %}
+                  </div>
+                {% endif %}
+              </div>
+            </a>
+          </article>
+        {% endfor %}
+      {% else %}
+        <div class="card" style="padding:14px; margin:0;">
+          <strong>No properties yet.</strong>
+          <p class="muted" style="margin:6px 0 0 0;">Once wired, results will appear here.</p>
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+</section>
+
+<style>
+  /* Make header sticky if header has this class in base.html */
+  .site-header{ position:sticky; top:0; z-index:100; background:#fff; }
+
+  /* Sticky filter bar sits under header */
+  .sticky-top{ position:sticky; top:var(--header-h, 56px); z-index:90; background:#fff; }
+
+  /* 3-up grid on desktop, 2 on medium, 1 on mobile */
+  .listings-grid{
+    grid-template-columns: repeat(1, minmax(0,1fr));
+    gap:14px;
+  }
+  @media (min-width: 700px){
+    .listings-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+  @media (min-width: 1040px){
+    .listings-grid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+  }
+
+  .badge{
+    display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px;
+    background:#f0e9fb; color:#5c2ea5;
+  }
+</style>
+{% endblock %}
