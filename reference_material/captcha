@@ -1,0 +1,21 @@
+Yes 👍 — you don’t have to pay for good CAPTCHA protection:
+	•	Google reCAPTCHA
+	•	Free. Widely used.
+	•	Downsides: heavy tracking, users sometimes see annoying picture puzzles.
+	•	Cloudflare Turnstile
+	•	Free.
+	•	Privacy-friendly (doesn’t track users like Google does).
+	•	Very lightweight, invisible most of the time.
+	•	My personal recommendation for your site.
+	•	hCaptcha
+	•	Free tier (you only pay at massive scale).
+	•	Privacy-better than Google, but sometimes users complain puzzles are harder.
+
+So practically:
+	•	Turnstile = easiest, free forever, good UX.
+	•	reCAPTCHA = free, but more friction and tracking.
+	•	hCaptcha = free, but can feel harder to solve.
+
+For your project: Turnstile is the sweet spot → secure, invisible for most users, and won’t cost you anything.
+
+👉 Do you want me to also explain where in your current flow we’d bolt CAPTCHA on, so you don’t pay in developer hours later?
