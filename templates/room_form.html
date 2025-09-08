@@ -9,6 +9,7 @@
     <!-- BASICS -->
     <div class="card card--accent-lr">
       <h2 class="card-title">Basics</h2>
+
       <!-- Row 1 -->
       <div class="grid" style="grid-template-columns:repeat(4,minmax(180px,1fr)); gap:14px; align-items:end">
         <label class="field">
@@ -62,30 +63,28 @@
       </div>
     </div>
 
-   <!-- AVAILABILITY -->
-<div class="card card--accent-lr">
-  <h2 class="card-title">Availability</h2>
-  {% set is_let_checked = (form and form.is_let in ['1', 1, 'on', True]) %}
-  {% set let_until_val = (form.let_until or '') if form else '' %}
-  {% set available_from_val = (form.available_from or '') if form else '' %}
+    <!-- AVAILABILITY (portfolio-style behaviour) -->
+    <div class="card card--accent-lr">
+      <h2 class="card-title">Availability</h2>
+      {% set is_let_checked = (form and form.is_let in ['1', 1, 'on', True]) %}
+      {% set let_until_val = (form.let_until or '') if form else '' %}
+      {% set available_from_val = (form.available_from or '') if form else '' %}
 
-  <div class="grid grid-3" style="align-items:end">
-    <label class="check" style="align-self:end">
-      <input type="checkbox" name="is_let" id="is_let" value="1" {% if is_let_checked %}checked{% endif %}>
-      <span>Currently let (not available now)</span>
-    </label>
+      <div class="grid grid-3" style="align-items:end">
+        <label class="check" style="align-self:end">
+          <input type="checkbox" name="is_let" id="is_let" value="1" {% if is_let_checked %}checked{% endif %}>
+          <span>Currently let (not available now)</span>
+        </label>
 
-    <label class="field" id="row_let_until" style="{% if is_let_checked %}display:block{% else %}display:none{% endif %}">
-      <span class="label-inline" style="margin-bottom:0">Let until</span>
-      <input type="date" name="let_until" id="let_until" value="{{ let_until_val }}">
-    </label>
+        <label class="field" id="row_let_until" style="{% if is_let_checked %}display:block{% else %}display:none{% endif %}">
+          <span class="label-inline" style="margin-bottom:0">Let until</span>
+          <input type="date" name="let_until" id="let_until" value="{{ let_until_val }}">
+        </label>
 
-    <label class="field" id="row_available_from">
-      <span class="label-inline" style="margin-bottom:0">Available from</span>
-      <input type="date" name="available_from" id="available_from" value="{{ available_from_val }}">
-    </label>
-  </div>
-</div>
+        <label class="field" id="row_available_from">
+          <span class="label-inline" style="margin-bottom:0">Available from</span>
+          <input type="date" name="available_from" id="available_from" value="{{ available_from_val }}">
+        </label>
       </div>
     </div>
 
@@ -120,20 +119,20 @@
       </div>
     </div>
 
-      <!-- ACTIONS -->
-<div class="card actions card--accent-lr">
-  <div class="actions-row">
-    <div class="btn-group-left" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
-      <button class="btn" type="submit" name="action" value="save_only">Save</button>
-      <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
-      <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
-      {% if mode == 'edit' and room %}
-        <a class="btn btn-outline" href="{{ url_for('landlord.room_photos', hid=house.id, rid=room.id) }}">Manage photos</a>
-       <a class="btn" href="{{ url_for('room_public.room_public', room_id=room.id) }}" target="_blank">View public page</a>
-      {% endif %}
+    <!-- ACTIONS -->
+    <div class="card actions card--accent-lr">
+      <div class="actions-row">
+        <div class="btn-group-left" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+          <button class="btn" type="submit" name="action" value="save_only">Save</button>
+          <button class="btn" type="submit" name="action" value="save_exit">{{ 'Create room' if mode=='new' else 'Save & Exit' }}</button>
+          <a class="btn btn-outline" href="{{ url_for('landlord.rooms_list', hid=house.id) }}">Cancel</a>
+          {% if mode == 'edit' and room %}
+            <a class="btn btn-outline" href="{{ url_for('landlord.room_photos', hid=house.id, rid=room.id) }}">Manage photos</a>
+            <a class="btn" href="{{ url_for('room_public.room_public', room_id=room.id) }}" target="_blank">View public page</a>
+          {% endif %}
+        </div>
+      </div>
     </div>
-  </div>
-</div>
   </form>
 </section>
 
@@ -147,93 +146,57 @@
 <!-- Behaviour -->
 <script>
 (function(){
-  var isLet = document.getElementById('is_let');
-  var rowLetUntil = document.getElementById('row_let_until');
-  var letUntil = document.getElementById('let_until');
+  // Helpers (local time, like the portfolio page)
+  function z(n){ return String(n).padStart(2,'0'); }
+  function fmt(d){ return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+  function nextJune30(from){
+    var y = (from.getMonth()+1 > 6 || ((from.getMonth()+1)===6 && from.getDate()>30)) ? from.getFullYear()+1 : from.getFullYear();
+    return new Date(y, 5, 30); // June = 5
+  }
+  function plusDays(iso, n){
+    if(!iso) return '';
+    var d = new Date(iso);
+    if(isNaN(d)) return '';
+    d.setDate(d.getDate()+n);
+    return fmt(d);
+  }
+
+  var isLet     = document.getElementById('is_let');
+  var letUntil  = document.getElementById('let_until');
   var availFrom = document.getElementById('available_from');
+  var rowLet    = document.getElementById('row_let_until');
 
-  // ---- Timezone-safe helpers (ISO strings, UTC maths) ----
-  function todayISO(){
-    // returns 'YYYY-MM-DD' for *today* in UTC to avoid local DST shifting
-    return new Date().toISOString().slice(0,10);
-  }
-  function june30NextYearISO(){
-    // always 30 June next (calendar) year
-    var y = new Date().getUTCFullYear() + 1;
-    return y + '-06-30';
-  }
-  function nextDayISO(iso){
-    // add 1 day using UTC so it never slips to the previous day
-    var parts = (iso || '').split('-');
-    var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
-    if (!y || !m || !d) return '';
-    var dt = new Date(Date.UTC(y, m - 1, d));
-    dt.setUTCDate(dt.getUTCDate() + 1);
-    return dt.toISOString().slice(0,10);
-  }
+  function sync(){
+    var now = new Date();
 
-  function applyDefaultsForState(checked){
-    if (checked){
-      var lu = june30NextYearISO();
-      if (letUntil) letUntil.value = lu;
-      if (availFrom) availFrom.value = nextDayISO(lu);
-      if (rowLetUntil) rowLetUntil.style.display = 'block';
-    } else {
-      var today = todayISO();
-      if (availFrom && !availFrom.value) availFrom.value = today;
-      if (letUntil) letUntil.value = ''; // clear when not let
-      if (rowLetUntil) rowLetUntil.style.display = 'none';
-    }
-  }
-
-  function syncVisibilityOnly(){
-    var checked = isLet && isLet.checked;
-    if (rowLetUntil) rowLetUntil.style.display = checked ? 'block' : 'none';
-  }
-
-  function wireAutoNextDay(){
-    if (!letUntil || !availFrom) return;
-    letUntil.addEventListener('change', function(){
-      if (!letUntil.value) return;
-      availFrom.value = nextDayISO(letUntil.value);
-    });
-  }
-
-  // Wire events
-  if (isLet){
-    isLet.addEventListener('change', function(){
-      applyDefaultsForState(isLet.checked);
-    });
-  }
-  syncVisibilityOnly();
-  wireAutoNextDay();
-
-  // On initial load: if "Currently let" is ticked and no values yet, set the stable defaults.
-  (function initialDefaults(){
-    var checked = isLet && isLet.checked;
-    if (checked){
-      if (letUntil && !letUntil.value){
-        letUntil.value = june30NextYearISO();
-      }
+    if (isLet && isLet.checked){
+      // Show 'let until'; default to next 30 June; ensure available_from = +1 day
+      if (rowLet) rowLet.style.display = '';
+      var defLU = fmt(nextJune30(now));
+      if (letUntil && !letUntil.value) letUntil.value = defLU;
       if (availFrom){
-        if (!availFrom.value && letUntil.value){
-          availFrom.value = nextDayISO(letUntil.value);
-        } else if (!availFrom.value){
-          // fallback if both empty for some reason
-          var lu = june30NextYearISO();
-          letUntil.value = lu;
-          availFrom.value = nextDayISO(lu);
+        if (!availFrom.value || new Date(availFrom.value) <= new Date(letUntil.value)){
+          availFrom.value = plusDays(letUntil.value, 1);
         }
       }
     } else {
-      if (availFrom && !availFrom.value){
-        availFrom.value = todayISO();
-      }
-      if (letUntil && !isLet.checked){
-        letUntil.value = '';
+      // Hide 'let until'; default available_from = today; ensure let_until = day before
+      if (rowLet) rowLet.style.display = 'none';
+      if (availFrom && !availFrom.value) availFrom.value = fmt(now);
+      if (letUntil){
+        if (!letUntil.value || new Date(letUntil.value) >= new Date(availFrom.value)){
+          letUntil.value = plusDays(availFrom.value, -1);
+        }
       }
     }
-  })();
+  }
+
+  if (isLet)     isLet.addEventListener('change', sync);
+  if (letUntil)  letUntil.addEventListener('change', sync);
+  if (availFrom) availFrom.addEventListener('change', sync);
+
+  // Initial pass
+  sync();
 
   // Price pcm -> ppw helper
   var pcmInput = document.getElementById('price_pcm');
