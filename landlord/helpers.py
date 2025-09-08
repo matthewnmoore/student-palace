@@ -1,13 +1,11 @@
+# landlord/helpers.py
+
+from datetime import datetime as dt, date
 from utils import clean_bool
-from db import get_db  # kept for parity with your file, even if unused here
-from datetime import datetime as dt, date, timedelta
+from db import get_db  # used by room_counts
 
-
+# Accepts 'DD/MM/YYYY' (UK) or 'YYYY-MM-DD' (HTML <input type="date">) and returns ISO 'YYYY-MM-DD'.
 def _parse_uk_date(value: str) -> str:
-    """
-    Accepts 'DD/MM/YYYY' (UK) or 'YYYY-MM-DD' (HTML date input) and returns ISO 'YYYY-MM-DD'.
-    Returns '' if empty or invalid.
-    """
     if not value:
         return ""
     value = value.strip()
@@ -22,26 +20,13 @@ def _parse_uk_date(value: str) -> str:
     return ""
 
 
-def _to_date(iso_str: str) -> date | None:
-    """Convert 'YYYY-MM-DD' to date or None."""
-    if not iso_str:
-        return None
-    try:
-        return dt.strptime(iso_str, "%Y-%m-%d").date()
-    except Exception:
-        return None
-
-
-def _iso(d: date | None) -> str:
-    return d.isoformat() if d else ""
-
-
-def _june_30_next_year(today: date) -> date:
-    """Always 30 June next calendar year from 'today'."""
-    return date(today.year + 1, 6, 30)
-
-
 def room_form_values(request):
+    """
+    Extracts and sanitizes form values for a room.
+    IMPORTANT: Availability is parsed only (no healing/logic here).
+               The route will parse is_let and normalize dates so it
+               matches the portfolio page behaviour exactly.
+    """
     name = (request.form.get("name") or "").strip()
     ensuite = clean_bool("ensuite")
     bed_size = (request.form.get("bed_size") or "").strip()
@@ -53,15 +38,17 @@ def room_form_values(request):
     wired_internet = clean_bool("wired_internet")
     room_size = (request.form.get("room_size") or "").strip()
 
-    # NEW FIELD: description
+    # Description
     description = (request.form.get("description") or "").strip()
 
-    # NEW FIELDS
+    # Pricing (pcm)
     raw_price = (request.form.get("price_pcm") or "").strip()
     try:
         price_pcm = int(raw_price.replace(",", ""))
     except Exception:
         price_pcm = 0
+
+    # Feature checkboxes
     safe = clean_bool("safe")
     dressing_table = clean_bool("dressing_table")
     mirror = clean_bool("mirror")
@@ -70,41 +57,15 @@ def room_form_values(request):
     curtains = clean_bool("curtains")
     sofa = clean_bool("sofa")
 
-    # NEW SEARCHABLE FIELDS
+    # Searchable flags
     couples_ok = clean_bool("couples_ok")
     disabled_ok = clean_bool("disabled_ok")
 
-    # NEW AVAILABILITY FIELDS
-    is_let = clean_bool("is_let")
-    available_from_in = (request.form.get("available_from") or "").strip()
-    let_until_in = (request.form.get("let_until") or "").strip()
+    # AVAILABILITY: parse only (NO logic here; route normalizes)
+    available_from_iso = _parse_uk_date((request.form.get("available_from") or "").strip())
+    let_until_iso      = _parse_uk_date((request.form.get("let_until") or "").strip())
 
-    available_from_iso = _parse_uk_date(available_from_in)
-    let_until_iso = _parse_uk_date(let_until_in)
-
-    # Self-healing date logic
-    today = date.today()
-    af = _to_date(available_from_iso)
-    lu = _to_date(let_until_iso)
-
-    if is_let:
-        # Default let_until to 30 June next year if missing
-        if not lu:
-            lu = _june_30_next_year(today)
-        # available_from must be day after let_until
-        if not af or af <= lu:
-            af = lu + timedelta(days=1)
-    else:
-        # Room available now
-        if not af:
-            af = today
-        # Force let_until to one day before available_from (FIXED)
-        lu = af - timedelta(days=1)
-
-    # Back to ISO for DB
-    available_from_iso = _iso(af)
-    let_until_iso = _iso(lu)
-
+    # Validation
     errors = []
     if not name:
         errors.append("Room name is required.")
@@ -114,8 +75,6 @@ def room_form_values(request):
         errors.append("Room description cannot be longer than 1200 characters.")
     if bed_size not in ("Single", "Small double", "Double", "King"):
         errors.append("Please choose a valid bed size.")
-
-    # NOTE: We no longer error on ordering; we fixed it above.
 
     return ({
         "name": name,
@@ -129,8 +88,9 @@ def room_form_values(request):
         "lockable_door": lockable_door,
         "wired_internet": wired_internet,
         "room_size": room_size,
-        # NEW FIELDS
+        # Pricing
         "price_pcm": price_pcm,
+        # Features
         "safe": safe,
         "dressing_table": dressing_table,
         "mirror": mirror,
@@ -138,18 +98,19 @@ def room_form_values(request):
         "blinds": blinds,
         "curtains": curtains,
         "sofa": sofa,
-        # NEW SEARCHABLE FIELDS
+        # Flags
         "couples_ok": couples_ok,
         "disabled_ok": disabled_ok,
-        # AVAILABILITY (healed)
-        "is_let": is_let,
+        # Availability (raw; route will normalize + apply is_let)
         "available_from": available_from_iso,
         "let_until": let_until_iso,
     }, errors)
 
 
 def room_counts(conn, hid):
-    """Return (max_rooms, current_count) for a given house."""
+    """
+    Return (max_rooms, current_count) for a given house.
+    """
     row = conn.execute(
         "SELECT bedrooms_total FROM houses WHERE id=?",
         (hid,)
