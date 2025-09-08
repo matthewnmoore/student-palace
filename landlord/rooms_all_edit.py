@@ -92,9 +92,10 @@ def rooms_portfolio_edit_apply(rid: int):
             set_price = None
 
     # ---- Availability (optional, same defaults/rules as bulk) ----
-    is_let = 1 if (request.form.getlist("is_let") and request.form.getlist("is_let")[0] in ("1", "on", "true", "True")) else 0
-    let_until_in = (request.form.get("let_until") or "").strip()
-    available_from_in = (request.form.get("available_from") or "").strip()
+vals = [str(v).strip().lower() for v in request.form.getlist("is_let")]
+is_let = 1 if ("1" in vals or "on" in vals or "true" in vals) else 0
+let_until_in = (request.form.get("let_until") or "").strip()
+available_from_in = (request.form.get("available_from") or "").strip()
 
     today = date.today()
     lu = _parse_iso(let_until_in)
