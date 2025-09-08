@@ -40,7 +40,7 @@
           </thead>
           <tbody>
             {% for s in schemes %}
-              {% set chosen = (s.id in current.keys()) %}
+             {% set chosen = (selected_ids and (s.id in selected_ids)) or (s.id in current.keys()) %}
               <tr>
                 <td>
                   <label class="check" style="margin:0">
