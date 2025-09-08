@@ -12,22 +12,21 @@ def dashboard():
         return render_template("dashboard.html", landlord=None, profile=None)
 
     conn = get_db()
+    # landlord = basic account info
     landlord = conn.execute(
-        """
-        SELECT l.id, l.email, l.created_at, p.is_verified, p.role
-        FROM landlords l
-        LEFT JOIN landlord_profiles p ON p.landlord_id = l.id
-        WHERE l.id = ?
-        """,
+        "SELECT id, email, created_at FROM landlords WHERE id=?",
         (lid,),
     ).fetchone()
 
+    # profile = has is_verified + role etc.
     profile = conn.execute(
-        "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
+        "SELECT * FROM landlord_profiles WHERE landlord_id=?",
+        (lid,),
     ).fetchone()
 
     houses = conn.execute(
-        "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC", (lid,)
+        "SELECT * FROM houses WHERE landlord_id=? ORDER BY created_at DESC",
+        (lid,),
     ).fetchall()
     conn.close()
 
@@ -37,7 +36,7 @@ def dashboard():
     except Exception:
         created_at_uk = landlord["created_at"]
 
-    role_raw = (landlord["role"] if landlord and "role" in landlord.keys() else "owner") or "owner"
+    role_raw = (profile["role"] if profile and "role" in profile.keys() else "owner") or "owner"
     role_label = "Owner" if role_raw == "owner" else "Agent"
 
     return render_template(
