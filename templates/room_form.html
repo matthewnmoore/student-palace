@@ -46,7 +46,7 @@
           </select>
         </label>
 
-                <div style="display:flex; align-items:center; gap:40px; flex-wrap:wrap; padding-top:22px">
+        <div style="display:flex; align-items:center; gap:40px; flex-wrap:wrap; padding-top:22px">
           <label class="check" style="display:flex; align-items:center; gap:8px; margin:0; white-space:nowrap">
             <input type="checkbox" name="disabled_ok" value="1"
                    {% if form and form.disabled_ok in ['1', 1, 'on', True] %}checked{% endif %}>
@@ -61,6 +61,7 @@
         </div>
       </div>
     </div>
+
     <!-- AVAILABILITY -->
     <div class="card card--accent-lr">
       <h2 class="card-title">Availability</h2>
@@ -144,31 +145,110 @@
 <!-- Behaviour -->
 <script>
 (function(){
-  var isLet=document.getElementById('is_let');
-  var rowLetUntil=document.getElementById('row_let_until');
-  var letUntil=document.getElementById('let_until');
-  var availFrom=document.getElementById('available_from');
+  var isLet = document.getElementById('is_let');
+  var rowLetUntil = document.getElementById('row_let_until');
+  var letUntil = document.getElementById('let_until');
+  var availFrom = document.getElementById('available_from');
 
-  function fmt(d){var y=d.getFullYear();var m=String(d.getMonth()+1).padStart(2,'0');var da=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+da;}
-  function addDays(iso,n){var d=iso?new Date(iso):new Date();if(isNaN(d.getTime()))d=new Date();d.setDate(d.getDate()+n);return fmt(d);}
-  function nextDay(iso){return addDays(iso,1);}
-  function todayISO(){return fmt(new Date());}
-  function june30NextYear(){var now=new Date();var y=now.getFullYear()+1;return fmt(new Date(y,5,30));}
-
-  function applyDefaultsForState(checked){
-    if(checked){var lu=june30NextYear();letUntil.value=lu;availFrom.value=nextDay(lu);rowLetUntil.style.display='block';}
-    else{var today=todayISO();availFrom.value=today;letUntil.value=addDays(today,-2);rowLetUntil.style.display='none';}
+  // ---- Timezone-safe helpers (ISO strings, UTC maths) ----
+  function todayISO(){
+    // returns 'YYYY-MM-DD' for *today* in UTC to avoid local DST shifting
+    return new Date().toISOString().slice(0,10);
+  }
+  function june30NextYearISO(){
+    // always 30 June next (calendar) year
+    var y = new Date().getUTCFullYear() + 1;
+    return y + '-06-30';
+  }
+  function nextDayISO(iso){
+    // add 1 day using UTC so it never slips to the previous day
+    var parts = (iso || '').split('-');
+    var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+    if (!y || !m || !d) return '';
+    var dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    return dt.toISOString().slice(0,10);
   }
 
-  function syncVisibilityOnly(){var checked=isLet&&isLet.checked;if(rowLetUntil)rowLetUntil.style.display=checked?'block':'none';}
-  function wireAutoNextDay(){if(!letUntil||!availFrom)return;letUntil.addEventListener('change',function(){if(!letUntil.value)return;availFrom.value=nextDay(letUntil.value);});}
+  function applyDefaultsForState(checked){
+    if (checked){
+      var lu = june30NextYearISO();
+      if (letUntil) letUntil.value = lu;
+      if (availFrom) availFrom.value = nextDayISO(lu);
+      if (rowLetUntil) rowLetUntil.style.display = 'block';
+    } else {
+      var today = todayISO();
+      if (availFrom && !availFrom.value) availFrom.value = today;
+      if (letUntil) letUntil.value = ''; // clear when not let
+      if (rowLetUntil) rowLetUntil.style.display = 'none';
+    }
+  }
 
-  if(isLet){isLet.addEventListener('change',function(){applyDefaultsForState(isLet.checked);});}
-  syncVisibilityOnly();wireAutoNextDay();
+  function syncVisibilityOnly(){
+    var checked = isLet && isLet.checked;
+    if (rowLetUntil) rowLetUntil.style.display = checked ? 'block' : 'none';
+  }
 
-  var pcmInput=document.getElementById('price_pcm');var ppwInput=document.getElementById('price_ppw');
-  function updatePPW(){var val=parseFloat(pcmInput.value);if(!isNaN(val)&&val>0){var weekly=Math.round((val*12)/52);ppwInput.value=weekly;}else{ppwInput.value='';}}
-  if(pcmInput){pcmInput.addEventListener('input',updatePPW);updatePPW();}
+  function wireAutoNextDay(){
+    if (!letUntil || !availFrom) return;
+    letUntil.addEventListener('change', function(){
+      if (!letUntil.value) return;
+      availFrom.value = nextDayISO(letUntil.value);
+    });
+  }
+
+  // Wire events
+  if (isLet){
+    isLet.addEventListener('change', function(){
+      applyDefaultsForState(isLet.checked);
+    });
+  }
+  syncVisibilityOnly();
+  wireAutoNextDay();
+
+  // On initial load: if "Currently let" is ticked and no values yet, set the stable defaults.
+  (function initialDefaults(){
+    var checked = isLet && isLet.checked;
+    if (checked){
+      if (letUntil && !letUntil.value){
+        letUntil.value = june30NextYearISO();
+      }
+      if (availFrom){
+        if (!availFrom.value && letUntil.value){
+          availFrom.value = nextDayISO(letUntil.value);
+        } else if (!availFrom.value){
+          // fallback if both empty for some reason
+          var lu = june30NextYearISO();
+          letUntil.value = lu;
+          availFrom.value = nextDayISO(lu);
+        }
+      }
+    } else {
+      if (availFrom && !availFrom.value){
+        availFrom.value = todayISO();
+      }
+      if (letUntil && !isLet.checked){
+        letUntil.value = '';
+      }
+    }
+  })();
+
+  // Price pcm -> ppw helper
+  var pcmInput = document.getElementById('price_pcm');
+  var ppwInput = document.getElementById('price_ppw');
+  function updatePPW(){
+    var val = parseFloat(pcmInput && pcmInput.value);
+    if (!isNaN(val) && val > 0){
+      var weekly = Math.round((val * 12) / 52);
+      if (ppwInput) ppwInput.value = weekly;
+    } else {
+      if (ppwInput) ppwInput.value = '';
+    }
+  }
+  if (pcmInput){
+    pcmInput.addEventListener('input', updatePPW);
+    updatePPW();
+  }
 })();
 </script>
 {% endblock %}
