@@ -18,16 +18,12 @@ ADMIN_DEBUG = os.environ.get("ADMIN_DEBUG", "0") == "1"  # needed by errors.py
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent
 STATIC_DIR   = PROJECT_ROOT / "static"
 
-# House uploads (existing)
-HOUSE_UPLOAD_FOLDER_PATH = STATIC_DIR / "uploads" / "houses"
-HOUSE_UPLOAD_FOLDER_PATH.mkdir(parents=True, exist_ok=True)
-HOUSE_UPLOAD_FOLDER = str(HOUSE_UPLOAD_FOLDER_PATH)
+# --- House uploads (existing) ---
+UPLOAD_FOLDER_PATH = STATIC_DIR / "uploads" / "houses"
+UPLOAD_FOLDER_PATH.mkdir(parents=True, exist_ok=True)
+UPLOAD_FOLDER = str(UPLOAD_FOLDER_PATH)
 
-# Back-compat for existing code that expects these names
-UPLOAD_FOLDER_PATH = HOUSE_UPLOAD_FOLDER_PATH
-UPLOAD_FOLDER      = HOUSE_UPLOAD_FOLDER
-
-# Room uploads (new)
+# --- Room uploads (new) ---
 ROOM_UPLOAD_FOLDER_PATH = STATIC_DIR / "uploads" / "rooms"
 ROOM_UPLOAD_FOLDER_PATH.mkdir(parents=True, exist_ok=True)
 ROOM_UPLOAD_FOLDER = str(ROOM_UPLOAD_FOLDER_PATH)
@@ -35,7 +31,7 @@ ROOM_UPLOAD_FOLDER = str(ROOM_UPLOAD_FOLDER_PATH)
 # Helpful boot log to verify in Render logs which paths are used
 print(f"[config] PROJECT_ROOT={PROJECT_ROOT}")
 print(f"[config] STATIC_DIR={STATIC_DIR}")
-print(f"[config] HOUSE_UPLOAD_FOLDER={HOUSE_UPLOAD_FOLDER}")
+print(f"[config] UPLOAD_FOLDER (houses)={UPLOAD_FOLDER}")
 print(f"[config] ROOM_UPLOAD_FOLDER={ROOM_UPLOAD_FOLDER}")
 
 # -----------------------------------------------------------------------------
