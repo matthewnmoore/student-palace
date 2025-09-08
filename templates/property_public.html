@@ -203,7 +203,7 @@
   {% if house.feature4 %}<li>{{ house.feature4 }}</li>{% endif %}
   {% if academic_year_label %}
   <li>Academic year {{ academic_year_label }}</li>
-{% endif %}
+  {% endif %}
 
   {# 6) Cleaning service (hide if no/none/false/0) #}
   {% if house.cleaning_service and house.cleaning_service|lower not in ['none','no','false','0'] %}
