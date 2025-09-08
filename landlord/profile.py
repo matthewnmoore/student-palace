@@ -1,3 +1,4 @@
+# profile.py
 from flask import render_template, request, redirect, url_for, flash
 from db import get_db
 from utils import current_landlord_id, require_landlord
@@ -10,8 +11,10 @@ from werkzeug.utils import secure_filename
 UPLOAD_ROOT = "static/uploads/landlords"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
+
 def _allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def _purge_previous(dir_path: Path, stem: str) -> None:
     """
@@ -25,6 +28,7 @@ def _purge_previous(dir_path: Path, stem: str) -> None:
                 pass
     except Exception:
         pass
+
 
 def _save_image(file_storage, dest_path: Path, size=(512, 512), quality=85):
     """
@@ -50,10 +54,35 @@ def _save_image(file_storage, dest_path: Path, size=(512, 512), quality=85):
             pass
         return final_path
 
-@bp.route("/landlord/profile", methods=["GET","POST"])
+
+def _get_accreditations(conn, landlord_id: int):
+    """
+    Return a list of active accreditations for a landlord.
+    Uses landlord_accreditations.accreditation_id -> accreditation_types.id
+    """
+    return conn.execute(
+        """
+        SELECT
+          at.id,
+          at.name,
+          COALESCE(la.note, la.extra_text, '') AS note,
+          COALESCE(at.help_text, '')           AS help_text
+        FROM landlord_accreditations AS la
+        JOIN accreditation_types     AS at
+          ON at.id = la.accreditation_id
+        WHERE la.landlord_id = ?
+          AND at.is_active = 1
+        ORDER BY at.sort_order ASC, at.name ASC
+        """,
+        (landlord_id,),
+    ).fetchall()
+
+
+@bp.route("/landlord/profile", methods=["GET", "POST"])
 def landlord_profile():
     r = require_landlord()
-    if r: return r
+    if r:
+        return r
     lid = current_landlord_id()
     conn = get_db()
     prof = conn.execute(
@@ -191,54 +220,88 @@ def landlord_profile():
     conn.close()
     return render_template("landlord_profile_edit.html", profile=prof, email=email)
 
-# Public profile views
+
+# Public profile views (by slug)
 @bp.route("/l/<slug>")
 def landlord_public_by_slug(slug):
     conn = get_db()
-    prof = conn.execute(
-        "SELECT * FROM landlord_profiles WHERE public_slug=?", (slug,)
-    ).fetchone()
-    if not prof:
-        conn.close()
-        return render_template("landlord_profile_public.html", profile=None), 404
-    conn.execute(
-        "UPDATE landlord_profiles SET profile_views=profile_views+1 WHERE landlord_id=?",
-        (prof["landlord_id"],)
-    )
-    conn.commit()
-    ll = conn.execute(
-        "SELECT email FROM landlords WHERE id=?", (prof["landlord_id"],)
-    ).fetchone()
-    conn.close()
-    return render_template(
-        "landlord_profile_public.html",
-        profile=prof,
-        contact_email=ll["email"] if ll else ""
-    )
+    try:
+        prof = conn.execute(
+            "SELECT * FROM landlord_profiles WHERE public_slug=?",
+            (slug,)
+        ).fetchone()
+        if not prof:
+            return render_template("landlord_profile_public.html", profile=None), 404
 
+        # bump views (non-fatal)
+        try:
+            conn.execute(
+                "UPDATE landlord_profiles SET profile_views=COALESCE(profile_views,0)+1 WHERE landlord_id=?",
+                (prof["landlord_id"],)
+            )
+            conn.commit()
+        except Exception:
+            pass
+
+        ll = conn.execute(
+            "SELECT email FROM landlords WHERE id=?",
+            (prof["landlord_id"],)
+        ).fetchone()
+        accreditations = _get_accreditations(conn, prof["landlord_id"])
+
+        return render_template(
+            "landlord_profile_public.html",
+            profile=prof,
+            contact_email=(ll["email"] if ll else ""),
+            accreditations=accreditations,
+        )
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+# Public profile views (by id)
 @bp.route("/l/id/<int:lid>")
-def landlord_public_by_id(lid):
+def landlord_public_by_id(lid: int):
     conn = get_db()
-    prof = conn.execute(
-        "SELECT * FROM landlord_profiles WHERE landlord_id=?", (lid,)
-    ).fetchone()
-    if not prof:
-        conn.close()
-        return render_template("landlord_profile_public.html", profile=None), 404
-    conn.execute(
-        "UPDATE landlord_profiles SET profile_views=profile_views+1 WHERE landlord_id=?",
-        (lid,)
-    )
-    conn.commit()
-    ll = conn.execute(
-        "SELECT email FROM landlords WHERE id=?", (lid,)
-    ).fetchone()
-    conn.close()
-    return render_template(
-        "landlord_profile_public.html",
-        profile=prof,
-        contact_email=ll["email"] if ll else ""
-    )
+    try:
+        prof = conn.execute(
+            "SELECT * FROM landlord_profiles WHERE landlord_id=?",
+            (lid,)
+        ).fetchone()
+        if not prof:
+            return render_template("landlord_profile_public.html", profile=None), 404
+
+        # bump views (non-fatal)
+        try:
+            conn.execute(
+                "UPDATE landlord_profiles SET profile_views=COALESCE(profile_views,0)+1 WHERE landlord_id=?",
+                (lid,)
+            )
+            conn.commit()
+        except Exception:
+            pass
+
+        ll = conn.execute(
+            "SELECT email FROM landlords WHERE id=?",
+            (lid,)
+        ).fetchone()
+        accreditations = _get_accreditations(conn, lid)
+
+        return render_template(
+            "landlord_profile_public.html",
+            profile=prof,
+            contact_email=(ll["email"] if ll else ""),
+            accreditations=accreditations,
+        )
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
 
 # -----------------------
 # Debug helpers
@@ -251,6 +314,7 @@ def debug_profiles():
     ).fetchall()
     conn.close()
     return "<pre>" + "\n".join([str(dict(r)) for r in rows]) + "</pre>"
+
 
 @bp.route("/debug/fix-profile-paths")
 def debug_fix_profile_paths():
@@ -274,6 +338,7 @@ def debug_fix_profile_paths():
     ).fetchall()
     conn.close()
     return "<pre>fixed\n" + "\n".join([str(dict(r)) for r in rows]) + "</pre>"
+
 
 @bp.route("/debug/profile-files")
 def debug_profile_files():
