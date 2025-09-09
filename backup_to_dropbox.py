@@ -3,10 +3,14 @@ import os, sys, tarfile, time, tempfile, pathlib
 import dropbox
 from dropbox.exceptions import ApiError, AuthError
 
-UPLOADS_DIR = "/opt/render/project/src/static/uploads"   # what to back up
-DBX_DEST_DIR = "/StudentPalace/backups"                  # Dropbox folder
+# What to back up
+UPLOADS_DIR = "/opt/render/project/src/static/uploads"
+# Destination folder in Dropbox (root-relative)
+DBX_DEST_DIR = "/StudentPalace/backups"
 
-def _make_dbx():
+
+def _make_dbx() -> dropbox.Dropbox:
+    """Create an authenticated Dropbox client using refresh token flow."""
     app_key = os.environ.get("DROPBOX_APP_KEY")
     app_secret = os.environ.get("DROPBOX_APP_SECRET")
     refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN")
@@ -18,7 +22,12 @@ def _make_dbx():
         app_secret=app_secret,
     )
 
-def run_backup():
+
+def run_backup() -> str:
+    """
+    Create a .tar.gz archive of the uploads directory and upload it to Dropbox.
+    Returns the Dropbox path of the uploaded file.
+    """
     src = pathlib.Path(UPLOADS_DIR)
     if not src.exists():
         raise FileNotFoundError(f"Source path not found: {UPLOADS_DIR}")
@@ -27,24 +36,26 @@ def run_backup():
     archive_name = f"student-palace-backup-{ts}.tar.gz"
     tmp_path = os.path.join(tempfile.gettempdir(), archive_name)
 
-    # Create archive
+    # Create archive in /tmp
     with tarfile.open(tmp_path, "w:gz") as tar:
         tar.add(UPLOADS_DIR, arcname="uploads")
 
-    # Upload
+    # Upload to Dropbox
     dbx = _make_dbx()
-    # Ensure folder exists (ignore if already there)
+
+    # Ensure destination folder exists
     try:
         dbx.files_get_metadata(DBX_DEST_DIR)
     except ApiError:
         try:
             dbx.files_create_folder_v2(DBX_DEST_DIR)
         except ApiError:
-            pass
+            pass  # Ignore if folder already exists
 
     dropbox_path = f"{DBX_DEST_DIR}/{archive_name}"
     size = os.path.getsize(tmp_path)
     print(f"Uploading to Dropbox: {dropbox_path} ({size} bytes)")
+
     with open(tmp_path, "rb") as f:
         dbx.files_upload(
             f.read(),
@@ -52,7 +63,9 @@ def run_backup():
             mode=dropbox.files.WriteMode.add,
             mute=True,
         )
+
     return dropbox_path
+
 
 if __name__ == "__main__":
     try:
