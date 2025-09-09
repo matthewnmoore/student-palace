@@ -1,0 +1,78 @@
+
+
+dkm
+
+v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCx4Nb1V6Tt1ya42eHvGjG03nDiSBH3/riCS8yDKjo4hCdii/5i5NoNBWX7OeoJwP9VgdeyKJM0KUyfPt7GJXQ3LhHnKbZ0enk+oo6Japr9D1uG12n/Zify5IS8GYmJsgXzN2YrDH2SOmoeU5TXArWphjSU9u8BQ0d4LjdR8feluQIDAQAB
+
+
+spf
+
+v=spf1 include:mxsspf.sendpulse.com +a +mx ~all
+
+
+
+
+
+
+
+
+SMTP SETTINGS
+=============
+
+SMTP AUTHORIZATION DATA
+
+Port	2525
+465 SSL • 587 TLS
+
+Login	matthewnmoore@gmail.com
+
+password    ZfNqkR5fH5NZ
+
+
+
+
+
+
+
+
+
+Awesome. Here’s exactly what we’ll set on your app side, using the values you just copied.
+
+Environment variables to add
+	•	MAIL_SERVER=smtp-pulse.com
+	•	MAIL_PORT=587  (use 465 only if you prefer SSL)
+	•	MAIL_USE_TLS=true  (set MAIL_USE_SSL=false when using 587)
+	•	MAIL_USE_SSL=false
+	•	MAIL_USERNAME=<your SendPulse SMTP login>
+	•	MAIL_PASSWORD=<your SendPulse SMTP password/token>
+	•	MAIL_DEFAULT_SENDER=no_reply@student-palace.co.uk
+	•	MAIL_FROM_NAME=Student Palace
+	•	(optional but handy)
+	•	SUPPORT_EMAIL=support@student-palace.co.uk (or your real support inbox)
+	•	ADMIN_ALERTS_EMAIL=admin@student-palace.co.uk (where critical alerts go)
+
+One-time checks in SendPulse
+	1.	Senders → Add sender
+Add no_reply@student-palace.co.uk and complete the email verification (the code will arrive at your Gmail via the forward). This lets SendPulse sign mail as your address.
+	2.	SENDING DOMAINS
+You already added:
+	•	SPF: v=spf1 include:spf.sendpulse.com ~all
+	•	DKIM: sign._domainkey.student-palace.co.uk TXT with the long key
+Status will show “confirmed” once DNS propagates (can take a bit).
+	3.	SMTP → Settings
+Use the “Send test email” there to verify the SMTP creds and From: address.
+
+Quick test plan (no code)
+	•	From SendPulse SMTP test, send to your Gmail and one other provider (e.g., Outlook).
+	•	Check headers in the received email:
+	•	SPF: pass and DKIM: pass
+	•	“mailed-by / signed-by” should show student-palace.co.uk
+	•	If Gmail shows “via sendpulse” initially, that should disappear once DKIM is confirmed.
+
+After this
+
+When you’re ready, we’ll wire:
+	•	2FA emails (subject: “Your Student Palace login code” from no_reply@…)
+	•	Landlord alerts, tenant alerts, and admin alerts using ADMIN_ALERTS_EMAIL.
+
+Want me to jot down the exact subjects/from/reply-to we’ll use for each email type next?
