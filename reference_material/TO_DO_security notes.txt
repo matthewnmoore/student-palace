@@ -5,6 +5,152 @@ SECURITY NOTE — Tenant/Landlord Authorization (Critical)
 
 
 
+Step 1 — One-time prep (do once)
+	1.	Open utils.py.
+	•	Add/confirm the two ownership helpers exist: house and room.
+	•	Add two more tiny helpers: house image and house document (they look up the image/doc → resolve to its house → confirm the house belongs to the logged-in landlord).
+(No need to paste code here; the “one line” you’ll call in routes will be: “check house/room/image/doc belongs to me”.)
+	2.	Open errors.py.
+	•	Make sure 403 (“not allowed”) returns a simple JSON/page.
+	3.	Open config.py.
+	•	Switch on secure cookies, sensible session timeout.
+	4.	Open auth.py (root) + templates/login.html + templates/signup.html.
+	•	Drop your CAPTCHA widget on login, signup, password reset (if present).
+	•	Server-side: verify the CAPTCHA before proceeding.
+
+⸻
+
+Step 2 — Add the “one line” ownership check (per file)
+
+For each route that accepts an ID, scroll to the top of the view function, and insert one check before any DB read/write. That’s it.
+
+landlord/
+	•	houses.py
+	•	Routes: list my houses (already scoped), add/edit, delete, any POST actions.
+	•	Do: at top of every route with hid, add the house ownership check.
+	•	rooms.py
+	•	Routes: list rooms for a house, add/edit room, delete.
+	•	Do: add house ownership check (for the house list) and room ownership check (for specific room with rid). If both hid and rid are present, check both (room joined to that house).
+	•	room_photos.py
+	•	Routes: GET/POST photos, set primary, delete.
+	•	Do: add room ownership check (and implicitly its parent house).
+	•	photos.py
+	•	Routes: GET/POST house photos, set primary, delete, /photos/debug (JSON).
+	•	Do: add house ownership check on every one. For actions with img_id, also check image belongs to that house.
+	•	floorplans.py
+	•	Routes: upload/list/delete floorplans, any debug/download endpoints.
+	•	Do: add house ownership check on every one; for plan IDs, confirm the plan belongs to that house before action.
+	•	epc.py
+	•	Routes: upload/list/delete EPC; any download.
+	•	Do: add house ownership check; for doc_id, confirm document belongs to that house.
+	•	bulk.py
+	•	Routes: bulk edit for a house.
+	•	Do: add house ownership check right at the top.
+	•	portfolio.py / rooms_all.py / rooms_all_edit.py
+	•	These show/edit many rooms across the landlord’s portfolio.
+	•	Do: ensure the query is scoped by current landlord (no foreign rows). If an action takes hid/rid, add the relevant check at the top.
+	•	profile.py / accreditations.py / dashboard.py
+	•	If they edit the logged-in landlord’s own profile, no hid/rid checks needed.
+	•	If any action touches a specific house/room/image/doc by ID → add the ownership check.
+	•	delete.py
+	•	If present for hard deletes: ensure ownership check before delete.
+
+✅ Pattern: any landlord route with /<hid>/…, /<hid>/rooms/<rid>/…, …/<img_id>, or …/<doc_id> gets one “is this mine?” line at the top.
+
+⸻
+
+admin/
+	•	No ownership checks (admins can access all), but:
+	•	Ensure admin login is required.
+	•	Keep CSRF on forms; consider rate limit on destructive actions.
+
+⸻
+
+public/ and root pages
+	•	public.py, public_property.py, room_public.py, rooms.py (root), app.py
+	•	These are public views — no landlord ownership checks.
+	•	If any route serves private files, change it to go through a gated download route (see Step 3).
+
+⸻
+
+Step 3 — Lock down files (one replacement)
+	1.	Stop linking private files directly from /static/uploads/....
+	2.	Create one download route per file type (house photo, room photo, floorplan, epc): it loads by id → resolves parent → runs the same ownership check → streams the file.
+	3.	Update templates:
+	•	templates/house_photos.html, templates/room_photos.html, templates/house_floorplans.html, templates/house_epc.html
+	•	Replace <img src="/static/uploads/..."> and <a href="/static/uploads/..."> with the new download URL that includes the ID (so the server can check).
+
+⸻
+
+Step 4 — Quick template hygiene (2 minutes per page)
+
+Open each landlord template that has a form or action:
+	•	Ensure action URLs include the IDs the server expects (e.g., /landlord/houses/{{ house.id }}/photos).
+	•	Remove any raw /static/uploads/... links to private files (switch to the gated route from Step 3).
+
+Templates to skim:
+house_form.html, room_form.html, house_photos.html, room_photos.html, house_floorplans.html, house_epc.html, landlord_rooms_all_edit.html, any *_delete*.html.
+
+⸻
+
+Step 5 — Abuse controls (attach once)
+	•	CAPTCHA: already added in Step 1 to login.html / signup.html (and password reset if you have it).
+	•	Rate limits: add to the login, signup, photo upload, delete routes (one small decorator/config each—no template work).
+
+⸻
+
+Step 6 — Your “done” tests (what to try in the browser)
+	1.	Log in as Landlord A.
+	2.	Manually type a URL to Landlord B’s house/room/photo/doc (change the number in the URL).
+	•	You should get Forbidden (403).
+	3.	Try to download someone else’s photo/floorplan/EPC via a guessed path.
+	•	You should get Forbidden (403).
+	4.	Try the debug JSON endpoints under landlord scope with a foreign ID.
+	•	Forbidden (403) again.
+	5.	Check Network tab on any page → all responses have security headers.
+
+⸻
+
+File-by-file micro-checklist (copy this into your editor and tick)
+	•	landlord/houses.py → add ownership line on all routes with hid
+	•	landlord/rooms.py → add ownership line on all routes with hid/rid
+	•	landlord/photos.py → add ownership line on all routes with hid (and img_id)
+	•	landlord/room_photos.py → add ownership line on routes with hid/rid (and img_id)
+	•	landlord/floorplans.py → add ownership line on routes with hid (and plan id)
+	•	landlord/epc.py → add ownership line on routes with hid (and doc_id)
+	•	landlord/bulk.py → add ownership line on bulk routes with hid
+	•	landlord/portfolio.py / rooms_all*.py → scope queries to current landlord; add checks on any actions with ids
+	•	templates/*photos*.html, house_floorplans.html, house_epc.html → swap direct /static links to gated download URLs
+	•	templates/login.html, templates/signup.html (+ reset) → CAPTCHA present; server verifies
+	•	config.py → secure cookies + session expiry
+	•	errors.py → clean 403 response
+	•	Rate limits attached to login/upload/delete endpoints
+
+⸻
+
+If you want, I’ll take one file (say landlord/photos.py) and write the exact “one-liners” you need to paste at the top of each route, plus the small template change for house_photos.html.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Student Palace Security Rollout Checklist (plain text)
 	1.	Ownership checks (IDOR)
 	•	Add an “owned_house_or_abort” and “owned_room_or_abort” check.
