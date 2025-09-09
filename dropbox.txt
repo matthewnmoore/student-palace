@@ -7,3 +7,11 @@ sl.u.AF_sQnVWnfR_Vj2rMJ9EAR4edTIhTcRYEFt7cONj2XgAnJNgMglBb5Sbb8xd1nTQu3NDEC5oRd9
 
 APP KEY        urm17ub7alozq6p
 APP SECRET    gg7dsyigjq6oerg
+
+
+
+
+
+export DROPBOX_APP_KEY=urm17ub7alozq6p
+
+export DROPBOX_APP_SECRET=gg7dsyigjq6oerg
