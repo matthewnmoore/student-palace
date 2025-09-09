@@ -5,6 +5,101 @@ SECURITY NOTE — Tenant/Landlord Authorization (Critical)
 
 
 
+How to roll out without making the site unusable
+
+Phase A — Totally safe changes (can stop anytime)
+
+These won’t block users even if you pause halfway.
+	1.	Add the ownership helper functions (don’t enable yet).
+	2.	Add security headers (CSP/HSTS/X-Frame-Options/nosniff).
+	3.	Turn on secure cookies + sensible session timeout.
+	4.	Add rate limits to login/signup/delete/upload (reasonable caps).
+	5.	Add CAPTCHA but set it to adaptive (only appears after a few failed attempts).
+	6.	Backups + deny logging (extra logs if someone hits a forbidden path).
+
+If you stop here: site keeps working normally.
+
+⸻
+
+Phase B — Ownership checks in “log-only” (non-blocking)
+
+Goal: see what would be blocked, without blocking it yet.
+	1.	Add a simple switch (env var) like OWNERSHIP_ENFORCEMENT=monitor.
+	2.	Start inserting the one line ownership check at the top of one file at a time (e.g., landlord/photos.py, then rooms.py, etc.).
+	3.	In monitor mode, failed checks log a warning but do not abort.
+
+If you stop here: site still works; you just gather evidence of any places you missed.
+
+⸻
+
+Phase C — Flip on enforcement per area (small slices)
+
+Turn on real blocking for one area at a time; pause anytime.
+	1.	Set OWNERSHIP_ENFORCEMENT=photos → only photos abort on failure.
+	2.	Watch logs, do a quick smoke test.
+	3.	Next, =photos,rooms. Then =photos,rooms,houses.
+	4.	Finally, =all.
+
+If you stop here: only the areas you’ve flipped are enforced; the rest behave as before.
+
+⸻
+
+Phase D — Gated downloads (no image breakages)
+
+Done carefully so images don’t vanish:
+	1.	Create the new download URLs for photos/floorplans/EPC (they re-check ownership).
+	2.	Update templates to use the new URLs first.
+	3.	Keep the old /static paths alive for a short overlap (just in case).
+	4.	Once you’ve clicked around and it’s fine, remove the old direct links.
+
+If you stop mid-way: both old and new links work; site stays usable.
+
+⸻
+
+Phase E — CSRF (won’t break if you stage it)
+	1.	Enable CSRF globally but temporarily exempt landlord/admin blueprints.
+	2.	Add the CSRF token to landlord/admin forms.
+	3.	Remove the exemptions.
+
+If you stop after step 1 or 2: site still works; nothing breaks.
+
+⸻
+
+Safety rails (use these and you’re golden)
+	•	Feature flags/switches (env vars, no code change needed to toggle):
+	•	OWNERSHIP_ENFORCEMENT: off → monitor → photos → rooms → houses → all
+	•	CAPTCHA_MODE: off → adaptive → always
+	•	CSRF_EXEMPT_LANDLORD: true/false (use while wiring tokens)
+	•	Small slices: change one file or feature area, test, then move on.
+	•	Rollbacks: keep your baseline labels (you already do), so reverting is trivial.
+	•	Smoke tests after each slice (2 minutes):
+	•	Log in, view/edit your own item → works.
+	•	Try another landlord’s ID → should be blocked only where you’ve enabled enforcement.
+	•	Upload/delete a photo in your own house → works.
+
+⸻
+
+Bottom line
+
+If you follow that order and use the toggles, you can stop at any time and the site will still be usable. The security gets stronger step-by-step without a “big bang” that locks everyone out.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Step 1 — One-time prep (do once)
 	1.	Open utils.py.
 	•	Add/confirm the two ownership helpers exist: house and room.
@@ -378,10 +473,3 @@ Extra hardening (nice to have)
 
 Bottom line
 	•	This is a classic authorization gap. Add a mandatory ownership check to every landlord route (and nested resources) and abort when the check fails.
-
-
-
-
-
-
-    
