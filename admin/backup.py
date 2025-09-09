@@ -1,9 +1,9 @@
 # admin/backup.py
 from __future__ import annotations
 
-import io, os, time, json, zipfile
+import io, os, time, json, zipfile, traceback
 from pathlib import Path
-from flask import request, abort, jsonify, send_file
+from flask import request, abort, jsonify, send_file, current_app
 from . import bp, require_admin
 
 # Safe import: don't explode if Dropbox isn't configured in this env
@@ -12,15 +12,19 @@ try:
 except Exception:
     run_backup = None
 
-# ---------- 1) INSTANT DOWNLOAD (same endpoint name your template uses) ----------
+
+# ---------- 1) INSTANT DOWNLOAD ----------
 @bp.get("/backup", endpoint="admin_backup")
 def admin_backup_download():
-    # Require admin session for manual download
+    """
+    Manual download: builds a ZIP with DB + uploads and streams it to the user.
+    """
+    # Require admin login
     maybe_redirect = require_admin()
     if maybe_redirect:
         return maybe_redirect
 
-    # Build the ZIP fully in memory
+    # Get DB path lazily
     try:
         from db import DB_PATH
     except Exception:
@@ -30,9 +34,7 @@ def admin_backup_download():
     uploads_dir = project_root / "static" / "uploads"
 
     def _add_dir_to_zip(zf: zipfile.ZipFile, base: Path, arc_prefix: str) -> dict:
-        import os
-        total_files = 0
-        total_bytes = 0
+        total_files, total_bytes = 0, 0
         if not base.exists():
             return {"files": 0, "bytes": 0}
         for root, dirs, files in os.walk(base):
@@ -59,18 +61,17 @@ def admin_backup_download():
     with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         ts = time.strftime("%Y-%m-%dT%H-%M-%SZ", time.gmtime())
 
-        # 1) Database file
+        # 1) Database
         db_info = {"exists": False, "bytes": 0, "path": DB_PATH}
         try:
             db_path = Path(DB_PATH)
             if db_path.exists():
                 zf.write(db_path, arcname="database/student_palace.db")
-                db_info["exists"] = True
-                db_info["bytes"] = int(db_path.stat().st_size)
+                db_info.update({"exists": True, "bytes": int(db_path.stat().st_size)})
         except Exception:
             pass
 
-        # 2) Uploads (images)
+        # 2) Uploads
         uploads_info = _add_dir_to_zip(zf, uploads_dir, "site-files/static/uploads")
 
         # 3) Manifest
@@ -79,10 +80,7 @@ def admin_backup_download():
             "notes": "Student Palace manual backup (in-memory).",
             "database": db_info,
             "uploads": uploads_info,
-            "paths": {
-                "db_path": DB_PATH,
-                "uploads_dir": str(uploads_dir),
-            },
+            "paths": {"db_path": DB_PATH, "uploads_dir": str(uploads_dir)},
             "versions": {"python_time": time.time()},
         }
         zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True))
@@ -100,16 +98,28 @@ def admin_backup_download():
         last_modified=None,
     )
 
+
 # ---------- 2) CRON (GET with token; no login required) ----------
 @bp.get("/backup/cron", endpoint="admin_backup_cron")
 def admin_backup_cron():
+    """
+    Called by Render Cron Job at ~03:00 UK.
+    Uploads DB + uploads folder to Dropbox.
+    """
     token = request.args.get("token", "")
     expected = os.getenv("BACKUP_CRON_TOKEN", "")
     if not expected or token != expected:
-        abort(403)  # bad/missing token
+        return abort(403, "Forbidden: missing or invalid token")
 
     if run_backup is None:
-        abort(500, "Dropbox backup not configured")
+        return abort(500, "Dropbox backup not configured")
 
-    dropbox_path = run_backup()
-    return jsonify({"status": "ok", "dropbox_path": dropbox_path})
+    try:
+        dropbox_path = run_backup()
+        return jsonify({"status": "ok", "dropbox_path": dropbox_path}), 200
+    except Exception as e:
+        # Log the full traceback for debugging
+        current_app.logger.error("Backup failed: %s", e)
+        current_app.logger.error(traceback.format_exc())
+        # Return JSON with the error so you see it in browser/cron logs
+        return jsonify({"status": "error", "message": str(e)}), 500
