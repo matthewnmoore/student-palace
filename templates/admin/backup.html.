@@ -3,38 +3,31 @@
 
 {% block content %}
 <div class="wrap">
-  <div class="card card--accent-l">
-    <h1 style="margin-bottom:8px;">Manual Backup</h1>
-    <p class="help">Creates a compressed archive of <code>/static/uploads</code> and uploads it to Dropbox.</p>
-  </div>
+  <h1>Manual Backup</h1>
 
-  {# Flash messages (maps Flask categories to your CSS) #}
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="wrap" style="padding:0">
+      <div>
         {% for category, message in messages %}
-          {% set css_cat = 'error' if category in ['danger','error'] else ('success' if category in ['ok','success'] else category) %}
-          <div class="flash {{ css_cat }}">{{ message }}</div>
+          <div class="flash {{ category }}">{{ message }}</div>
         {% endfor %}
       </div>
     {% endif %}
   {% endwith %}
 
-  <div class="card">
-    <form method="post" class="grid" onsubmit="this.querySelector('button').disabled=true;">
-      <button type="submit" class="btn btn-admin">Back up now</button>
-      <p class="help" style="margin-top:6px;">This may take a minute if there are lots of images.</p>
+  <div class="card card--accent-l" style="max-width:640px">
+    <p class="help">Create a tar.gz of <code>static/uploads</code> and upload it to Dropbox.</p>
+    <form method="post" style="margin-top:10px">
+      <button class="btn btn-accent" type="submit">Back up now</button>
     </form>
+
+    {% if result %}
+      <p style="margin-top:12px">Last backup: <code>{{ result }}</code></p>
+    {% endif %}
   </div>
 
-  {% if result %}
-    <div class="card">
-      <p><strong>Last backup:</strong> <code>{{ result }}</code></p>
-    </div>
-  {% endif %}
-
-  <p style="margin-top:10px">
-    <a href="{{ url_for('admin.dashboard') }}">← Back to admin</a>
+  <p style="margin-top:1rem">
+    <a class="btn btn-outline" href="{{ url_for('admin.dashboard') }}">← Back to admin</a>
   </p>
 </div>
 {% endblock %}
