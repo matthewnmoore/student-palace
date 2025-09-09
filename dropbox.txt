@@ -40,3 +40,38 @@ db token        sOa9pFtFKLQAAAAAABI9hr5nEuFpyyag9wX4MWs6WYQ
 
 
 export DROPBOX_REFRESH_TOKEN="sOa9pFtFKLQAAAAAABI9hr5nEuFpyyag9wX4MWs6WYQ"
+
+
+
+
+
+export DBX_AUTH_CODE="sOa9pFtFKLQAAAAAABI9i9zmKThcWKJHuK192NWiCCE"
+python - <<'PY'
+import os
+from dropbox import DropboxOAuth2FlowNoRedirect
+APP_KEY = os.environ['DROPBOX_APP_KEY']
+APP_SECRET = os.environ['DROPBOX_APP_SECRET']
+CODE = os.environ['DBX_AUTH_CODE'].strip()
+flow = DropboxOAuth2FlowNoRedirect(
+    APP_KEY, APP_SECRET,
+    token_access_type="offline",
+    scope=["files.content.write","files.content.read","files.metadata.read"],
+)
+res = flow.finish(CODE)
+print("REFRESH_TOKEN:", res.refresh_token)
+print("ACCESS_TOKEN:", res.access_token)
+print("ACCOUNT_ID:", res.account_id)
+PY
+
+
+
+
+
+
+
+
+
+REFRESH_TOKEN: bI7mRh4R1EgAAAAAAAAAAUN9XGXdGEDjqyaCYEzyelFL6docVJEawHidnpHddKv5
+ACCESS_TOKEN: sl.u.AF85I9rIW8u1_dL69d7ZQKV1Tz_rnWna4vS0Rx6t3fcayVWh74RVLpjZ8srmZPJKaC8TKuVjP4opT1JG0EnVYFWb6eJkRrG92uH4KWme7cCf7svjw0TfdA-R5R-Cyo6QMhBb4EP-mthdKitJpinb3STcwFTXsa8xOlEDzwsjcWNgZknFcpLUCR1qCEURaZHj1YVNbR5CZ7V6n-St0BCyqpL5BJxighYCQE-XPhiTDj_LBEqBQfQ-M2yBfgxtMT6uQDuGQ-R3hqCdWROG8MzB4aLyG4BHQsoVoq9aokeeTICK9VuTS_iwdrXqo2NxQ1lILFRweBxM_0r7qMBrlKUbqx6tTv0BgskUIroX5BRs9oR1hWHGb2Gn3fP_hb-wIsAT7WuNgn9H7pB6862Audley9j0U3UWI6wHjHezVd8ocJIrX_E6cb-wahMc1EPdYtiI_6mpofj-CTMIxcW_mX3E0OFuOCABXDH4v0LJ7li1wWnDWqBbYzpy2Y25bMslxUb3oqEDU5evlAIMCgJmHGdLJYXV57SstWbrWpe8YzWltzwub18gAB5tBM0lDPyX8y9IqIc7XGZsoDqeWkmczNKq-THh8lyLEv8UJ2QCntSlzRB69Q7kr5A93hLZz1LcHBxuvY6oqotcCv7Bkhp0vQv-ZkuyefgqC6iis8Hk82jDoMwaIsv-LqbxYSi0P4eBekZdofUS83a29-VM4gUCAODi6ktPatzCQrkmR9JkECBm74ggBfJO4RI0AJa77oxuka-5TkJt0ZhvUb1rIMljagVAXpgNinZR9lnTpaIyTdfMDBzeB3pSxW3R0C62TGX7QPD1vsff0cYhVdb1MD1178yuB8N8-cxTMJLQWyP0epTElJ2f5fsNAA2pV76wS0ee9ftu7oTUifP0DkZ7vmv-dAW9yqnuFftb5eTiTA1XiVzKBypJEDQmSoeD_OnfFGgdyLd4YQAOrXGsvAmhMzJBsb79Kv3_XFBt3bGSLzAZW_ZDDzcLmFgcu838tGbPJF_6e-7ejAh3j1bu7KgaUi2EX1luRaStDFRmE-qwXH8gd_CRybWsGOCY0qi6JEGQPTbAXHqBlvAMfepqzahnqXHsOLRK9ZPe6lZFKyEtXJBNIMzltko8S_oxE24VMfa_G8zKChJS9n8lmlaR1RKvBX0qejbneg1gsxaxABen8H21QqaBirgenwsRUdn7dW9mKXXp3Ncai1WPIY_zJ4eS39gNm6FWl1O1-Y3UNFrnEfZf4vVqMnneT-Yk5vLQtUELE-KE_tJ7ksdApfgf7VfI2H6-VzE-zLmB
+ACCOUNT_ID: dbid:AACAq3Xk6iJQORo_N7Fp7An42kRpCV81vbI
+render@srv-d2ln9675r7bs73du4dmg-6646fb45dd-fqhwd:~/project/src$ 
