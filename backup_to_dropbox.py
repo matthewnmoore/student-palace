@@ -1,80 +1,171 @@
 # backup_to_dropbox.py
-import os, sys, tarfile, time, tempfile, pathlib
+from __future__ import annotations
+
+import os, io, time, json, zipfile
+from pathlib import Path
+from typing import Optional, Dict, Any, Tuple
+
 import dropbox
-from dropbox.exceptions import ApiError, AuthError
+from dropbox.files import WriteMode
 
-# What to back up
-UPLOADS_DIR = "/opt/render/project/src/static/uploads"
-# Destination folder in Dropbox (root-relative)
-DBX_DEST_DIR = "/StudentPalace/backups"
+# --- Config from env ---
+DROPBOX_ACCESS_TOKEN = os.getenv("DROPBOX_ACCESS_TOKEN", "")
+# Root folder in Dropbox (you can change to e.g. "/Backups/SP")
+DROPBOX_BACKUP_ROOT = os.getenv("DROPBOX_BACKUP_ROOT", "/student-palace/backups")
+# Also upload a .zip alongside the extracted files
+UPLOAD_ZIP_SNAPSHOT = os.getenv("UPLOAD_ZIP_SNAPSHOT", "1") not in ("0", "false", "False")
 
 
-def _make_dbx() -> dropbox.Dropbox:
-    """Create an authenticated Dropbox client using refresh token flow."""
-    app_key = os.environ.get("DROPBOX_APP_KEY")
-    app_secret = os.environ.get("DROPBOX_APP_SECRET")
-    refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN")
-    if not (app_key and app_secret and refresh_token):
-        raise RuntimeError("Missing Dropbox env vars (APP_KEY/APP_SECRET/REFRESH_TOKEN).")
-    return dropbox.Dropbox(
-        oauth2_refresh_token=refresh_token,
-        app_key=app_key,
-        app_secret=app_secret,
-    )
+def _now_utc_slug() -> Tuple[str, str]:
+    # Folder and filename-safe UTC stamps
+    folder_stamp = time.strftime("%Y-%m-%d_%H-%M-%SZ", time.gmtime())
+    file_stamp = time.strftime("%Y%m%d-%H%M%SZ", time.gmtime())
+    return folder_stamp, file_stamp
+
+
+def _add_dir_to_zip(zf: zipfile.ZipFile, base: Path, arc_prefix: str) -> dict:
+    total_files = 0
+    total_bytes = 0
+    if not base.exists():
+        return {"files": 0, "bytes": 0}
+    for root, dirs, files in os.walk(base):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__")]
+        for name in files:
+            if name.endswith((".pyc", ".pyo", ".DS_Store")):
+                continue
+            abs_path = Path(root) / name
+            try:
+                rel = abs_path.relative_to(base)
+            except Exception:
+                rel = Path(name)
+            arcname = str(Path(arc_prefix) / rel)
+            try:
+                zf.write(abs_path, arcname)
+                st = abs_path.stat()
+                total_files += 1
+                total_bytes += int(st.st_size)
+            except Exception:
+                pass
+    return {"files": total_files, "bytes": total_bytes}
+
+
+def _dbx_client() -> dropbox.Dropbox:
+    if not DROPBOX_ACCESS_TOKEN:
+        raise RuntimeError("DROPBOX_ACCESS_TOKEN is not set")
+    return dropbox.Dropbox(DROPBOX_ACCESS_TOKEN, timeout=300)
+
+
+def _dbx_put_bytes(dbx: dropbox.Dropbox, path: str, data: bytes) -> None:
+    # Ensure leading slash
+    if not path.startswith("/"):
+        path = "/" + path
+    dbx.files_upload(data, path, mode=WriteMode("overwrite"))
+
+
+def _dbx_put_file(dbx: dropbox.Dropbox, local_path: Path, dropbox_path: str) -> None:
+    if not dropbox_path.startswith("/"):
+        dropbox_path = "/" + dropbox_path
+    size = local_path.stat().st_size
+    # Simple upload is fine for typical sizes; chunk if very large (>140MB)
+    if size < 140 * 1024 * 1024:
+        with local_path.open("rb") as f:
+            dbx.files_upload(f.read(), dropbox_path, mode=WriteMode("overwrite"))
+    else:
+        # Chunked upload for large files
+        CHUNK = 8 * 1024 * 1024
+        with local_path.open("rb") as f:
+            session = dbx.files_upload_session_start(f.read(CHUNK))
+            cursor = dropbox.files.UploadSessionCursor(session_id=session.session_id, offset=f.tell())
+            commit = dropbox.files.CommitInfo(path=dropbox_path, mode=WriteMode("overwrite"))
+            while True:
+                chunk = f.read(CHUNK)
+                if not chunk:
+                    break
+                if len(chunk) < CHUNK:
+                    dbx.files_upload_session_finish(chunk, cursor, commit)
+                    break
+                dbx.files_upload_session_append_v2(chunk, cursor)
+                cursor.offset += len(chunk)
 
 
 def run_backup() -> str:
     """
-    Create a .tar.gz archive of the uploads directory and upload it to Dropbox.
-    Returns the Dropbox path of the uploaded file.
+    Builds a full backup and uploads *extracted files* into Dropbox:
+      /<ROOT>/<YYYY-MM-DD_HH-MM-SSZ>/
+        database/student_palace.db
+        site-files/static/uploads/**/*
+        manifest.json
+      (+ optional ZIP snapshot in same folder)
+
+    Returns the Dropbox folder path created.
     """
-    src = pathlib.Path(UPLOADS_DIR)
-    if not src.exists():
-        raise FileNotFoundError(f"Source path not found: {UPLOADS_DIR}")
+    # Lazy imports to avoid circulars
+    from db import DB_PATH
+    project_root = Path(__file__).resolve().parent
+    # admin/.. -> project root
+    # Walk upward until we find 'static'; conservative:
+    for _ in range(4):
+        if (project_root / "static").exists():
+            break
+        project_root = project_root.parent
 
-    ts = time.strftime("%Y%m%d-%H%M%S")
-    archive_name = f"student-palace-backup-{ts}.tar.gz"
-    tmp_path = os.path.join(tempfile.gettempdir(), archive_name)
+    uploads_dir = project_root / "static" / "uploads"
+    db_path = Path(DB_PATH)
 
-    # Create archive in /tmp
-    with tarfile.open(tmp_path, "w:gz") as tar:
-        tar.add(UPLOADS_DIR, arcname="uploads")
+    # Build manifest and (optionally) in-memory ZIP
+    ts_folder, ts_file = _now_utc_slug()
+
+    db_info = {"exists": db_path.exists(), "bytes": int(db_path.stat().st_size) if db_path.exists() else 0}
+    buf = io.BytesIO()
+    uploads_info = {"files": 0, "bytes": 0}
+
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        if db_path.exists():
+            zf.write(db_path, arcname="database/student_palace.db")
+        uploads_info = _add_dir_to_zip(zf, uploads_dir, "site-files/static/uploads")
+        manifest: Dict[str, Any] = {
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "notes": "Student Palace scheduled backup (extracted + zip).",
+            "database": {"path": str(db_path), **db_info},
+            "uploads": {"path": str(uploads_dir), **uploads_info},
+            "versions": {"python_time": time.time()},
+        }
+        zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True))
+
+    buf.seek(0)
 
     # Upload to Dropbox
-    dbx = _make_dbx()
+    dbx = _dbx_client()
+    base = f"{DROPBOX_BACKUP_ROOT.rstrip('/')}/{ts_folder}"
 
-    # Ensure destination folder exists
-    try:
-        dbx.files_get_metadata(DBX_DEST_DIR)
-    except ApiError:
-        try:
-            dbx.files_create_folder_v2(DBX_DEST_DIR)
-        except ApiError:
-            pass  # Ignore if folder already exists
+    # 1) Upload DB (extracted)
+    if db_path.exists():
+        _dbx_put_file(dbx, db_path, f"{base}/database/student_palace.db")
 
-    dropbox_path = f"{DBX_DEST_DIR}/{archive_name}"
-    size = os.path.getsize(tmp_path)
-    print(f"Uploading to Dropbox: {dropbox_path} ({size} bytes)")
+    # 2) Upload uploads folder (extracted)
+    if uploads_dir.exists():
+        for root, dirs, files in os.walk(uploads_dir):
+            dirs[:] = [d for d in dirs if d not in (".git", "__pycache__")]
+            for name in files:
+                if name.endswith((".pyc", ".pyo", ".DS_Store")):
+                    continue
+                src = Path(root) / name
+                rel = src.relative_to(uploads_dir)
+                drop_path = f"{base}/site-files/static/uploads/{rel.as_posix()}"
+                _dbx_put_file(dbx, src, drop_path)
 
-    with open(tmp_path, "rb") as f:
-        dbx.files_upload(
-            f.read(),
-            dropbox_path,
-            mode=dropbox.files.WriteMode.add,
-            mute=True,
-        )
+    # 3) Upload manifest.json (extracted copy, too)
+    manifest_bytes = json.dumps({
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "database": {"path": str(db_path), **db_info},
+        "uploads": {"path": str(uploads_dir), **uploads_info},
+        "note": "This is a duplicate of the manifest stored inside the .zip"
+    }, indent=2, sort_keys=True).encode("utf-8")
+    _dbx_put_bytes(dbx, f"{base}/manifest.json", manifest_bytes)
 
-    return dropbox_path
+    # 4) (Optional) upload the ZIP snapshot as well
+    if UPLOAD_ZIP_SNAPSHOT:
+        zip_name = f"student-palace-backup-{ts_file}.zip"
+        _dbx_put_bytes(dbx, f"{base}/{zip_name}", buf.getvalue())
 
-
-if __name__ == "__main__":
-    try:
-        path = run_backup()
-        print("✅ Backup uploaded:", path)
-    except (AuthError, ApiError) as e:
-        print("ERROR: Dropbox auth failed. Check keys/refresh token/scopes.")
-        print(repr(e))
-        sys.exit(2)
-    except Exception as e:
-        print("ERROR:", e)
-        sys.exit(1)
+    return "/" + base.lstrip("/")
