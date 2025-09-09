@@ -1,33 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Admin – Backup{% endblock %}
-
+{% block title %}Admin · Backup{% endblock %}
 {% block content %}
-<div class="wrap">
-  <h1>Manual Backup</h1>
+<section class="wrap">
+  <h1>Backup Tools</h1>
+  <p>You can either download a ZIP backup or upload directly to Dropbox.</p>
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div>
-        {% for category, message in messages %}
-          <div class="flash {{ category }}">{{ message }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
+  <div class="inline-actions">
+    <!-- Download ZIP -->
+    <a class="btn" href="{{ url_for('admin.admin_backup') }}?download=1">
+      Download ZIP
+    </a>
 
-  <div class="card card--accent-l" style="max-width:640px">
-    <p class="help">Create a tar.gz of <code>static/uploads</code> and upload it to Dropbox.</p>
-    <form method="post" style="margin-top:10px">
-      <button class="btn btn-accent" type="submit">Back up now</button>
+    <!-- Dropbox Upload -->
+    <form method="post" style="display:inline">
+      <button class="btn btn-outline" type="submit">
+        Upload to Dropbox
+      </button>
     </form>
-
-    {% if result %}
-      <p style="margin-top:12px">Last backup: <code>{{ result }}</code></p>
-    {% endif %}
   </div>
-
-  <p style="margin-top:1rem">
-    <a class="btn btn-outline" href="{{ url_for('admin.dashboard') }}">← Back to admin</a>
-  </p>
-</div>
+</section>
 {% endblock %}
