@@ -18,12 +18,16 @@ APP KEY        urm17ub7alozq6p
 APP SECRET    gg7dsyigjq6oerg
 
 
-
-
-
+===============================================================
+             IMPORTANT DROPBOX LINKUP CODES
+===============================================================
 export DROPBOX_APP_KEY=urm17ub7alozq6p
 
 export DROPBOX_APP_SECRET=gg7dsyigjq6oerg
+
+d_b refresh token  sOa9pFtFKLQAAAAAABI9hr5nEuFpyyag9wX4MWs6WYQ
+===============================================================
+
 
 
 export DROPBOX_APP_KEY="urm17ub7alozq6p"
