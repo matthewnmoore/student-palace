@@ -9,9 +9,11 @@ DB_URL = os.getenv("DATABASE_URL")
 if not DB_URL:
     raise RuntimeError("DATABASE_URL is not set")
 
-# Some libraries give postgres:// — normalize to postgresql://
+# Normalize: psycopg3 requires "postgresql+psycopg://"
 if DB_URL.startswith("postgres://"):
-    DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
+    DB_URL = DB_URL.replace("postgres://", "postgresql+psycopg://", 1)
+elif DB_URL.startswith("postgresql://"):
+    DB_URL = DB_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
 # 2) Create the engine (connection pool). pool_pre_ping avoids stale connections.
 engine = create_engine(
@@ -43,5 +45,5 @@ def get_db_session():
     finally:
         db.close()
 
-
+# Import ORM models so that Alembic / Base.metadata knows them
 from models import Base
