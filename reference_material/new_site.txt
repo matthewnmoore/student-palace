@@ -1,0 +1,171 @@
+Awesome — here’s a future-proof, security-first, “scale by paying more, not by rewriting” plan you can use as the blueprint for the new site. It’s written to work the same on Google Cloud (recommended: Cloud Run) or AWS (App Runner or Fargate). Keep this as your master checklist.
+
+ARCHITECTURE OVERVIEW (WHAT WE’RE BUILDING)
+	•	Stateless Flask app containers
+	•	Managed PostgreSQL database
+	•	Object storage for uploads (S3 on AWS / Cloud Storage on GCP)
+	•	CDN in front of static + media (CloudFront / Cloud CDN)
+	•	Optional Redis for caching/sessions (Elasticache / Memorystore)
+	•	Centralized logging, metrics, tracing
+	•	IaC + CI/CD pipeline (GitHub → cloud deploy)
+	•	Secrets in a managed secret store (Secrets Manager / Secret Manager)
+
+ENVIRONMENTS
+	•	dev: low-cost, open egress, debugging allowed
+	•	staging: mirrors prod; used for smoke tests and rehearsals
+	•	prod: locked down; autoscaling on; observability + alerts
+	•	Use the same code and different env vars per environment
+
+NETWORKING & DOMAIN
+	•	Single public HTTPS endpoint (managed TLS)
+	•	Private connections from app → database (VPC/VPC Connector where available)
+	•	DNS: keep your domain at Easyspace; switch CNAME/A records to the new cloud load balancer when ready (zero code change)
+	•	Optional: custom CDN domain (e.g., cdn.student-palace.co.uk) for media
+
+DATA LAYER (POSTGRES)
+	•	Managed Postgres (GCP Cloud SQL / AWS RDS)
+	•	Start small, choose General Purpose SSD storage
+	•	Connection pooling:
+	•	GCP: Cloud SQL connector has built-in pooling
+	•	AWS: add RDS Proxy when concurrency grows
+	•	Backups: automatic daily snapshots + point-in-time recovery
+	•	Encryption: at-rest (managed) + in-transit (TLS)
+	•	Schema changes: Alembic migrations; never hand-edit prod
+	•	Scaling path: increase instance size → add read replicas → add caching → partition only if truly necessary
+
+APP CONTAINERS (FLASK)
+	•	Containerized app; no writing to local disk for persistent data
+	•	Store uploads on object storage; serve via CDN
+	•	Config via env vars only (DATABASE_URL, STORAGE_BUCKET, SECRET_KEY, REDIS_URL, FLASK_ENV, etc.)
+	•	Health endpoints: /healthz (readiness), /livez (liveness)
+	•	Autoscaling:
+	•	Cloud Run: set min instances (e.g., 0–1) and max per request concurrency
+	•	App Runner/Fargate: target CPU/memory utilization or requests/target
+
+SESSIONS & CACHING
+	•	Prefer secure cookie sessions for simplicity
+	•	If you need server-side sessions or rate limits: use Redis (managed)
+	•	Add simple cache for expensive reads (e.g., home page counters)
+
+STATIC & MEDIA
+	•	Build-time static assets: served from CDN/or via app if simple
+	•	User uploads: write to object storage (S3/GCS) with unique names, read via signed or public CDN URLs
+	•	NEVER store persistent files on container disk
+
+SECURITY BASELINE
+	•	Secrets: cloud secret store; never in code or Git
+	•	IAM: least privilege service accounts/roles per component
+	•	TLS everywhere; HSTS enabled; secure cookies (HttpOnly, Secure, SameSite)
+	•	WAF (optional) for basic L7 protections
+	•	Dependency hygiene: lockfile + regular updates; vulnerability scans
+	•	Backups & DR: auto snapshots + replication to another region (weekly copy)
+	•	Data privacy: log redaction for emails/IPs where appropriate
+
+OBSERVABILITY (OPERATIONS)
+	•	Logging: structured JSON logs shipped to Cloud Logging / CloudWatch
+	•	Metrics: request count/latency/error rate, DB connections/QPS, cache hits
+	•	Tracing: request traces (OpenTelemetry) to see slow hops
+	•	Alerts:
+	•	SLO breach (e.g., p95 latency > 1s for 5 min)
+	•	Error rate > 2% for 5 min
+	•	DB CPU > 80% or connections near max
+	•	Storage bucket errors/spikes
+	•	Dashboards: traffic, latency, error rate, DB load, cache hit rate
+
+CI/CD (GITHUB TO CLOUD)
+	•	CI: run lint/tests on every PR
+	•	Build: container image on main; tag with git SHA
+	•	Security scan: image vulnerability scan
+	•	CD: deploy to staging on merge; run smoke tests; manual approval to prod
+	•	Blue/Green or Rolling:
+	•	Cloud Run: traffic splitting (e.g., 1% canary → 100%)
+	•	App Runner: gradual deployment
+
+INFRASTRUCTURE AS CODE (IaC)
+	•	Keep infra definitions in git (Terraform or Cloud-specific)
+	•	Version the DB, networks, services, permissions
+	•	Benefits: reproducible, reviewable, auditable changes
+
+PERFORMANCE & COST GUARDRAILS
+	•	CDN for media to cut egress and app CPU
+	•	DB: add indexes for frequent filters/joins (review slow queries)
+	•	Implement pagination everywhere
+	•	Set autoscaling min/max + budget alerts
+	•	Add caching for hot endpoints (Redis or in-process with short TTL)
+
+BACKUP & DISASTER RECOVERY
+	•	Postgres: daily snapshot + PITR; test restore quarterly
+	•	Object storage: versioning + lifecycle rules (optional)
+	•	Infra: can be re-created from IaC
+	•	Run a DR drill: restore DB to staging; flip read-only app against it
+
+ACCESS & GDPR HYGIENE
+	•	Separate roles for devs vs. prod operators
+	•	Audit logs on who changed what
+	•	Data retention policy for logs and uploads
+	•	PII minimization and encryption at rest (already default with managed services)
+
+TESTING STRATEGY
+	•	Unit tests for domain logic
+	•	Integration tests against a temp Postgres (container) and fake S3/GCS
+	•	Smoke tests for staging after each deploy
+	•	Load test profile for key pages before launch (e.g., 10k/day target)
+
+LAUNCH & CUTOVER PLAN
+	•	Keep the current site live
+	•	Build the new stack in parallel under a staging hostname
+	•	Import a scrubbed copy of live data into staging for realistic tests
+	•	Run load tests and fix any hotspots
+	•	Schedule DNS cutover (low-TTL); switch root and www CNAMEs to the new endpoint
+	•	Keep old stack warm for 24–48h; roll back by switching DNS back if needed
+	•	After confidence window, decommission old stack
+
+MIGRATION FROM THE OLD SITE
+	•	Decide: re-use existing DB data or start fresh?
+	•	If re-use:
+	•	Export your current Postgres (or SQLite) data
+	•	Transform if needed to the new schema (Alembic migration scripts)
+	•	Import into managed Postgres
+	•	Freeze writes during final cutover to avoid divergence
+	•	Media files: copy uploads to the new bucket; rewrite URLs if paths change
+
+SCALING KNOBS (NO CODE CHANGES)
+	•	App: increase max instances / concurrency
+	•	DB: increase vCPU/RAM, add read replicas, add Proxy
+	•	CDN: enable caching rules; increase TTLs for static
+	•	Cache: add Redis layer or increase node size
+	•	Worker tier: add async job workers for heavy tasks (image processing, emails)
+
+MINIMUM VIABLE CONFIG (START CHEAP, SCALE LATER)
+	•	One small Cloud Run/App Runner service (auto 0→N instances)
+	•	Small managed Postgres (1–2 vCPU) with daily backups
+	•	One storage bucket + CDN
+	•	Optional Redis only when needed
+	•	CI/CD from GitHub with manual approval to prod
+	•	Secrets in Secret Manager/Secrets Manager
+
+WHAT YOU’LL CHANGE IN YOUR CODEBASE (DESIGN RULES)
+	•	Use DATABASE_URL (Postgres) from env
+	•	Write/read uploads from bucket (not local disk)
+	•	Reference media via absolute URLs (bucket or CDN domain)
+	•	Keep sessions stateless or in Redis
+	•	No hardcoded file paths; everything via env/config
+	•	Use Alembic for schema changes
+	•	Add health endpoints and basic logging
+
+ROLLBACK PLAN
+	•	If something goes wrong post-cutover: revert DNS to old origin (fast)
+	•	Keep old database read-write until you’re confident to switch it off
+	•	Maintain an export of the last known-good database backup
+
+BUDGETING GUIDELINES
+	•	Modest traffic: ~£40–£120/month baseline (app, db, storage, CDN, logs)
+	•	Spikes/scale: costs rise linearly with instance hours, DB size, and egress
+	•	Add budget alerts so you’re never surprised
+
+CHOOSING THE CLOUD
+	•	Google Cloud (Cloud Run + Cloud SQL + Cloud Storage + Cloud CDN): very simple, great autoscaling and DX
+	•	AWS (App Runner/Fargate + RDS + S3 + CloudFront): excellent and ubiquitous, slightly more knobs
+	•	Both paths are valid; pick the one your team prefers to manage
+
+If you keep to this blueprint (stateless app, managed Postgres, object storage, CDN, secret store, IaC, CI/CD), you’ll be able to scale from “tiny” to “very busy” by turning dials — no rewrites.
