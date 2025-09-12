@@ -5,7 +5,6 @@ import sqlite3
 from typing import List
 from db import get_db
 
-
 # ------------------------------------------------------------
 # Internal helpers (safe, idempotent)
 # ------------------------------------------------------------
@@ -99,7 +98,6 @@ def _ensure_admin_schema() -> None:
         try:
             rows = conn.execute("SELECT id, name, slug FROM accreditation_types").fetchall()
             for r in rows:
-                # Some SQLite adapters return tuples; but we expect Row. Be defensive:
                 rid = r["id"] if isinstance(r, sqlite3.Row) else r[0]
                 name = (r["name"] if isinstance(r, sqlite3.Row) else r[1]) or ""
                 slug = (r["slug"] if isinstance(r, sqlite3.Row) else r[2]) or ""
@@ -192,3 +190,51 @@ def validate_city_active(city: str) -> bool:
                 conn.close()
             except Exception:
                 pass
+
+
+# ============================================================
+# SQLAlchemy ORM models (Step 1)
+# ============================================================
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy.orm import declarative_base, relationship
+
+Base = declarative_base()
+
+
+class City(Base):
+    __tablename__ = "cities"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, unique=True, nullable=False)
+    is_active = Column(Integer, nullable=False, default=1)
+
+
+class Landlord(Base):
+    __tablename__ = "landlords"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    profile = relationship("LandlordProfile", back_populates="landlord", uselist=False)
+
+
+class LandlordProfile(Base):
+    __tablename__ = "landlord_profiles"
+
+    landlord_id = Column(Integer, ForeignKey("landlords.id"), primary_key=True)
+    display_name = Column(String)
+    phone = Column(String)
+    website = Column(String)
+    bio = Column(Text)
+    public_slug = Column(String, unique=True)
+    profile_views = Column(Integer, default=0)
+    is_verified = Column(Integer, default=0)
+    role = Column(String, default="owner")  # owner / agent
+    logo_path = Column(String)
+    photo_path = Column(String)
+    enable_new_landlord = Column(Integer, default=1)
+
+    landlord = relationship("Landlord", back_populates="profile")
