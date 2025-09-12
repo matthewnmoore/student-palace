@@ -77,7 +77,7 @@ def create_app() -> Flask:
                 if want_photos:
                     # Sum both tables; each count() call is independently guarded
                     n = count(db, "house_images") + count(db, "room_images")
-                    footer_metrics.append(f"{n} photo" if n == 1 else f"{n} photos")
+                    footer_metrics.append(f"{n} photo" if n == 1 else f"{n} photos}")
         except Exception:
             # On any error, just show nothing in the footer (keep the site up)
             footer_metrics = []
