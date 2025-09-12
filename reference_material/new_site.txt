@@ -169,3 +169,143 @@ CHOOSING THE CLOUD
 	•	Both paths are valid; pick the one your team prefers to manage
 
 If you keep to this blueprint (stateless app, managed Postgres, object storage, CDN, secret store, IaC, CI/CD), you’ll be able to scale from “tiny” to “very busy” by turning dials — no rewrites.
+
+
+
+
+
+
+
+1) Target end-state (Google Cloud, clean DB)
+	•	Runtime: Cloud Run (containerized Flask/Django/FastAPI — stateless)
+	•	Database: Cloud SQL for PostgreSQL (managed)
+	•	Storage: Cloud Storage (user uploads + static build artifacts)
+	•	CDN: Cloud CDN in front of static/media (optional day-1, easy to add)
+	•	Secrets: Secret Manager
+	•	Networking: Serverless VPC Connector for private DB access
+	•	Observability: Cloud Logging + Cloud Monitoring (dashboards + alerts)
+	•	CI/CD: GitHub → Cloud Build/Deploy (or GitHub Actions → gcloud)
+	•	IaC: Terraform (one repo), everything defined in code
+	•	Envs: dev, staging, prod (same image, different env vars)
+
+2) Opinionated defaults (so you don’t have to think)
+	•	Region: europe-west2 (London) for app & DB; storage in eu (multi-region) or europe-west2 if you want strict locality.
+	•	DB tier (start): 2 vCPU / 8 GB (or smallest that meets your needs) with automatic backups + PITR.
+	•	Cloud Run: min instances 0–1, max concurrency 80 (tune later), request timeout 60–120s.
+	•	Sessions: secure cookies first; add Memorystore (Redis) only if needed.
+	•	Uploads: never write to container disk; go straight to the bucket; serve via signed/public URLs.
+	•	TLS: Google-managed certs for all domains.
+	•	Budgets: set project budget alerts before launching anything.
+
+3) Project & accounts (one-time setup)
+	1.	Create GCP project: student-palace-prod (plus -staging, -dev if you prefer isolation).
+	2.	Link billing and set budgets/alerts.
+	3.	Create service accounts per component (app runtime, deployer, CI).
+	4.	Enable APIs: Cloud Run, Cloud SQL, VPC Access, Secret Manager, Cloud Build, Artifact Registry, Cloud DNS (optional).
+	5.	Create Artifact Registry (Docker) for images.
+
+4) Database plan (clean build, clean schema)
+	•	Create Cloud SQL Postgres in europe-west2.
+	•	Switch on automatic backups + PITR, set maintenance window, enforce SSL/TLS.
+	•	Connect via Cloud SQL Connector (no public IP to DB).
+	•	Manage schema with Alembic (migrations only; no manual edits).
+
+5) Networking & security posture
+	•	Serverless VPC Connector for Cloud Run → Cloud SQL private path.
+	•	Least-privilege IAM: runtime SA can read only needed secrets + Cloud SQL connect.
+	•	Secret Manager for DATABASE_URL, SECRET_KEY, bucket names, API keys.
+	•	Headers & cookies: HSTS, Secure, HttpOnly, SameSite.
+	•	Optional: Cloud Armor for basic WAF rules later.
+
+6) Storage, static, and media
+	•	Bucket layout:
+	•	sp-<env>-media — user uploads
+	•	sp-<env>-assets — built static assets (if your build produces them)
+	•	Add lifecycle (e.g., move old versions to Coldline after N days).
+	•	Put Cloud CDN in front of public assets when traffic grows.
+
+7) CI/CD (safe, boring, reliable)
+	•	On PR: lint/tests. On merge to main:
+	1.	Build image → Artifact Registry (tag with SHA).
+	2.	Deploy to staging Cloud Run with env vars from Secret Manager.
+	3.	Smoke tests hit /healthz.
+	4.	Manual approval → prod deploy (optionally use Cloud Run traffic split for canaries).
+
+8) Observability & SLOs
+	•	Structured logs (JSON).
+	•	Dashboards: request rate, latency (p50/p95), error rate, DB CPU/conn, 5xx alarms.
+	•	Alerts:
+	•	p95 latency > 1s for 5m
+	•	Error rate > 2% for 5m
+	•	DB CPU > 80% or connections near limit
+	•	Bucket 4xx/5xx bursts
+
+9) Environments & config
+	•	Same image everywhere.
+	•	Config via env vars only:
+	•	DATABASE_URL, SECRET_KEY, GCS_MEDIA_BUCKET, ENV, optional REDIS_URL.
+	•	Health endpoints:
+	•	/livez (liveness)
+	•	/healthz (readiness: DB ping + bucket write test optional)
+
+10) DNS & cutover (Easyspace)
+
+We’ll run the new site under a staging subdomain first (e.g., staging.yourdomain.tld), then flip production DNS.
+
+Staging setup
+	1.	In Cloud Run, map staging.yourdomain.tld (Google-managed TLS).
+	2.	At Easyspace: add the required record (Google will prompt either A/AAAA to a Google frontend or CNAME).
+	3.	Verify, test for a few days.
+
+Cutover rehearsal
+	•	Reduce TTL on the current prod records to 300 seconds at Easyspace at least 24h before launch.
+	•	Validate new prod service on a dark domain (e.g., preview.yourdomain.tld) with prod config.
+
+Launch
+	1.	Deploy final build to prod Cloud Run.
+	2.	Point root + www to the new Google endpoint:
+	•	If using HTTPS Load Balancer: set A/AAAA to the LB’s IP.
+	•	If using Cloud Run direct mapping: follow Google’s CNAME/A guidance from the domain mapping wizard.
+	3.	Validate 200s, no mixed content, correct cookies, and functional forms/payments.
+	4.	Keep Render origin running for 24–48h; rollback = restore old DNS records.
+
+11) Testing & readiness checklist
+
+Before staging goes public
+	•	Unit + integration tests (temp Postgres, fake GCS).
+	•	Data validation (even if DB is clean, test all CRUD paths).
+	•	Security: headers present, no secrets in logs, admin endpoints protected.
+	•	Load test key pages to a realistic target (e.g., 50–100 RPS burst).
+
+Before cutover
+	•	Observability dashboards populated.
+	•	404/500 custom pages.
+	•	Email/webhooks configured with environment separation.
+	•	Backups restorable (do a quick restore test into staging DB).
+
+12) Costs (rough, day-1, non-binding)
+	•	Cloud Run idle-to-zero: low baseline; pay per request/CPU-seconds.
+	•	Cloud SQL Postgres small tier: ~£40–£100/mo depending on size/storage.
+	•	Storage + egress: tens of GBs → low £/mo; spikes depend on traffic/CDN hit ratio.
+	•	Logs/metrics: keep retention sensible to control spend.
+	•	Add a budget so surprises never happen.
+
+13) Common pitfalls to avoid
+	•	Writing files to container disk (they’ll disappear).
+	•	Public IP on the DB (prefer connector/private).
+	•	Hard-coding URLs or paths (use env/config).
+	•	Sneaking schema edits into prod without migrations.
+	•	Skipping TTL reduction before DNS cutover.
+	•	Forgetting to test email/webhooks in staging with safe credentials.
+
+⸻
+
+Concrete next moves (no code, just actions)
+	1.	Create GCP project(s) and budgets; enable required APIs.
+	2.	Decide region (recommend europe-west2) and accept the defaults above.
+	3.	Provision Cloud SQL (clean Postgres) with backups + PITR.
+	4.	Create buckets for assets/media.
+	5.	Set up Cloud Run service placeholders for dev, staging, prod.
+	6.	Wire up CI/CD (build image, deploy to staging).
+	7.	Map staging. subdomain at Easyspace and verify.
+	8.	Build + test thoroughly on staging, then schedule the DNS cutover rehearsal.
