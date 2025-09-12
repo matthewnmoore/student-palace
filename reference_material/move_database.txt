@@ -1,0 +1,182 @@
+	1.	Migrated the database from SQLite to Postgres:
+	•	You exported your SQLite file.
+	•	Used pgloader to import all tables and rows into the new Postgres database on Render.
+	•	Verified tables and rows were successfully copied.
+	2.	Environment variables:
+	•	Added DATABASE_URL to your Render environment.
+	•	This now points to your Postgres database instead of the old SQLite file.
+	3.	Dependencies (requirements.txt):
+	•	Original file had Flask, Werkzeug, gunicorn, Pillow, dropbox, psycopg2-binary.
+	•	Updated it to remove psycopg2-binary (which was breaking on Python 3.13).
+	•	Added psycopg[binary] (modern psycopg3 driver).
+	•	Kept SQLAlchemy and Alembic for ORM and migrations.
+	4.	db.py changes:
+	•	Old version connected to SQLite manually using sqlite3 and ran migrations.
+	•	Replaced with SQLAlchemy engine/session setup using Postgres.
+	•	Normalized the DATABASE_URL to use postgresql+psycopg:// for psycopg3.
+	•	Added context-managed session helper get_db_session().
+	•	Imported Base from models so Alembic and metadata work with migrations.
+	5.	models.py changes:
+	•	Old version contained lots of SQLite helper functions and schema bootstrap logic.
+	•	Replaced with proper SQLAlchemy ORM models (City, Landlord, LandlordProfile so far).
+	•	We are moving table definitions into ORM models instead of sqlite3 PRAGMA checks.
+	•	The file is now a hybrid: it still has the old SQLite helpers plus the new SQLAlchemy ORM models at the bottom, to keep the site running while we transition.
+	6.	app.py changes:
+	•	Old version called ensure_db() to bootstrap SQLite tables at startup.
+	•	Replaced with SQLAlchemy session usage.
+	•	Footer metrics now use SQLAlchemy sessions and safe text queries instead of sqlite3.
+	•	Still registers all your blueprints and error handlers.
+	•	No ensure_db() anymore because database schema is now managed by Alembic migrations.
+	7.	Current status:
+	•	The site is now wired to Postgres using SQLAlchemy and psycopg3.
+	•	ORM models are in place for City, Landlord, and LandlordProfile (more tables will need to be added gradually).
+	•	Old sqlite3 helpers are still in models.py for compatibility but will be removed later once everything is fully migrated.
+	•	The app boots with SQLAlchemy instead of sqlite3.
+	•	Environment and dependencies are clean and aligned with modern standards.
+	8.	Next steps (going forward):
+	•	Expand models.py to add ORM models for the rest of your tables (houses, rooms, images, etc.).
+	•	Update other parts of the code (like public.py, admin.py, landlord.py) to use get_db_session() instead of sqlite3.
+	•	Set up Alembic migrations so schema changes are tracked properly going forward.
+	•	Clean out the old SQLite migration helpers once everything is confirmed working with Postgres.
+	•	Test all pages to ensure queries and inserts work properly on Postgres.
+
+
+
+
+What we have already completed today
+	1.	Backups secured
+	•	You confirmed you have a full backup of both the old site and database (SQLite).
+	•	That means we can safely experiment and roll back if needed. ✅
+	2.	Postgres database created on Render
+	•	DATABASE_URL environment variable added to Render.
+	•	Old SQLite file (student_palace.db) is no longer the primary database.
+	•	We normalized the URL for psycopg3 (postgresql+psycopg://). ✅
+	3.	Dependencies updated
+	•	Removed psycopg2-binary (was broken with Python 3.13).
+	•	Added psycopg[binary] (modern psycopg3 driver).
+	•	Added SQLAlchemy (ORM) and Alembic (migrations). ✅
+	4.	db.py migrated
+	•	Old: SQLite connection with PRAGMA setup + schema bootstrap.
+	•	New: SQLAlchemy engine, session factory, Base declarative class, context-managed sessions.
+	•	Now uses Postgres via psycopg3. ✅
+	5.	models.py partially migrated
+	•	Old: SQLite helpers (PRAGMA, ALTER TABLE, _ensure_admin_schema).
+	•	New: Added SQLAlchemy ORM models (City, Landlord, LandlordProfile).
+	•	Both systems exist in one file right now to keep site running while we transition. ✅
+	6.	app.py migrated
+	•	Old: Called ensure_db() (SQLite bootstrap).
+	•	New: No ensure_db().
+	•	Now injects footer metrics using SQLAlchemy sessions instead of sqlite3. ✅
+
+⸻
+
+Where we are now
+	•	The site starts with SQLAlchemy and Postgres.
+	•	ORM models are in place for a few tables only.
+	•	Some parts of the code (like public.py, admin.py, landlord.py) still assume SQLite queries.
+	•	We’re in a hybrid phase: ORM + leftover SQLite helpers.
+
+⸻
+
+Next Steps (Checklist)
+
+Step 1: Finish ORM model definitions
+	•	Add SQLAlchemy ORM classes for all tables you had in SQLite:
+	•	houses
+	•	rooms
+	•	house_images
+	•	room_images
+	•	house_documents
+	•	city_postcodes
+	•	site_settings
+	•	accreditation_schemes
+	•	landlord_accreditations
+	•	students (if present)
+	•	Each table becomes a Python class under models.py.
+	•	Relationships should be wired (e.g., House → Room, Landlord → House).
+
+⸻
+
+Step 2: Replace sqlite3 helpers with ORM
+	•	Remove _table_has_column, _table_exists, _safe_alter_add_column, _ensure_admin_schema.
+	•	Replace those with Alembic migrations.
+	•	For example:
+	•	Instead of ALTER TABLE ... ADD COLUMN ... in Python, you’ll now run alembic revision --autogenerate and alembic upgrade head.
+	•	This ensures schema updates are tracked in version-controlled migration files.
+
+⸻
+
+Step 3: Update code to use SQLAlchemy sessions
+	•	Files currently using conn = get_db() need to be updated:
+	•	Use with get_db_session() as db: instead.
+	•	Replace raw SQL with ORM queries (or db.execute(text("...")) if needed).
+	•	Example:
+	•	Old:
+
+conn = get_db()
+rows = conn.execute("SELECT * FROM cities WHERE is_active=1").fetchall()
+
+
+new
+
+with get_db_session() as db:
+    rows = db.query(City).filter_by(is_active=1).order_by(City.name).all()
+
+
+
+Step 4: Migration of key modules
+	•	public.py
+	•	Replace all raw SQL queries with ORM queries (db.query(House) etc.).
+	•	admin.py
+	•	Update admin views to use ORM (especially accreditation and settings tables).
+	•	landlord.py
+	•	Replace landlord/room/house queries with ORM.
+	•	auth.py
+	•	Update login/signup logic (queries on landlords table).
+
+⸻
+
+Step 5: Alembic integration
+	•	Initialize Alembic (alembic init migrations).
+	•	Configure env.py to use your SQLAlchemy engine and Base.
+	•	Generate initial migration from your ORM models (alembic revision --autogenerate).
+	•	Apply migration (alembic upgrade head).
+	•	From this point forward:
+	•	Adding a column means updating ORM model + running Alembic migration.
+	•	No more Python-side schema hacks.
+
+⸻
+
+Step 6: Cleanup
+	•	Remove old SQLite helpers and bootstrap code.
+	•	Delete redundant ensure_db() calls.
+	•	Remove any code referencing .db files or PRAGMA statements.
+
+⸻
+
+Step 7: Testing
+	•	Test each blueprint route:
+	•	/ home page
+	•	/properties
+	•	/p/<id> property details
+	•	landlord dashboard
+	•	admin dashboard
+	•	login/signup
+	•	Verify counts, inserts, and updates work.
+
+⸻
+
+Step 8: Deployment confidence
+	•	At this point:
+	•	Your app runs fully on Postgres.
+	•	All tables are ORM-managed.
+	•	Schema changes go through Alembic migrations.
+	•	The old SQLite database and helpers can be completely removed.
+
+⸻
+
+End Goal
+	•	Clean, modern Flask + SQLAlchemy + Alembic stack.
+	•	All database logic managed by ORM and migrations.
+	•	No raw sqlite3 code anywhere.
+	•	Your Render app is production-ready with Postgres.
