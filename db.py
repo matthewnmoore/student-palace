@@ -42,3 +42,6 @@ def get_db_session():
         raise
     finally:
         db.close()
+
+
+from models import Base
