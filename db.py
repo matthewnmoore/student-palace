@@ -44,6 +44,3 @@ def get_db_session():
         raise
     finally:
         db.close()
-
-# Import ORM models so that Alembic / Base.metadata knows them
-from models import Base
